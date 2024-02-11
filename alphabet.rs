@@ -16,7 +16,7 @@
 
 /* -------------------------------------------------------------------------- */
 
-trait Alphabet {
+pub trait Alphabet {
     fn bases(&self, i: u8) -> Result<Vec<u8>, String>;
     fn matching(&self, i: u8) -> Result<Vec<u8>, String>;
     fn code(&self, i: u8) -> Result<u8, String>;
@@ -28,14 +28,14 @@ trait Alphabet {
     fn string(&self) -> String;
 }
 
-trait ComplementableAlphabet: Alphabet {
+pub trait ComplementableAlphabet: Alphabet {
     fn complement(&self, i: u8) -> Result<u8, String>;
     fn complement_coded(&self, i: u8) -> Result<u8, String>;
 }
 
 /* -------------------------------------------------------------------------- */
 
-struct NucleotideAlphabet;
+pub struct NucleotideAlphabet;
 
 /* -------------------------------------------------------------------------- */
 
@@ -145,7 +145,7 @@ impl ComplementableAlphabet for NucleotideAlphabet {
 
 /* -------------------------------------------------------------------------- */
 
-struct GappedNucleotideAlphabet;
+pub struct GappedNucleotideAlphabet;
 
 /* -------------------------------------------------------------------------- */
 
@@ -262,7 +262,7 @@ impl ComplementableAlphabet for GappedNucleotideAlphabet {
 
 /* -------------------------------------------------------------------------- */
 
-struct AmbiguousNucleotideAlphabet;
+pub struct AmbiguousNucleotideAlphabet;
 
 /* -------------------------------------------------------------------------- */
 
