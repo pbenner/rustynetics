@@ -17,72 +17,43 @@
 /* -------------------------------------------------------------------------- */
 
 use std::fmt;
-use std::collections::HashMap;
-use std::error::Error;
 use std::io::{self, Write};
+use std::error::Error;
+use std::cmp::Ordering;
 
 use crate::range::Range;
 use crate::utility::remove_duplicates_int;
 
 /* -------------------------------------------------------------------------- */
 
-#[derive(Debug, Clone)]
-enum MetaData {
-    StringMatrix(Vec<Vec<String>>),
-    StringArray(Vec<String>),
-    FloatMatrix(Vec<Vec<f64>>),
-    FloatArray(Vec<f64>),
-    IntMatrix(Vec<Vec<i32>>),
-    IntArray(Vec<i32>),
-    RangeArray(Vec<Range>),
-}
-
-impl MetaData {
-    fn clone_data(&self) -> Box<MetaData> {
-        match self {
-            MetaData::StringMatrix(v) => Box::new(self.clone()),
-            MetaData::StringArray(v)  => Box::new(self.clone()),
-            MetaData::FloatMatrix(v)  => Box::new(self.clone()),
-            MetaData::FloatArray(v)   => Box::new(self.clone()),
-            MetaData::IntMatrix(v)    => Box::new(self.clone()),
-            MetaData::IntArray(v)     => Box::new(self.clone()),
-            MetaData::RangeArray(v)   => Box::new(self.clone()),
-        }
-    }
-}
-
-/* -------------------------------------------------------------------------- */
-
 #[derive(Clone, Debug)]
 struct Meta {
     meta_name: Vec<String>,
-    meta_data: Vec<Box<MetaData>>,
+    meta_data: Vec<Box<dyn MetaData>>,
     rows: usize,
 }
 
-/* -------------------------------------------------------------------------- */
-
 impl Meta {
-    fn new(names: Vec<String>, data: Vec<Box<MetaData>>) -> Result<Self, Box<dyn Error>> {
+    fn new(names: Vec<String>, data: Vec<Box<dyn MetaData>>) -> Self {
         if names.len() != data.len() {
-            return Err("NewMeta(): invalid parameters!".into());
+            panic!("NewMeta(): invalid parameters!");
         }
         let mut meta = Meta {
-            meta_name: Vec::new(),
-            meta_data: Vec::new(),
+            meta_name: vec![],
+            meta_data: vec![],
             rows: 0,
         };
         for i in 0..names.len() {
-            meta.add_meta(names[i].clone(), data[i].clone())?;
+            meta.add_meta(names[i].clone(), data[i].clone());
         }
-        Ok(meta)
+        meta
     }
 
     fn clone(&self) -> Self {
-        let mut result = Meta::new(Vec::new(), Vec::new()).unwrap();
+        let mut result = Meta::new(vec![], vec![]);
         for i in 0..self.meta_length() {
             let cloned_data = self.meta_data[i].clone_data();
-            result.add_meta(self.meta_name[i].clone(), cloned_data).unwrap();
+            result.add_meta(self.meta_name[i].clone(), cloned_data);
         }
         result
     }
@@ -99,25 +70,19 @@ impl Meta {
         MetaRow::new(self.clone(), i)
     }
 
-    fn add_meta(&mut self, name: String, meta: Box<MetaData>) -> Result<(), Box<dyn Error>> {
-        let n = match meta.as_ref() {
-            MetaData::StringMatrix(v) => v.len(),
-            MetaData::StringArray(v) => v.len(),
-            MetaData::FloatMatrix(v) => v.len(),
-            MetaData::FloatArray(v) => v.len(),
-            MetaData::IntMatrix(v) => v.len(),
-            MetaData::IntArray(v) => v.len(),
-            MetaData::RangeArray(v) => v.len(),
+    fn add_meta(&mut self, name: String, meta: Box<dyn MetaData>) {
+        let n = match meta.as_ref().data_type() {
+            DataType::String2D(v) => v.len(),
+            DataType::String1D(v) => v.len(),
+            DataType::Float2D(v) => v.len(),
+            DataType::Float1D(v) => v.len(),
+            DataType::Int2D(v) => v.len(),
+            DataType::Int1D(v) => v.len(),
+            DataType::Range1D(v) => v.len(),
         };
         if self.meta_length() > 0 {
             if n != self.rows {
-                return Err(format!(
-                    "AddMeta(): column `{}` has invalid length: expected length of `{}` but column has length `{}`",
-                    name,
-                    self.rows,
-                    n
-                )
-                .into());
+                panic!("AddMeta(): column `{}` has invalid length: expected length of `{}` but column has length `{}`", name, self.rows, n);
             }
         } else {
             self.rows = n;
@@ -125,7 +90,6 @@ impl Meta {
         self.delete_meta(&name);
         self.meta_data.push(meta);
         self.meta_name.push(name);
-        Ok(())
     }
 
     fn delete_meta(&mut self, name: &str) {
@@ -152,7 +116,7 @@ impl Meta {
         }
     }
 
-    fn get_meta(&self, name: &str) -> Option<&Box<MetaData>> {
+    fn get_meta(&self, name: &str) -> Option<&Box<dyn MetaData>> {
         for i in 0..self.meta_length() {
             if self.meta_name[i] == name {
                 return Some(&self.meta_data[i]);
@@ -161,67 +125,101 @@ impl Meta {
         None
     }
 
-    fn get_meta_str(&self, name: &str) -> Vec<String> {
-        match self.get_meta(name) {
-            Some(meta) => match meta.as_ref() {
-                MetaData::StringMatrix(v) => v.clone(),
-                MetaData::StringArray(v)  => v.iter().map(|s| v.clone()).collect(),
-                _ => Vec::new(),
-            },
-            None => Vec::new(),
+    fn get_meta_str(&self, name: &str) -> Result<Vec<String>, Box<dyn Error>> {
+        if let Some(meta) = self.get_meta(name) {
+            match meta.as_ref().data_type() {
+                DataType::String2D(v) => Ok(v.clone()),
+                DataType::String1D(v) => Ok(v.iter().map(|s| s.to_string()).collect()),
+                _ => Err(Box::new(MetaError::InvalidMetaType)),
+            }
+        } else {
+            Err(Box::new(MetaError::InvalidMetaName))
         }
     }
 
-    fn get_meta_float(&self, name: &str) -> Vec<f64> {
-        match self.get_meta(name) {
-            Some(meta) => match meta.as_ref() {
-                MetaData::FloatMatrix(v) => v.clone(),
-                MetaData::FloatArray(v) => v.iter().map(|f| *f).collect(),
-                _ => Vec::new(),
-            },
-            None => Vec::new(),
+    fn get_meta_float(&self, name: &str) -> Result<Vec<f64>, Box<dyn Error>> {
+        if let Some(meta) = self.get_meta(name) {
+            match meta.as_ref().data_type() {
+                DataType::Float2D(v) => Ok(v.clone()),
+                DataType::Float1D(v) => Ok(v.clone()),
+                _ => Err(Box::new(MetaError::InvalidMetaType)),
+            }
+        } else {
+            Err(Box::new(MetaError::InvalidMetaName))
         }
     }
 
-    fn get_meta_int(&self, name: &str) -> Vec<i32> {
-        match self.get_meta(name) {
-            Some(meta) => match meta.as_ref() {
-                MetaData::IntMatrix(v) => v.clone(),
-                MetaData::IntArray(v) => v.iter().map(|i| *i).collect(),
-                _ => Vec::new(),
-            },
-            None => Vec::new(),
+    fn get_meta_int(&self, name: &str) -> Result<Vec<i32>, Box<dyn Error>> {
+        if let Some(meta) = self.get_meta(name) {
+            match meta.as_ref().data_type() {
+                DataType::Int2D(v) => Ok(v.clone()),
+                DataType::Int1D(v) => Ok(v.clone()),
+                _ => Err(Box::new(MetaError::InvalidMetaType)),
+            }
+        } else {
+            Err(Box::new(MetaError::InvalidMetaName))
         }
     }
 
-    fn get_meta_range(&self, name: &str) -> Vec<Range> {
-        match self.get_meta(name) {
-            Some(meta) => match meta.as_ref() {
-                MetaData::RangeArray(v) => v.clone(),
-                _ => Vec::new(),
-            },
-            None => Vec::new(),
+    fn get_meta_range(&self, name: &str) -> Result<Vec<Range>, Box<dyn Error>> {
+        if let Some(meta) = self.get_meta(name) {
+            match meta.as_ref().data_type() {
+                DataType::Range1D(v) => Ok(v.clone()),
+                _ => Err(Box::new(MetaError::InvalidMetaType)),
+            }
+        } else {
+            Err(Box::new(MetaError::InvalidMetaName))
         }
     }
 
-    fn append(&self, meta2: &Meta) -> Result<Meta, Box<dyn Error>> {
-        let mut result = Meta::new(Vec::new(), Vec::new()).unwrap();
+    fn append(&self, meta2: &Meta) -> Meta {
+        let mut result = Meta::new(vec![], vec![]);
         let m1 = self.clone();
         let m2 = meta2.clone();
         for j in 0..m2.meta_length() {
-            let t: Box<MetaData> = match m2.meta_data[j].as_ref() {
-                MetaData::StringMatrix(v) => Box::new(v.clone()),
-                MetaData::StringArray(v) => Box::new(v.clone()),
-                MetaData::FloatMatrix(v) => Box::new(v.clone()),
-                MetaData::FloatArray(v) => Box::new(v.clone()),
-                MetaData::IntMatrix(v) => Box::new(v.clone()),
-                MetaData::IntArray(v) => Box::new(v.clone()),
-                MetaData::RangeArray(v) => Box::new(v.clone()),
+            let name = &m2.meta_name[j];
+            let dat1 = m1.get_meta(name).unwrap();
+            let dat2 = &m2.meta_data[j];
+            let t = match dat1.as_ref().data_type() {
+                DataType::String2D(v) => {
+                    let mut t = v.clone();
+                    t.extend_from_slice(dat2.as_ref().as_string2d().unwrap());
+                    DataType::String2D(t)
+                }
+                DataType::String1D(v) => {
+                    let mut t = v.clone();
+                    t.extend_from_slice(dat2.as_ref().as_string1d().unwrap());
+                    DataType::String1D(t)
+                }
+                DataType::Float2D(v) => {
+                    let mut t = v.clone();
+                    t.extend_from_slice(dat2.as_ref().as_float2d().unwrap());
+                    DataType::Float2D(t)
+                }
+                DataType::Float1D(v) => {
+                    let mut t = v.clone();
+                    t.extend_from_slice(dat2.as_ref().as_float1d().unwrap());
+                    DataType::Float1D(t)
+                }
+                DataType::Int2D(v) => {
+                    let mut t = v.clone();
+                    t.extend_from_slice(dat2.as_ref().as_int2d().unwrap());
+                    DataType::Int2D(t)
+                }
+                DataType::Int1D(v) => {
+                    let mut t = v.clone();
+                    t.extend_from_slice(dat2.as_ref().as_int1d().unwrap());
+                    DataType::Int1D(t)
+                }
+                DataType::Range1D(v) => {
+                    let mut t = v.clone();
+                    t.extend_from_slice(dat2.as_ref().as_range1d().unwrap());
+                    DataType::Range1D(t)
+                }
             };
-            let name = m2.meta_name[j].clone();
-            result.add_meta(name, t)?;
+            result.add_meta(name.clone(), Box::new(t));
         }
-        Ok(result)
+        result
     }
 
     fn remove(&self, indices: &[usize]) -> Meta {
@@ -234,12 +232,11 @@ impl Meta {
         let n = self.length();
         let m = n - indices.len();
         let mut idx = vec![0; m];
-        let mut j = 0;
-        for i in 0..self.length() {
-            while j < indices.len() - 1 && i > indices[j] {
-                j += 1;
+        for (i, j, k) in (0..n).zip(0..m).zip(0..indices.len()) {
+            while k < indices.len() - 1 && i > indices[k] {
+                k += 1;
             }
-            if i != indices[j] {
+            if i != indices[k] {
                 idx[j] = i;
                 j += 1;
             }
@@ -250,126 +247,128 @@ impl Meta {
     fn subset(&self, indices: &[usize]) -> Meta {
         let n = indices.len();
         let m = self.meta_length();
-        let mut data: Vec<Box<MetaData>> = Vec::new();
+        let mut data = vec![];
         for j in 0..m {
-            let cloned_data: Box<MetaData> = match self.meta_data[j].as_ref() {
-                MetaData::StringMatrix(v) => {
-                    let mut l = Vec::new();
+            let meta_data = &self.meta_data[j];
+            let t = match meta_data.as_ref().data_type() {
+                DataType::String2D(v) => {
+                    let mut l = vec![];
                     for i in 0..n {
                         l.push(v[indices[i]].clone());
                     }
-                    Box::new(l)
+                    DataType::String2D(l)
                 }
-                MetaData::StringArray(v) => {
-                    let mut l = Vec::new();
+                DataType::String1D(v) => {
+                    let mut l = vec![];
                     for i in 0..n {
                         l.push(v[indices[i]].clone());
                     }
-                    Box::new(l)
+                    DataType::String1D(l)
                 }
-                MetaData::FloatMatrix(v) => {
-                    let mut l = Vec::new();
+                DataType::Float2D(v) => {
+                    let mut l = vec![];
                     for i in 0..n {
                         l.push(v[indices[i]].clone());
                     }
-                    Box::new(l)
+                    DataType::Float2D(l)
                 }
-                MetaData::FloatArray(v) => {
-                    let mut l = Vec::new();
-                    for i in 0..n {
-                        l.push(v[indices[i]]);
-                    }
-                    Box::new(l)
-                }
-                MetaData::IntMatrix(v) => {
-                    let mut l = Vec::new();
+                DataType::Float1D(v) => {
+                    let mut l = vec![];
                     for i in 0..n {
                         l.push(v[indices[i]].clone());
                     }
-                    Box::new(l)
+                    DataType::Float1D(l)
                 }
-                MetaData::IntArray(v) => {
-                    let mut l = Vec::new();
-                    for i in 0..n {
-                        l.push(v[indices[i]]);
-                    }
-                    Box::new(l)
-                }
-                MetaData::RangeArray(v) => {
-                    let mut l = Vec::new();
+                DataType::Int2D(v) => {
+                    let mut l = vec![];
                     for i in 0..n {
                         l.push(v[indices[i]].clone());
                     }
-                    Box::new(l)
+                    DataType::Int2D(l)
+                }
+                DataType::Int1D(v) => {
+                    let mut l = vec![];
+                    for i in 0..n {
+                        l.push(v[indices[i]].clone());
+                    }
+                    DataType::Int1D(l)
+                }
+                DataType::Range1D(v) => {
+                    let mut l = vec![];
+                    for i in 0..n {
+                        l.push(v[indices[i]].clone());
+                    }
+                    DataType::Range1D(l)
                 }
             };
-            data.push(cloned_data);
+            data.push(Box::new(t) as Box<dyn MetaData>);
         }
-        Meta::new(self.meta_name.clone(), data).unwrap()
+        Meta::new(self.meta_name.clone(), data)
     }
 
     fn slice(&self, ifrom: usize, ito: usize) -> Meta {
         let n = ito - ifrom;
         let m = self.meta_length();
-        let mut data: Vec<Box<MetaData>> = Vec::new();
+        let mut data = vec![];
         for j in 0..m {
-            let cloned_data: Box<MetaData> = match self.meta_data[j].as_ref() {
-                MetaData::StringMatrix(v) => {
-                    let mut l = Vec::new();
+            let meta_data = &self.meta_data[j];
+            let t = match meta_data.as_ref().data_type() {
+                DataType::String2D(v) => {
+                    let mut l = vec![];
                     for i in ifrom..ito {
                         l.push(v[i].clone());
                     }
-                    Box::new(l)
+                    DataType::String2D(l)
                 }
-                MetaData::StringArray(v) => {
-                    let mut l = Vec::new();
+                DataType::String1D(v) => {
+                    let mut l = vec![];
                     for i in ifrom..ito {
                         l.push(v[i].clone());
                     }
-                    Box::new(l)
+                    DataType::String1D(l)
                 }
-                MetaData::FloatMatrix(v) => {
-                    let mut l = Vec::new();
+                DataType::Float2D(v) => {
+                    let mut l = vec![];
                     for i in ifrom..ito {
                         l.push(v[i].clone());
                     }
-                    Box::new(l)
+                    DataType::Float2D(l)
                 }
-                MetaData::FloatArray(v) => {
-                    let mut l = Vec::new();
-                    for i in ifrom..ito {
-                        l.push(v[i]);
-                    }
-                    Box::new(l)
-                }
-                MetaData::IntMatrix(v) => {
-                    let mut l = Vec::new();
+                DataType::Float1D(v) => {
+                    let mut l = vec![];
                     for i in ifrom..ito {
                         l.push(v[i].clone());
                     }
-                    Box::new(l)
+                    DataType::Float1D(l)
                 }
-                MetaData::IntArray(v) => {
-                    let mut l = Vec::new();
-                    for i in ifrom..ito {
-                        l.push(v[i]);
-                    }
-                    Box::new(l)
-                }
-                MetaData::RangeArray(v) => {
-                    let mut l = Vec::new();
+                DataType::Int2D(v) => {
+                    let mut l = vec![];
                     for i in ifrom..ito {
                         l.push(v[i].clone());
                     }
-                    Box::new(l)
+                    DataType::Int2D(l)
+                }
+                DataType::Int1D(v) => {
+                    let mut l = vec![];
+                    for i in ifrom..ito {
+                        l.push(v[i].clone());
+                    }
+                    DataType::Int1D(l)
+                }
+                DataType::Range1D(v) => {
+                    let mut l = vec![];
+                    for i in ifrom..ito {
+                        l.push(v[i].clone());
+                    }
+                    DataType::Range1D(l)
                 }
             };
-            data.push(cloned_data);
+            data.push(Box::new(t) as Box<dyn MetaData>);
         }
-        Meta::new(self.meta_name.clone(), data).unwrap()
+        Meta::new(self.meta_name.clone(), data)
     }
 
-    fn merge(&self, indices: &[usize]) -> Result<Meta, Box<dyn Error>> {
+    fn merge(&self, indices: &[usize]) -> Meta {
         let slice_max = |s: &[usize]| -> usize {
             let mut max = 0;
             for &v in s {
@@ -381,33 +380,34 @@ impl Meta {
         };
         let n = slice_max(indices) + 1;
         let m = self.meta_length();
-        let mut data: Vec<Box<MetaData>> = Vec::new();
+        let mut data = vec![];
         for j in 0..m {
-            let cloned_data: Box<MetaData> = match self.meta_data[j].as_ref() {
-                MetaData::StringArray(v) => {
-                    let mut l = vec![Vec::new(); n];
+            let meta_data = &self.meta_data[j];
+            let t = match meta_data.as_ref().data_type() {
+                DataType::String1D(v) => {
+                    let mut l = vec![vec![]; n];
                     for i in 0..v.len() {
                         l[indices[i]].push(v[i].clone());
                     }
-                    Box::new(l)
+                    DataType::String2D(l)
                 }
-                MetaData::FloatArray(v) => {
-                    let mut l = vec![Vec::new(); n];
+                DataType::Float1D(v) => {
+                    let mut l = vec![vec![]; n];
                     for i in 0..v.len() {
-                        l[indices[i]].push(v[i]);
+                        l[indices[i]].push(v[i].clone());
                     }
-                    Box::new(l)
+                    DataType::Float2D(l)
                 }
-                MetaData::IntArray(v) => {
-                    let mut l = vec![Vec::new(); n];
+                DataType::Int1D(v) => {
+                    let mut l = vec![vec![]; n];
                     for i in 0..v.len() {
-                        l[indices[i]].push(v[i]);
+                        l[indices[i]].push(v[i].clone());
                     }
-                    Box::new(l)
+                    DataType::Int2D(l)
                 }
-                _ => return Err("cannot merge".into()),
+                _ => panic!("cannot merge {:?}", meta_data.as_ref().data_type()),
             };
-            data.push(cloned_data);
+            data.push(Box::new(t) as Box<dyn MetaData>);
         }
         Meta::new(self.meta_name.clone(), data)
     }
@@ -416,20 +416,30 @@ impl Meta {
     where
         F: Fn(&[String]) -> String,
     {
-        let t = match self.get_meta(name) {
-            Some(meta) => match meta.as_ref() {
-                MetaData::StringMatrix(v) => v.clone(),
-                MetaData::StringArray(v) => v.iter().map(|s| s.clone()).collect(),
-                _ => Vec::new(),
-            },
-            None => Vec::new(),
-        };
-        let r = t.iter().map(|v| v.clone()).collect::<Vec<String>>();
-        if !name_new.is_empty() && name != name_new {
-            self.add_meta(name_new.to_string(), Box::new(r)).unwrap();
+        if let Some(meta) = self.get_meta(name) {
+            match meta.as_ref().data_type() {
+                DataType::String2D(v) => {
+                    let r = v.iter().map(|s| f(s)).collect();
+                    if !name_new.is_empty() && name != name_new {
+                        self.add_meta(name_new.to_string(), Box::new(DataType::String1D(r)));
+                    } else {
+                        self.delete_meta(name);
+                        self.add_meta(name.to_string(), Box::new(DataType::String1D(r)));
+                    }
+                }
+                DataType::String1D(v) => {
+                    let r = f(v);
+                    if !name_new.is_empty() && name != name_new {
+                        self.add_meta(name_new.to_string(), Box::new(DataType::String1D(vec![r])));
+                    } else {
+                        self.delete_meta(name);
+                        self.add_meta(name.to_string(), Box::new(DataType::String1D(vec![r])));
+                    }
+                }
+                _ => panic!("invalid meta data"),
+            }
         } else {
-            self.delete_meta(name);
-            self.add_meta(name.to_string(), Box::new(r)).unwrap();
+            panic!("invalid meta name");
         }
     }
 
@@ -437,20 +447,30 @@ impl Meta {
     where
         F: Fn(&[f64]) -> f64,
     {
-        let t = match self.get_meta(name) {
-            Some(meta) => match meta.as_ref() {
-                MetaData::FloatMatrix(v) => v.clone(),
-                MetaData::FloatArray(v) => v.iter().map(|f| *f).collect(),
-                _ => Vec::new(),
-            },
-            None => Vec::new(),
-        };
-        let r = t.iter().map(|v| *v).collect::<Vec<f64>>();
-        if !name_new.is_empty() && name != name_new {
-            self.add_meta(name_new.to_string(), Box::new(r)).unwrap();
+        if let Some(meta) = self.get_meta(name) {
+            match meta.as_ref().data_type() {
+                DataType::Float2D(v) => {
+                    let r = v.iter().map(|s| f(s)).collect();
+                    if !name_new.is_empty() && name != name_new {
+                        self.add_meta(name_new.to_string(), Box::new(DataType::Float1D(r)));
+                    } else {
+                        self.delete_meta(name);
+                        self.add_meta(name.to_string(), Box::new(DataType::Float1D(r)));
+                    }
+                }
+                DataType::Float1D(v) => {
+                    let r = f(v);
+                    if !name_new.is_empty() && name != name_new {
+                        self.add_meta(name_new.to_string(), Box::new(DataType::Float1D(vec![r])));
+                    } else {
+                        self.delete_meta(name);
+                        self.add_meta(name.to_string(), Box::new(DataType::Float1D(vec![r])));
+                    }
+                }
+                _ => panic!("invalid meta data"),
+            }
         } else {
-            self.delete_meta(name);
-            self.add_meta(name.to_string(), Box::new(r)).unwrap();
+            panic!("invalid meta name");
         }
     }
 
@@ -458,61 +478,63 @@ impl Meta {
     where
         F: Fn(&[i32]) -> i32,
     {
-        let t = match self.get_meta(name) {
-            Some(meta) => match meta.as_ref() {
-                MetaData::IntMatrix(v) => v.clone(),
-                MetaData::IntArray(v) => v.iter().map(|i| *i).collect(),
-                _ => Vec::new(),
-            },
-            None => Vec::new(),
-        };
-        let r = t.iter().map(|v| *v).collect::<Vec<i32>>();
-        if !name_new.is_empty() && name != name_new {
-            self.add_meta(name_new.to_string(), Box::new(r)).unwrap();
+        if let Some(meta) = self.get_meta(name) {
+            match meta.as_ref().data_type() {
+                DataType::Int2D(v) => {
+                    let r = v.iter().map(|s| f(s)).collect();
+                    if !name_new.is_empty() && name != name_new {
+                        self.add_meta(name_new.to_string(), Box::new(DataType::Int1D(r)));
+                    } else {
+                        self.delete_meta(name);
+                        self.add_meta(name.to_string(), Box::new(DataType::Int1D(r)));
+                    }
+                }
+                DataType::Int1D(v) => {
+                    let r = f(v);
+                    if !name_new.is_empty() && name != name_new {
+                        self.add_meta(name_new.to_string(), Box::new(DataType::Int1D(vec![r])));
+                    } else {
+                        self.delete_meta(name);
+                        self.add_meta(name.to_string(), Box::new(DataType::Int1D(vec![r])));
+                    }
+                }
+                _ => panic!("invalid meta data"),
+            }
         } else {
-            self.delete_meta(name);
-            self.add_meta(name.to_string(), Box::new(r)).unwrap();
+            panic!("invalid meta name");
         }
     }
 
     fn sorted_indices(&self, name: &str, reverse: bool) -> Result<Vec<usize>, Box<dyn Error>> {
-        let mut l: Vec<(usize, f64, i32, String)> = Vec::new();
+        let mut l = vec![];
         if let Some(meta) = self.get_meta(name) {
-            match meta.as_ref() {
-                MetaData::FloatArray(v) => {
-                    for (i, &f) in v.iter().enumerate() {
-                        l.push((i, f, 0, "".to_string()));
+            match meta.as_ref().data_type() {
+                DataType::Float1D(v) => {
+                    for i in 0..v.len() {
+                        l.push((i, v[i]));
                     }
                 }
-                MetaData::IntArray(v) => {
-                    for (i, &j) in v.iter().enumerate() {
-                        l.push((i, 0.0, j, "".to_string()));
+                DataType::Int1D(v) => {
+                    for i in 0..v.len() {
+                        l.push((i, v[i] as f64));
                     }
                 }
-                MetaData::StringArray(v) => {
-                    for (i, s) in v.iter().enumerate() {
-                        l.push((i, 0.0, 0, s.clone()));
+                DataType::String1D(v) => {
+                    for i in 0..v.len() {
+                        l.push((i, i as f64));
                     }
                 }
-                _ => return Err("Invalid type for sorting!".into()),
+                _ => return Err(Box::new(MetaError::InvalidMetaType)),
             }
         } else {
-            return Err("Meta column not found!".into());
+            return Err(Box::new(MetaError::InvalidMetaName));
         }
         if reverse {
-            l.sort_by(|a, b| match (a.1, a.2, a.3) {
-                (fa, _, _) => match (b.1, b.2, b.3) {
-                    (fb, _, _) => fa.partial_cmp(&fb).unwrap(),
-                },
-            });
+            l.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(Ordering::Equal));
         } else {
-            l.sort_by(|a, b| match (a.1, a.2, a.3) {
-                (fa, _, _) => match (b.1, b.2, b.3) {
-                    (fb, _, _) => fb.partial_cmp(&fa).unwrap(),
-                },
-            });
+            l.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Equal));
         }
-        let j: Vec<usize> = l.iter().map(|(i, _, _, _)| *i).collect();
+        let j: Vec<usize> = l.iter().map(|(i, _)| *i).collect();
         Ok(j)
     }
 
@@ -561,32 +583,26 @@ impl Meta {
                 _ => panic!("invalid meta data"),
             }
             tmp_writer.flush()?;
-            let format = format!(" {:width$}", "", width = widths[j] - 1);
-            let l = write!(writer, "{}", format_args!(format, String::from_utf8_lossy(&tmp_buffer)))?;
+            let l = write!(writer, "{:width$}", String::from_utf8_lossy(&tmp_buffer), width = widths[j] - 1)?;
             Ok(l)
         };
         let print_cell = |writer: &mut W, widths: &[usize], i: usize, j: usize| -> Result<usize, Box<dyn Error>> {
             match self.meta_data[j].as_ref().data_type() {
                 DataType::String1D(v) => {
-                    let format = format!(" {:width$}", v[i], width = widths[j] - 1);
-                    write!(writer, "{}", format_args!(format))?;
+                    write!(writer, " {:width$}",  v[i], width = widths[j] - 1)?;
                 }
                 DataType::Float1D(v) => {
                     if use_scientific {
-                        let format = format!(" {:width$e}", v[i], width = widths[j] - 1);
-                        write!(writer, "{}", format_args!(format))?;
+                        write!(writer, " {:width$e}", v[i], width = widths[j] - 1)?;
                     } else {
-                        let format = format!(" {:width$.6}", v[i], width = widths[j] - 1);
-                        write!(writer, "{}", format_args!(format))?;
+                        write!(writer, " {:width$.6}", v[i], width = widths[j] - 1)?;
                     }
                 }
                 DataType::Int1D(v) => {
-                    let format = format!(" {:width$}", v[i], width = widths[j] - 1);
-                    write!(writer, "{}", format_args!(format))?;
+                    write!(writer, " {:width$}", v[i], width = widths[j] - 1)?;
                 }
                 DataType::Range1D(v) => {
-                    let format = format!(" [{}, {}]", v[i].from, v[i].to);
-                    write!(writer, "{}", format)?;
+                    write!(writer, " [{}, {})", v[i].from, v[i].to)?;
                 }
                 _ => print_cell_slice(writer, widths, i, j, self.meta_data[j].as_ref())?,
             }
@@ -612,8 +628,7 @@ impl Meta {
         };
         let print_header = |writer: &mut W, widths: &[usize]| -> Result<(), Box<dyn Error>> {
             for j in 0..self.meta_length() {
-                let format = format!(" {:width$}", self.meta_name[j], width = widths[j] - 1);
-                write!(writer, "{}", format_args!(format))?;
+                write!(writer, " {:width$}", self.meta_name[j], width = widths[j] - 1)?;
             }
             writeln!(writer)?;
             Ok(())
@@ -644,8 +659,7 @@ impl Meta {
             &mut || -> Result<(), Box<dyn Error>> {
                 writeln!(writer)?;
                 for j in 0..self.meta_length() {
-                    let format = format!(" {:width$}", "...", width = widths[j] - 1);
-                    write!(writer, "{}", format_args!(format))?;
+                    write!(writer, " {:width$}", "...", width = widths[j] - 1)?;
                 }
                 Ok(())
             },
@@ -656,8 +670,7 @@ impl Meta {
             &mut || -> Result<(), Box<dyn Error>> {
                 writeln!(writer)?;
                 for j in 0..self.meta_length() {
-                    let format = format!(" {:width$}", "...", width = widths[j] - 1);
-                    write!(writer, "{}", format_args!(format))?;
+                    write!(writer, " {:width$}", "...", width = widths[j] - 1)?;
                 }
                 Ok(())
             },
@@ -686,46 +699,168 @@ impl fmt::Display for Meta {
         writer.flush().unwrap();
         write!(f, "{}", String::from_utf8_lossy(&buffer))
     }
-
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut buffer = vec![];
-        let mut writer = io::BufWriter::new(&mut buffer);
-        if let Err(_) = self.write_pretty(&mut writer, 10, &OptionPrintScientific { value: false }) {
-            return Ok(());
-        }
-        writer.flush().unwrap();
-        write!(f, "{}", String::from_utf8_lossy(&buffer))
-    }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug)]
 struct MetaRow {
     meta: Meta,
-    row: usize,
+    idx: usize,
 }
 
 impl MetaRow {
-    fn new(meta: Meta, row: usize) -> Self {
-        MetaRow { meta, row }
+    fn new(meta: Meta, idx: usize) -> Self {
+        MetaRow { meta, idx }
     }
 
-    fn get_meta(&self, name: &str) -> Option<&Box<MetaData>> {
-        self.meta.get_meta(name)
+    fn get_meta(&self, name: &str) -> Option<&dyn MetaData> {
+        if let Some(meta) = self.meta.get_meta(name) {
+            match meta.as_ref().data_type() {
+                DataType::String2D(v) => Some(v[self.idx].as_ref()),
+                DataType::String1D(v) => Some(v[self.idx].as_ref()),
+                DataType::Float2D(v) => Some(v[self.idx].as_ref()),
+                DataType::Float1D(v) => Some(v[self.idx].as_ref()),
+                DataType::Int2D(v) => Some(v[self.idx].as_ref()),
+                DataType::Int1D(v) => Some(v[self.idx].as_ref()),
+                _ => panic!("Row(): invalid type!"),
+            }
+        } else {
+            None
+        }
     }
 
-    fn get_meta_str(&self, name: &str) -> Vec<String> {
-        self.meta.get_meta_str(name)
+    fn get_meta_str(&self, name: &str) -> Result<String, Box<dyn Error>> {
+        if let Some(meta) = self.get_meta(name) {
+            match meta.data_type() {
+                DataType::String2D(v) => Ok(v[self.idx].clone()),
+                DataType::String1D(v) => Ok(v[self.idx].clone()),
+                _ => Err(Box::new(MetaError::InvalidMetaType)),
+            }
+        } else {
+            Err(Box::new(MetaError::InvalidMetaName))
+        }
     }
 
-    fn get_meta_float(&self, name: &str) -> Vec<f64> {
-        self.meta.get_meta_float(name)
+    fn get_meta_float(&self, name: &str) -> Result<f64, Box<dyn Error>> {
+        if let Some(meta) = self.get_meta(name) {
+            match meta.data_type() {
+                DataType::Float2D(v) => Ok(v[self.idx]),
+                DataType::Float1D(v) => Ok(v[self.idx]),
+                _ => Err(Box::new(MetaError::InvalidMetaType)),
+            }
+        } else {
+            Err(Box::new(MetaError::InvalidMetaName))
+        }
+    }
+}
+
+trait MetaData: fmt::Debug {
+    fn data_type(&self) -> DataType;
+    fn clone_data(&self) -> Box<dyn MetaData>;
+    fn as_string2d(&self) -> Option<&[Vec<String>]>;
+    fn as_string1d(&self) -> Option<&[String]>;
+    fn as_float2d(&self) -> Option<&[Vec<f64>]>;
+    fn as_float1d(&self) -> Option<&[f64]>;
+    fn as_int2d(&self) -> Option<&[Vec<i32>]>;
+    fn as_int1d(&self) -> Option<&[i32]>;
+    fn as_range1d(&self) -> Option<&[Range]>;
+}
+
+#[derive(Debug)]
+enum DataType {
+    String2D(Vec<Vec<String>>),
+    String1D(Vec<String>),
+    Float2D(Vec<Vec<f64>>),
+    Float1D(Vec<f64>),
+    Int2D(Vec<Vec<i32>>),
+    Int1D(Vec<i32>),
+    Range1D(Vec<Range>),
+}
+
+impl MetaData for DataType {
+    fn data_type(&self) -> DataType {
+        self.clone()
     }
 
-    fn get_meta_int(&self, name: &str) -> Vec<i32> {
-        self.meta.get_meta_int(name)
+    fn clone_data(&self) -> Box<dyn MetaData> {
+        match self {
+            DataType::String2D(v) => Box::new(DataType::String2D(v.clone())),
+            DataType::String1D(v) => Box::new(DataType::String1D(v.clone())),
+            DataType::Float2D(v) => Box::new(DataType::Float2D(v.clone())),
+            DataType::Float1D(v) => Box::new(DataType::Float1D(v.clone())),
+            DataType::Int2D(v) => Box::new(DataType::Int2D(v.clone())),
+            DataType::Int1D(v) => Box::new(DataType::Int1D(v.clone())),
+            DataType::Range1D(v) => Box::new(DataType::Range1D(v.clone())),
+        }
     }
 
-    fn get_meta_range(&self, name: &str) -> Vec<Range> {
-        self.meta.get_meta_range(name)
+    fn as_string2d(&self) -> Option<&[Vec<String>]> {
+        match self {
+            DataType::String2D(v) => Some(v),
+            _ => None,
+        }
     }
+
+    fn as_string1d(&self) -> Option<&[String]> {
+        match self {
+            DataType::String1D(v) => Some(v),
+            _ => None,
+        }
+    }
+
+    fn as_float2d(&self) -> Option<&[Vec<f64>]> {
+        match self {
+            DataType::Float2D(v) => Some(v),
+            _ => None,
+        }
+    }
+
+    fn as_float1d(&self) -> Option<&[f64]> {
+        match self {
+            DataType::Float1D(v) => Some(v),
+            _ => None,
+        }
+    }
+
+    fn as_int2d(&self) -> Option<&[Vec<i32>]> {
+        match self {
+            DataType::Int2D(v) => Some(v),
+            _ => None,
+        }
+    }
+
+    fn as_int1d(&self) -> Option<&[i32]> {
+        match self {
+            DataType::Int1D(v) => Some(v),
+            _ => None,
+        }
+    }
+
+    fn as_range1d(&self) -> Option<&[Range]> {
+        match self {
+            DataType::Range1D(v) => Some(v),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug)]
+enum MetaError {
+    InvalidMetaType,
+    InvalidMetaName,
+}
+
+impl fmt::Display for MetaError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            MetaError::InvalidMetaType => write!(f, "Invalid meta type"),
+            MetaError::InvalidMetaName => write!(f, "Invalid meta name"),
+        }
+    }
+}
+
+impl Error for MetaError {}
+
+#[derive(Debug)]
+struct OptionPrintScientific {
+    value: bool,
 }
