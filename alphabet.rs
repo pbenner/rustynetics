@@ -14,8 +14,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-use std::fmt;
-
 /* -------------------------------------------------------------------------- */
 
 trait Alphabet {
@@ -198,6 +196,28 @@ impl Alphabet for GappedNucleotideAlphabet {
         }
     }
 
+    fn is_ambiguous(&self, i: u8) -> Result<bool, String> {
+        match i {
+            b'A' | b'a' => Ok(false),
+            b'C' | b'c' => Ok(false),
+            b'G' | b'g' => Ok(false),
+            b'T' | b't' => Ok(false),
+            b'N' | b'n' => Ok(true),
+            _ => Err(format!("is_ambiguous(): `{}` is not part of the alphabet", i as char)),
+        }
+    }
+
+    fn is_wildcard(&self, i: u8) -> Result<bool, String> {
+        match i {
+            b'A' | b'a' => Ok(false),
+            b'C' | b'c' => Ok(false),
+            b'G' | b'g' => Ok(false),
+            b'T' | b't' => Ok(false),
+            b'N' | b'n' => Ok(true),
+            _ => Err(format!("is_wildcard(): `{}` is not part of the alphabet", i as char)),
+        }
+    }
+
     fn length(&self) -> usize {
         5
     }
@@ -210,6 +230,8 @@ impl Alphabet for GappedNucleotideAlphabet {
         String::from("gapped nucleotide alphabet")
     }
 }
+
+/* -------------------------------------------------------------------------- */
 
 impl ComplementableAlphabet for GappedNucleotideAlphabet {
     fn complement_coded(&self, i: u8) -> Result<u8, String> {
@@ -326,6 +348,48 @@ impl Alphabet for AmbiguousNucleotideAlphabet {
             13 => Ok(b'v'),
             14 => Ok(b'n'),
             _ => Err(format!("Decode(): `{}` is not a code of the alphabet", i)),
+        }
+    }
+
+    fn is_ambiguous(&self, i: u8) -> Result<bool, String> {
+        match i {
+            b'A' | b'a' => Ok(false),
+            b'C' | b'c' => Ok(false),
+            b'G' | b'g' => Ok(false),
+            b'T' | b't' => Ok(false),
+            b'W' | b'w' => Ok(true),
+            b'S' | b's' => Ok(true),
+            b'M' | b'm' => Ok(true),
+            b'K' | b'k' => Ok(true),
+            b'R' | b'r' => Ok(true),
+            b'Y' | b'y' => Ok(true),
+            b'B' | b'b' => Ok(true),
+            b'D' | b'd' => Ok(true),
+            b'H' | b'h' => Ok(true),
+            b'V' | b'v' => Ok(true),
+            b'N' | b'n' => Ok(true),
+            _ => Err(format!("is_ambiguous(): `{}` is not part of the alphabet", i as char)),
+        }
+    }
+
+    fn is_wildcard(&self, i: u8) -> Result<bool, String> {
+        match i {
+            b'A' | b'a' => Ok(false),
+            b'C' | b'c' => Ok(false),
+            b'G' | b'g' => Ok(false),
+            b'T' | b't' => Ok(false),
+            b'W' | b'w' => Ok(false),
+            b'S' | b's' => Ok(false),
+            b'M' | b'm' => Ok(false),
+            b'K' | b'k' => Ok(false),
+            b'R' | b'r' => Ok(false),
+            b'Y' | b'y' => Ok(false),
+            b'B' | b'b' => Ok(false),
+            b'D' | b'd' => Ok(false),
+            b'H' | b'h' => Ok(false),
+            b'V' | b'v' => Ok(false),
+            b'N' | b'n' => Ok(true),
+            _ => Err(format!("is_wildcard(): `{}` is not part of the alphabet", i as char)),
         }
     }
 
