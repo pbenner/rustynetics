@@ -21,7 +21,7 @@ use std::fmt;
 
 /* -------------------------------------------------------------------------- */
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Range {
     from: i32,
     to: i32,

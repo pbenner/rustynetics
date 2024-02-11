@@ -1,4 +1,3 @@
-
 /* Copyright (C) 2024 Philipp Benner
  *
  * This program is free software: you can redistribute it and/or modify
@@ -17,9 +16,21 @@
 
 /* -------------------------------------------------------------------------- */
 
-pub mod alphabet;
-pub mod genome;
-pub mod meta;
-pub mod range;
+#[cfg(test)]
+mod tests {
 
-mod utility;
+    use rustynetics::meta::{Meta};
+
+    #[test]
+    fn test_meta() {
+
+        let names = vec!["name".to_string(), "age".to_string()];
+        let data: Vec<Box<dyn MetaData>> = vec![
+            Box::new(vec!["Alice".to_string(), "Bob".to_string()]),
+            Box::new(vec![25, 30]),
+        ];
+        let meta = Meta::new(names, data).unwrap();
+        println!("{}", meta);
+
+    }
+}
