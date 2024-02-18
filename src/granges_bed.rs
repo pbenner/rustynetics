@@ -53,7 +53,7 @@ impl GRanges {
         let score = 3.0;
 
         for i in 0..self.length() {
-            write!(writer, "{}\t{}\t{}\t{}\t{}\t{}\n", self.seqnames[i], self.ranges[i].from, self.ranges[i].to, name, score, self.strand.get(i).unwrap_or(&b'.'));
+            write!(writer, "{}\t{}\t{}\t{}\t{}\t{}\n", self.seqnames[i], self.ranges[i].from, self.ranges[i].to, name, score, self.strand.get(i).unwrap_or(&'.'));
         }
         Ok(())
     }
@@ -85,7 +85,7 @@ impl GRanges {
             let thick_start = self.ranges[i].from;
             let thick_end   = self.ranges[i].to;
 
-            write!(writer, "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n", self.seqnames[i], self.ranges[i].from, self.ranges[i].to, name, score, self.strand.get(i).unwrap_or(&b'.'), thick_start, thick_end, item_rgb);
+            write!(writer, "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n", self.seqnames[i], self.ranges[i].from, self.ranges[i].to, name, score, self.strand.get(i).unwrap_or(&'.'), thick_start, thick_end, item_rgb);
         }
         Ok(())
     }
@@ -113,6 +113,7 @@ impl GRanges {
             let to   = fields[2].parse::<usize>().unwrap();
             self.seqnames.push(fields[0].to_string());
             self.ranges  .push(Range::new(from, to));
+            self.strand  .push('*');
             line.clear();
         }
         Ok(())
@@ -140,7 +141,7 @@ impl GRanges {
             let to     = fields[2].parse::<usize>().unwrap();
             let name   = fields[3].to_string();
             let score  = fields[4].parse::<usize>().unwrap();
-            let strand = fields[5].bytes().next().unwrap_or(b'.');
+            let strand = fields[5].chars().next().unwrap_or('.');
             self.seqnames.push(fields[0].to_string());
             self.ranges.push(Range::new(from, to));
             self.strand.push(strand);
@@ -173,7 +174,7 @@ impl GRanges {
             let to          = fields[2].parse::<usize>().unwrap();
             let name        = fields[3].to_string();
             let score       = fields[4].parse::<usize>().unwrap();
-            let strand      = fields[5].bytes().next().unwrap_or(b'.');
+            let strand      = fields[5].chars().next().unwrap_or('.');
             let thick_start = fields[6].parse::<usize>().unwrap();
             let thick_end   = fields[7].parse::<usize>().unwrap();
             let item_rgb    = fields[8].to_string();

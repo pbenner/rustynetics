@@ -33,8 +33,11 @@ mod tests {
 
         let mut granges = GRanges::new_empty(0);
         
-        granges.import_bed("test_granges.bed", 3, false);
+        match granges.import_bed("tests/test_granges.bed", 3, false) {
+            Err(r) => panic!(r),
+            Ok (r) => (),
+        };
 
-        print!("{}", granges)
+        println!("{}", granges)
     }
 }

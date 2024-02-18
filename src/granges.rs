@@ -90,19 +90,19 @@ impl<'a> GRangesRow<'a> {
 
 pub struct GRanges {
     pub seqnames: Vec<String>,
-    pub ranges: Vec<Range>,
-    pub strand: Vec<u8>,
-    pub meta: Meta,
+    pub ranges  : Vec<Range>,
+    pub strand  : Vec<char>,
+    pub meta    : Meta,
 }
 
 impl GRanges {
-    pub fn new(seqnames: Vec<String>, from: Vec<usize>, to: Vec<usize>, strand: Vec<u8>) -> Self {
+    pub fn new(seqnames: Vec<String>, from: Vec<usize>, to: Vec<usize>, strand: Vec<char>) -> Self {
         let n = seqnames.len();
         if from.len() != n || to.len() != n || (strand.len() != 0 && strand.len() != n) {
             panic!("NewGRanges(): invalid arguments!");
         }
         let strand = if strand.len() == 0 {
-            vec![b'*'; n]
+            vec!['*'; n]
         } else {
             strand
         };
@@ -122,7 +122,7 @@ impl GRanges {
     pub fn new_empty(n: usize) -> Self {
         let seqnames = vec![String::new(); n];
         let ranges = vec![Range::new(0, 0); n];
-        let strand = vec![b'*'; n];
+        let strand = vec!['*'; n];
         GRanges {
             seqnames,
             ranges,
@@ -302,7 +302,7 @@ impl GRanges {
         self.remove(&idx)
     }
 
-    pub fn filter_strand(&self, s: u8) -> Self {
+    pub fn filter_strand(&self, s: char) -> Self {
         let mut idx = Vec::new();
         for i in 0..self.length() {
             if self.strand[i] != s {
@@ -319,10 +319,10 @@ impl GRanges {
             n = 0
         }
         for i in 0..s.length() {
-            if s.strand[i] == b'+' {
+            if s.strand[i] == '+' {
                 s.ranges[i].to = s.ranges[i].from + n;
             }
-            if s.strand[i] == b'-' {
+            if s.strand[i] == '-' {
                 s.ranges[i].from = s.ranges[i].to - n;
             }
         }
