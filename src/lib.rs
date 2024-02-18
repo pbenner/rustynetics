@@ -19,7 +19,7 @@
 
 pub mod alphabet;
 pub mod genome;
-pub mod meta;
+pub mod granges;
 pub mod range;
 
 mod utility;

@@ -16,7 +16,6 @@
 
 /* -------------------------------------------------------------------------- */
 
-use std::collections::HashMap;
 use std::fmt;
 use std::fs::File;
 use std::io::{self, BufRead, BufReader, Read};
@@ -26,7 +25,8 @@ use std::path::Path;
 
 #[derive(Clone)]
 pub struct Genome {
-    sequences: HashMap<String, i32>,
+    pub seqnames: Vec<String>,
+    pub lengths : Vec<i32>
 }
 
 /* -------------------------------------------------------------------------- */
@@ -36,52 +36,75 @@ impl Genome {
         if seqnames.len() != lengths.len() {
             panic!("NewGenome(): invalid parameters");
         }
-        let sequences = seqnames.into_iter().zip(lengths.into_iter()).collect();
-        Genome { sequences }
+        Genome { seqnames, lengths }
     }
 
     pub fn length(&self) -> usize {
-        self.sequences.len()
+        self.seqnames.len()
     }
 
     pub fn seq_length(&self, seqname: &str) -> Result<i32, String> {
-        self.sequences
-            .get(seqname)
-            .cloned()
-            .ok_or_else(|| format!("sequence `{}` not found in genome", seqname))
+        for (i, sn) in self.seqnames.iter().enumerate() {
+            if seqname == sn {
+                return Ok(self.lengths[i]);
+            }
+        }
+        Err(format!("sequence `{}` not found in genome", seqname))
     }
 
     pub fn sum_lengths(&self) -> i32 {
-        self.sequences.values().sum()
+        self.lengths.iter().sum()
     }
 
     pub fn add_sequence(&mut self, seqname: String, length: i32) -> Result<usize, String> {
-        if self.sequences.contains_key(&seqname) {
+        if self.seqnames.contains(&seqname) {
             Err(format!("sequence `{}` already exists", seqname))
         } else {
-            self.sequences.insert(seqname, length);
+            self.seqnames.push(seqname);
+            self.lengths .push(length);
             Ok(self.length() - 1)
         }
     }
 
-    pub fn filter<F>(&self, f: F) -> Self
+    pub fn filter<F>(&mut self, f: F) -> Self
     where
-        F: Fn(&String, &i32) -> bool,
+        F: Fn(&String, i32) -> bool,
     {
-        let filtered_sequences = self.sequences.iter().filter(|&(name, length)| f(name, length)).map(|(name, length)| (name.clone(), *length)).collect();
+        let mut seqnames = Vec::new();
+        let mut lengths  = Vec::new();
+
+        for (seqname, length) in self.seqnames.iter().zip(self.lengths.iter()) {
+            if f(seqname, *length) {
+                seqnames.push(seqname.clone());
+                lengths .push(*length);
+            }
+        }
         Genome {
-            sequences: filtered_sequences,
+            seqnames: seqnames,
+            lengths : lengths
         }
     }
 
     pub fn equals(&self, other: &Self) -> bool {
-        self.sequences == other.sequences
+        if self.length() != other.length() {
+            return false
+        }
+        for (seqname, l1) in self.seqnames.iter().zip(self.lengths.iter()) {
+            let l2 = match other.seq_length(seqname) {
+                Ok(l2) => l2,
+                Err(_) => return false,
+            };
+            if *l1 != l2 {
+                return false
+            }
+        }
+        true
     }
 
     pub fn read<R: Read>(&mut self, reader: R) -> io::Result<()> {
         let reader = BufReader::new(reader);
         let mut seqnames = Vec::new();
-        let mut lengths = Vec::new();
+        let mut lengths  = Vec::new();
 
         for line in reader.lines() {
             let line = line?;
@@ -94,7 +117,7 @@ impl Genome {
             }
             let length: i32 = fields[1].parse().map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
             seqnames.push(fields[0].to_string());
-            lengths.push(length);
+            lengths .push(length);
         }
         *self = Genome::new(seqnames, lengths);
         Ok(())
@@ -111,7 +134,7 @@ impl Genome {
 impl fmt::Display for Genome {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "{:<10} {:>10}", "seqnames", "lengths")?;
-        for (seqname, length) in &self.sequences {
+        for (seqname, length) in self.seqnames.iter().zip(self.lengths.iter()) {
             writeln!(f, "{:<10} {:>10}", seqname, length)?;
         }
         Ok(())

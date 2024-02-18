@@ -1,11 +1,34 @@
+/* Copyright (C) 2024 Philipp Benner
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/* -------------------------------------------------------------------------- */
+
 use std::fmt;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 
+use crate::range::Range;
+use crate::genome::Genome;
+
+/* -------------------------------------------------------------------------- */
+
 #[derive(Clone)]
 struct Meta {
     meta_name: Vec<String>,
-    meta_data: Vec<Box<dyn std::any::Any>>,
+    meta_data: Vec<String>,
     rows: usize,
 }
 
@@ -39,24 +62,17 @@ impl Meta {
             rows: indices.len(),
         }
     }
-}
 
-struct Range {
-    from: i32,
-    to: i32,
-}
-
-impl Range {
-    fn new(from: i32, to: i32) -> Self {
-        Range { from, to }
+    fn append(&self, _meta: &Meta) -> Meta {
+        self.clone()
     }
 
-    fn intersection(&self, other: &Range) -> Range {
-        let from = std::cmp::max(self.from, other.from);
-        let to = std::cmp::min(self.to, other.to);
-        Range::new(from, to)
+    fn slice(&self, _ifrom: usize, _ito: usize) -> Meta {
+        self.clone()
     }
 }
+
+/* -------------------------------------------------------------------------- */
 
 struct GRangesRow<'a> {
     granges: &'a GRanges,
@@ -69,7 +85,9 @@ impl<'a> GRangesRow<'a> {
     }
 }
 
-struct GRanges {
+/* -------------------------------------------------------------------------- */
+
+pub struct GRanges {
     seqnames: Vec<String>,
     ranges: Vec<Range>,
     strand: Vec<u8>,
@@ -100,7 +118,7 @@ impl GRanges {
         }
     }
 
-    fn new_empty(n: usize) -> Self {
+    pub fn new_empty(n: usize) -> Self {
         let seqnames = vec![String::new(); n];
         let ranges = vec![Range::new(0, 0); n];
         let strand = vec![b'*'; n];
@@ -192,12 +210,11 @@ impl GRanges {
     }
 
     fn subset(&self, indices: &[usize]) -> Self {
-        let n = indices.len();
         let seqnames = indices.iter().map(|&i| self.seqnames[i].clone()).collect();
-        let from = indices.iter().map(|&i| self.ranges[i].from).collect();
-        let to = indices.iter().map(|&i| self.ranges[i].to).collect();
-        let strand = indices.iter().map(|&i| self.strand[i]).collect();
-        let result = GRanges::new(seqnames, from, to, strand);
+        let from     = indices.iter().map(|&i| self.ranges  [i].from   ).collect();
+        let to       = indices.iter().map(|&i| self.ranges  [i].to     ).collect();
+        let strand   = indices.iter().map(|&i| self.strand  [i]        ).collect();
+        let result   = GRanges::new(seqnames, from, to, strand);
         let meta = self.meta.subset(indices);
         GRanges {
             seqnames: result.seqnames,
@@ -209,14 +226,13 @@ impl GRanges {
 
     fn slice(&self, ifrom: usize, ito: usize) -> Self {
         let ifrom = ifrom.min(self.length());
-        let ito = ito.min(self.length());
-        let n = ito - ifrom;
+        let ito   = ito  .min(self.length());
         let seqnames = (ifrom..ito)
             .map(|i| self.seqnames[i].clone())
             .collect();
-        let from = (ifrom..ito).map(|i| self.ranges[i].from).collect();
-        let to = (ifrom..ito).map(|i| self.ranges[i].to).collect();
-        let strand = (ifrom..ito).map(|i| self.strand[i]).collect();
+        let from   = (ifrom..ito).map(|i| self.ranges[i].from).collect();
+        let to     = (ifrom..ito).map(|i| self.ranges[i].to  ).collect();
+        let strand = (ifrom..ito).map(|i| self.strand[i]     ).collect();
         let result = GRanges::new(seqnames, from, to, strand);
         let meta = self.meta.slice(ifrom, ito);
         GRanges {
@@ -238,9 +254,9 @@ impl GRanges {
                 self.seqnames[i_q].clone()
             })
             .collect();
-        let strand = (0..n).map(|i| self.strand[query_hits[i]]).collect();
-        let from = (0..n).map(|i| self.ranges[query_hits[i]].from).collect();
-        let to = (0..n).map(|i| self.ranges[query_hits[i]].to).collect();
+        let strand = (0..n).map(|i| self.strand[query_hits[i]]     ).collect();
+        let from   = (0..n).map(|i| self.ranges[query_hits[i]].from).collect();
+        let to     = (0..n).map(|i| self.ranges[query_hits[i]].to  ).collect();
         let result = GRanges::new(seqnames, from, to, strand);
         let meta = self.meta.subset(&query_hits);
         GRanges {
@@ -295,17 +311,19 @@ impl GRanges {
         self.remove(&idx)
     }
 
-    fn set_lengths(&self, n: i32) -> Self {
+    fn set_lengths(&self, n_: i32) -> Self {
         let mut s = self.clone();
+        let mut n = n_;
         if n < 0 {
-            s.ranges.iter_mut().for_each(|r| {
-                if s.strand[r.from as usize] == b'+' {
-                    r.to = r.from + n;
-                }
-                if s.strand[r.from as usize] == b'-' {
-                    r.from = r.to - n;
-                }
-            });
+            n = 0
+        }
+        for i in 0..s.length() {
+            if s.strand[i] == b'+' {
+                s.ranges[i].to = s.ranges[i].from + n;
+            }
+            if s.strand[i] == b'-' {
+                s.ranges[i].from = s.ranges[i].to - n;
+            }
         }
         s
     }
@@ -439,19 +457,4 @@ fn find_overlaps(r1: &GRanges, r2: &GRanges) -> (Vec<usize>, Vec<usize>) {
         }
     }
     (query_hits, subject_hits)
-}
-
-struct Genome {
-    seqnames: Vec<String>,
-    lengths: Vec<i32>,
-}
-
-impl Genome {
-    fn new(seqnames: Vec<String>, lengths: Vec<i32>) -> Self {
-        Genome { seqnames, lengths }
-    }
-
-    fn length(&self) -> usize {
-        self.seqnames.len()
-    }
 }

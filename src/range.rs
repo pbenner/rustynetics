@@ -23,8 +23,8 @@ use std::fmt;
 
 #[derive(Clone, Debug)]
 pub struct Range {
-    from: i32,
-    to: i32,
+    pub from: i32,
+    pub to: i32,
 }
 
 impl Range {
