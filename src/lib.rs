@@ -22,4 +22,5 @@ pub mod genome;
 pub mod granges;
 pub mod range;
 
+mod granges_findOverlaps;
 mod utility;

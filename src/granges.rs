@@ -22,6 +22,7 @@ use std::collections::HashMap;
 
 use crate::range::Range;
 use crate::genome::Genome;
+use crate::granges_findOverlaps::find_overlaps;
 
 /* -------------------------------------------------------------------------- */
 
@@ -88,14 +89,14 @@ impl<'a> GRangesRow<'a> {
 /* -------------------------------------------------------------------------- */
 
 pub struct GRanges {
-    seqnames: Vec<String>,
-    ranges: Vec<Range>,
-    strand: Vec<u8>,
-    meta: Meta,
+    pub seqnames: Vec<String>,
+    pub ranges: Vec<Range>,
+    pub strand: Vec<u8>,
+    pub meta: Meta,
 }
 
 impl GRanges {
-    fn new(seqnames: Vec<String>, from: Vec<i32>, to: Vec<i32>, strand: Vec<u8>) -> Self {
+    pub fn new(seqnames: Vec<String>, from: Vec<usize>, to: Vec<usize>, strand: Vec<u8>) -> Self {
         let n = seqnames.len();
         if from.len() != n || to.len() != n || (strand.len() != 0 && strand.len() != n) {
             panic!("NewGRanges(): invalid arguments!");
@@ -130,7 +131,7 @@ impl GRanges {
         }
     }
 
-    fn clone(&self) -> Self {
+    pub fn clone(&self) -> Self {
         let seqnames = self.seqnames.clone();
         let ranges = self.ranges.clone();
         let strand = self.strand.clone();
@@ -143,15 +144,15 @@ impl GRanges {
         }
     }
 
-    fn length(&self) -> usize {
+    pub fn length(&self) -> usize {
         self.ranges.len()
     }
 
-    fn row(&self, i: usize) -> GRangesRow {
+    pub fn row(&self, i: usize) -> GRangesRow {
         GRangesRow::new(self, i)
     }
 
-    fn append(&self, other: &GRanges) -> Self {
+    pub fn append(&self, other: &GRanges) -> Self {
         let mut seqnames = self.seqnames.clone();
         seqnames.extend(other.seqnames.iter().cloned());
         let mut ranges = self.ranges.clone();
@@ -167,7 +168,7 @@ impl GRanges {
         }
     }
 
-    fn remove(&self, indices: &[usize]) -> Self {
+    pub fn remove(&self, indices: &[usize]) -> Self {
         if indices.is_empty() {
             return self.clone();
         }
@@ -196,12 +197,12 @@ impl GRanges {
         }
     }
 
-    fn remove_overlaps_with(&self, subject: &GRanges) -> Self {
+    pub fn remove_overlaps_with(&self, subject: &GRanges) -> Self {
         let (query_hits, _) = find_overlaps(self, subject);
         self.remove(&query_hits)
     }
 
-    fn keep_overlaps_with(&self, subject: &GRanges) -> Self {
+    pub fn keep_overlaps_with(&self, subject: &GRanges) -> Self {
         let (query_hits, _) = find_overlaps(self, subject);
         let query_hits = remove_duplicates_int(&query_hits);
         let mut query_hits = query_hits.to_vec();
@@ -209,7 +210,7 @@ impl GRanges {
         self.subset(&query_hits)
     }
 
-    fn subset(&self, indices: &[usize]) -> Self {
+    pub fn subset(&self, indices: &[usize]) -> Self {
         let seqnames = indices.iter().map(|&i| self.seqnames[i].clone()).collect();
         let from     = indices.iter().map(|&i| self.ranges  [i].from   ).collect();
         let to       = indices.iter().map(|&i| self.ranges  [i].to     ).collect();
@@ -224,7 +225,7 @@ impl GRanges {
         }
     }
 
-    fn slice(&self, ifrom: usize, ito: usize) -> Self {
+    pub fn slice(&self, ifrom: usize, ito: usize) -> Self {
         let ifrom = ifrom.min(self.length());
         let ito   = ito  .min(self.length());
         let seqnames = (ifrom..ito)
@@ -243,7 +244,7 @@ impl GRanges {
         }
     }
 
-    fn intersection(&self, s: &GRanges) -> Self {
+    pub fn intersection(&self, s: &GRanges) -> Self {
         let (query_hits, subject_hits) = find_overlaps(self, s);
         let n = query_hits.len();
         let seqnames = (0..n)
@@ -267,7 +268,7 @@ impl GRanges {
         }
     }
 
-    fn sort(&self, name: &str, reverse: bool) -> Result<Self, String> {
+    pub fn sort(&self, name: &str, reverse: bool) -> Result<Self, String> {
         if name.is_empty() {
             let mut l = GRangesSort::new(self);
             if reverse {
@@ -283,7 +284,7 @@ impl GRanges {
         }
     }
 
-    fn filter_genome(&self, genome: &Genome) -> Self {
+    pub fn filter_genome(&self, genome: &Genome) -> Self {
         let mut idx = Vec::new();
         let mut seqnames = HashMap::new();
         for i in 0..genome.length() {
@@ -301,7 +302,7 @@ impl GRanges {
         self.remove(&idx)
     }
 
-    fn filter_strand(&self, s: u8) -> Self {
+    pub fn filter_strand(&self, s: u8) -> Self {
         let mut idx = Vec::new();
         for i in 0..self.length() {
             if self.strand[i] != s {
@@ -311,7 +312,7 @@ impl GRanges {
         self.remove(&idx)
     }
 
-    fn set_lengths(&self, n_: i32) -> Self {
+    pub fn set_lengths(&self, n_: usize) -> Self {
         let mut s = self.clone();
         let mut n = n_;
         if n < 0 {
@@ -328,7 +329,7 @@ impl GRanges {
         s
     }
 
-    fn sorted_indices(&self, name: &str, reverse: bool) -> Result<Vec<usize>, String> {
+    pub fn sorted_indices(&self, name: &str, reverse: bool) -> Result<Vec<usize>, String> {
         let mut indices: Vec<usize> = (0..self.length()).collect();
         match name {
             "" => Err("Invalid sort name".to_string()),
@@ -439,22 +440,4 @@ fn remove_duplicates_int(indices: &[usize]) -> Vec<usize> {
         }
     }
     result
-}
-
-fn find_overlaps(r1: &GRanges, r2: &GRanges) -> (Vec<usize>, Vec<usize>) {
-    let mut query_hits = Vec::new();
-    let mut subject_hits = Vec::new();
-    for i in 0..r1.length() {
-        for j in 0..r2.length() {
-            if r1.seqnames[i] != r2.seqnames[j] {
-                continue;
-            }
-            if r1.ranges[i].from > r2.ranges[j].to || r1.ranges[i].to < r2.ranges[j].from {
-                continue;
-            }
-            query_hits.push(i);
-            subject_hits.push(j);
-        }
-    }
-    (query_hits, subject_hits)
 }

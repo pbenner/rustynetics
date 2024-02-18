@@ -23,12 +23,12 @@ use std::fmt;
 
 #[derive(Clone, Debug)]
 pub struct Range {
-    pub from: i32,
-    pub to: i32,
+    pub from: usize,
+    pub to: usize,
 }
 
 impl Range {
-    pub fn new(from: i32, to: i32) -> Range {
+    pub fn new(from: usize, to: usize) -> Range {
         if from > to {
             panic!("NewRange(): invalid range, i.e. from > to (from={}, to={})", from, to);
         }

@@ -26,13 +26,13 @@ use std::path::Path;
 #[derive(Clone)]
 pub struct Genome {
     pub seqnames: Vec<String>,
-    pub lengths : Vec<i32>
+    pub lengths : Vec<usize>
 }
 
 /* -------------------------------------------------------------------------- */
 
 impl Genome {
-    pub fn new(seqnames: Vec<String>, lengths: Vec<i32>) -> Self {
+    pub fn new(seqnames: Vec<String>, lengths: Vec<usize>) -> Self {
         if seqnames.len() != lengths.len() {
             panic!("NewGenome(): invalid parameters");
         }
@@ -43,7 +43,7 @@ impl Genome {
         self.seqnames.len()
     }
 
-    pub fn seq_length(&self, seqname: &str) -> Result<i32, String> {
+    pub fn seq_length(&self, seqname: &str) -> Result<usize, String> {
         for (i, sn) in self.seqnames.iter().enumerate() {
             if seqname == sn {
                 return Ok(self.lengths[i]);
@@ -52,11 +52,11 @@ impl Genome {
         Err(format!("sequence `{}` not found in genome", seqname))
     }
 
-    pub fn sum_lengths(&self) -> i32 {
+    pub fn sum_lengths(&self) -> usize {
         self.lengths.iter().sum()
     }
 
-    pub fn add_sequence(&mut self, seqname: String, length: i32) -> Result<usize, String> {
+    pub fn add_sequence(&mut self, seqname: String, length: usize) -> Result<usize, String> {
         if self.seqnames.contains(&seqname) {
             Err(format!("sequence `{}` already exists", seqname))
         } else {
@@ -68,7 +68,7 @@ impl Genome {
 
     pub fn filter<F>(&mut self, f: F) -> Self
     where
-        F: Fn(&String, i32) -> bool,
+        F: Fn(&String, usize) -> bool,
     {
         let mut seqnames = Vec::new();
         let mut lengths  = Vec::new();
@@ -115,7 +115,7 @@ impl Genome {
             if fields.len() < 2 {
                 return Err(io::Error::new(io::ErrorKind::InvalidData, "invalid genome file"));
             }
-            let length: i32 = fields[1].parse().map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+            let length: usize = fields[1].parse().map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
             seqnames.push(fields[0].to_string());
             lengths .push(length);
         }
