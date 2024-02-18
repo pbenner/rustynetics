@@ -27,14 +27,14 @@ use crate::granges::{GRanges};
 
 impl GRanges {
 
-    fn write_bed3(&self, writer: &mut dyn Write) -> io::Result<()> {
+    pub fn write_bed3(&self, writer: &mut dyn Write) -> io::Result<()> {
         for i in 0..self.length() {
             write!(writer, "{}\t{}\t{}\n", self.seqnames[i], self.ranges[i].from, self.ranges[i].to)?;
         }
         Ok(())
     }
 
-    fn export_bed3(&self, filename: &str, compress: bool) -> io::Result<()> {
+    pub fn export_bed3(&self, filename: &str, compress: bool) -> io::Result<()> {
         let file = File::create(filename)?;
         let mut writer: Box<dyn Write> = if compress {
             Box::new(GzEncoder::new(file, Compression::default()))
@@ -46,7 +46,7 @@ impl GRanges {
         Ok(())
     }
 
-    fn write_bed6(&self, writer: &mut dyn Write) -> io::Result<()> {
+    pub fn write_bed6(&self, writer: &mut dyn Write) -> io::Result<()> {
         //let name  = self.get_meta_str("name" ).unwrap_or(&vec![]);
         //let score = self.get_meta_int("score").unwrap_or(vec![0; self.length()]);
         let name  = String::from("todo");
@@ -58,7 +58,7 @@ impl GRanges {
         Ok(())
     }
 
-    fn export_bed6(&self, filename: &str, compress: bool) -> io::Result<()> {
+    pub fn export_bed6(&self, filename: &str, compress: bool) -> io::Result<()> {
         let file = File::create(filename)?;
         let mut writer: Box<dyn Write> = if compress {
             Box::new(GzEncoder::new(file, Compression::default()))
@@ -70,7 +70,7 @@ impl GRanges {
         Ok(())
     }
 
-    fn write_bed9(&self, writer: &mut dyn Write) -> io::Result<()> {
+    pub fn write_bed9(&self, writer: &mut dyn Write) -> io::Result<()> {
         //let name = self.get_meta_str("name").unwrap_or(&vec![]);
         //let score = self.get_meta_int("score").unwrap_or(vec![0; self.length()]);
         //let item_rgb = self.get_meta_str("itemRgb").unwrap_or(&vec!["0,0,0".to_string(); self.length()]);
@@ -90,7 +90,7 @@ impl GRanges {
         Ok(())
     }
 
-    fn export_bed9(&self, filename: &str, compress: bool) -> io::Result<()> {
+    pub fn export_bed9(&self, filename: &str, compress: bool) -> io::Result<()> {
         let file = File::create(filename)?;
         let mut writer: Box<dyn Write> = if compress {
             Box::new(GzEncoder::new(file, Compression::default()))
@@ -102,7 +102,7 @@ impl GRanges {
         Ok(())
     }
 
-    fn read_bed3(&mut self, reader: &mut dyn BufRead) -> io::Result<()> {
+    pub fn read_bed3(&mut self, reader: &mut dyn BufRead) -> io::Result<()> {
         let mut line = String::new();
         while reader.read_line(&mut line)? > 0 {
             let fields: Vec<&str> = line.trim().split('\t').collect();
@@ -118,7 +118,7 @@ impl GRanges {
         Ok(())
     }
 
-    fn import_bed3(&mut self, filename: &str, compress: bool) -> io::Result<()> {
+    pub fn import_bed3(&mut self, filename: &str, compress: bool) -> io::Result<()> {
         let file = File::open(filename)?;
         let mut reader: Box<dyn BufRead> = if compress {
             Box::new(BufReader::new(GzDecoder::new(file)))
@@ -129,7 +129,7 @@ impl GRanges {
         Ok(())
     }
 
-    fn read_bed6(&mut self, reader: &mut dyn BufRead) -> io::Result<()> {
+    pub fn read_bed6(&mut self, reader: &mut dyn BufRead) -> io::Result<()> {
         let mut line = String::new();
         while reader.read_line(&mut line)? > 0 {
             let fields: Vec<&str> = line.trim().split('\t').collect();
@@ -151,7 +151,7 @@ impl GRanges {
         Ok(())
     }
 
-    fn import_bed6(&mut self, filename: &str, compress: bool) -> io::Result<()> {
+    pub fn import_bed6(&mut self, filename: &str, compress: bool) -> io::Result<()> {
         let file = File::open(filename)?;
         let mut reader: Box<dyn BufRead> = if compress {
             Box::new(BufReader::new(GzDecoder::new(file)))
@@ -162,7 +162,7 @@ impl GRanges {
         Ok(())
     }
 
-    fn read_bed9(&mut self, reader: &mut dyn BufRead) -> io::Result<()> {
+    pub fn read_bed9(&mut self, reader: &mut dyn BufRead) -> io::Result<()> {
         let mut line = String::new();
         while reader.read_line(&mut line)? > 0 {
             let fields: Vec<&str> = line.trim().split('\t').collect();
@@ -190,7 +190,7 @@ impl GRanges {
         Ok(())
     }
 
-    fn import_bed9(&mut self, filename: &str, compress: bool) -> io::Result<()> {
+    pub fn import_bed9(&mut self, filename: &str, compress: bool) -> io::Result<()> {
         let file = File::open(filename)?;
         let mut reader: Box<dyn BufRead> = if compress {
             Box::new(BufReader::new(GzDecoder::new(file)))
@@ -201,7 +201,7 @@ impl GRanges {
         Ok(())
     }
 
-    fn read_bed(&mut self, reader: &mut dyn BufRead, columns: usize) -> io::Result<()> {
+    pub fn read_bed(&mut self, reader: &mut dyn BufRead, columns: usize) -> io::Result<()> {
         match columns {
             3 => self.read_bed3(reader),
             6 => self.read_bed6(reader),
@@ -210,7 +210,7 @@ impl GRanges {
         }
     }
 
-    fn import_bed(&mut self, filename: &str, columns: usize, compress: bool) -> io::Result<()> {
+    pub fn import_bed(&mut self, filename: &str, columns: usize, compress: bool) -> io::Result<()> {
         let file = File::open(filename)?;
         let mut reader: Box<dyn BufRead> = if compress {
             Box::new(BufReader::new(GzDecoder::new(file)))

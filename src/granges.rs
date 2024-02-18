@@ -441,3 +441,12 @@ fn remove_duplicates_int(indices: &[usize]) -> Vec<usize> {
     }
     result
 }
+
+/* -------------------------------------------------------------------------- */
+
+impl fmt::Display for GRanges {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "{}", self.print_pretty(10))?;
+        Ok(())
+    }
+}

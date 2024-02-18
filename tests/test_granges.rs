@@ -1,4 +1,3 @@
-
 /* Copyright (C) 2024 Philipp Benner
  *
  * This program is free software: you can redistribute it and/or modify
@@ -17,12 +16,25 @@
 
 /* -------------------------------------------------------------------------- */
 
-pub mod alphabet;
-pub mod genome;
-pub mod granges;
-pub mod range;
+#[cfg(test)]
+mod tests {
 
-mod granges_findOverlaps;
-mod granges_bed;
-mod granges_pretty;
-mod utility;
+    use rustynetics::granges::{GRanges};
+
+    #[test]
+    fn test_granges() {
+
+        let granges = GRanges::new_empty(10);
+
+    }
+
+    #[test]
+    fn test_granges_bed3() {
+
+        let mut granges = GRanges::new_empty(0);
+        
+        granges.import_bed("test_granges.bed", 3, false);
+
+        print!("{}", granges)
+    }
+}
