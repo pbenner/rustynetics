@@ -25,4 +25,5 @@ pub mod range;
 mod granges_findOverlaps;
 mod granges_bed;
 mod granges_pretty;
+mod meta;
 mod utility;
