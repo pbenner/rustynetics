@@ -136,11 +136,21 @@ impl Meta {
     fn sort(&self, name: &str, reverse: bool) -> Result<Meta, Box<dyn Error>> {
         let mut indices: Vec<usize> = (0..self.rows).collect();
 
-        match self.get_meta(name).unwrap() {
-            MetaData::StringArray(v) => indices.sort_by(|&i, &j| v[i].cmp(&v[j])),
-            MetaData::FloatArray (v) => indices.sort_by(|&i, &j| v[i].partial_cmp(&v[j]).unwrap()),
-            MetaData::IntArray   (v) => indices.sort_by(|&i, &j| v[i].cmp(&v[j])),
-            _ => ()
+        if reverse {
+            match self.get_meta(name).unwrap() {
+                MetaData::StringArray(v) => indices.sort_by(|&i, &j| v[j].cmp(&v[i])),
+                MetaData::FloatArray (v) => indices.sort_by(|&i, &j| v[j].partial_cmp(&v[i]).unwrap()),
+                MetaData::IntArray   (v) => indices.sort_by(|&i, &j| v[j].cmp(&v[i])),
+                _ => ()
+            }
+        }
+        else {
+            match self.get_meta(name).unwrap() {
+                MetaData::StringArray(v) => indices.sort_by(|&i, &j| v[i].cmp(&v[j])),
+                MetaData::FloatArray (v) => indices.sort_by(|&i, &j| v[i].partial_cmp(&v[j]).unwrap()),
+                MetaData::IntArray   (v) => indices.sort_by(|&i, &j| v[i].cmp(&v[j])),
+                _ => ()
+            }
         }
 
         self.subset(&indices)
