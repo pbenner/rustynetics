@@ -22,20 +22,13 @@ mod tests {
     use rustynetics::granges::{GRanges};
 
     #[test]
-    fn test_granges() {
-
-        let granges = GRanges::new_empty(10);
-
-    }
-
-    #[test]
     fn test_granges_bed3() {
 
         let mut granges = GRanges::new_empty(0);
         
         match granges.import_bed("tests/test_granges.bed", 3, false) {
-            Err(r) => panic!(r),
-            Ok (r) => (),
+            Err(r) => panic!("{}", r),
+            Ok (_) => (),
         };
 
         println!("{}", granges)

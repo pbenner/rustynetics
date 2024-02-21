@@ -22,7 +22,7 @@ use std::collections::HashMap;
 
 use crate::range::Range;
 use crate::genome::Genome;
-use crate::granges_findOverlaps::find_overlaps;
+use crate::granges_find_overlaps::find_overlaps;
 use crate::meta::Meta;
 use crate::error::Error;
 
@@ -281,9 +281,7 @@ impl GRanges {
     pub fn set_lengths(&self, n_: usize) -> Self {
         let mut s = self.clone();
         let mut n = n_;
-        if n < 0 {
-            n = 0
-        }
+
         for i in 0..s.length() {
             if s.strand[i] == '+' {
                 s.ranges[i].to = s.ranges[i].from + n;

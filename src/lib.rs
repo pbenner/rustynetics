@@ -23,7 +23,7 @@ pub mod granges;
 pub mod range;
 pub mod error;
 
-mod granges_findOverlaps;
+mod granges_find_overlaps;
 mod granges_bed;
 mod granges_pretty;
 mod meta;

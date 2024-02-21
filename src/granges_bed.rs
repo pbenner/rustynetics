@@ -53,7 +53,11 @@ impl GRanges {
         let score = 3.0;
 
         for i in 0..self.length() {
-            write!(writer, "{}\t{}\t{}\t{}\t{}\t{}\n", self.seqnames[i], self.ranges[i].from, self.ranges[i].to, name, score, self.strand.get(i).unwrap_or(&'.'));
+            let r = write!(writer, "{}\t{}\t{}\t{}\t{}\t{}\n", self.seqnames[i], self.ranges[i].from, self.ranges[i].to, name, score, self.strand.get(i).unwrap_or(&'.'));
+
+            if r.is_err() {
+                return r
+            }
         }
         Ok(())
     }
@@ -85,7 +89,11 @@ impl GRanges {
             let thick_start = self.ranges[i].from;
             let thick_end   = self.ranges[i].to;
 
-            write!(writer, "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n", self.seqnames[i], self.ranges[i].from, self.ranges[i].to, name, score, self.strand.get(i).unwrap_or(&'.'), thick_start, thick_end, item_rgb);
+            let r = write!(writer, "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n", self.seqnames[i], self.ranges[i].from, self.ranges[i].to, name, score, self.strand.get(i).unwrap_or(&'.'), thick_start, thick_end, item_rgb);
+            
+            if r.is_err() {
+                return r
+            }
         }
         Ok(())
     }
