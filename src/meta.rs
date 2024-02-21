@@ -16,9 +16,9 @@
 
 /* -------------------------------------------------------------------------- */
 
-use std::error::Error;
 use list_comprehension_macro::comp;
 
+use crate::error::Error;
 use crate::range::Range;
 
 /* -------------------------------------------------------------------------- */
@@ -86,9 +86,9 @@ pub struct Meta {
 /* -------------------------------------------------------------------------- */
 
 impl Meta {
-    pub fn new(names: Vec<String>, data: Vec<MetaData>) -> Result<Meta, Box<dyn Error>> {
+    pub fn new(names: Vec<String>, data: Vec<MetaData>) -> Result<Self, Error> {
         if names.len() != data.len() {
-            return Err("Invalid parameters!".into());
+            return Err(format!("Invalid parameters!").into());
         }
         let mut meta = Meta {
             meta_name: Vec::new(),
@@ -111,7 +111,7 @@ impl Meta {
         meta
     }
 
-    pub fn add_meta(&mut self, name: String, meta: MetaData) -> Result<(), Box<dyn Error>> {
+    pub fn add_meta(&mut self, name: String, meta: MetaData) -> Result<Self, Error> {
         let n = meta.len();
         if self.meta_name.len() > 0 {
             if n != self.rows {
@@ -126,7 +126,7 @@ impl Meta {
         Ok(())
     }
 
-    pub fn append(&mut self, meta : &Meta) -> Result<(), Box<dyn Error>> {
+    pub fn append(&mut self, meta : &Meta) -> Result<(), Error> {
         let m = self.meta_name.len();
 
         for j in 0..m {
@@ -155,7 +155,7 @@ impl Meta {
         self.meta_name.iter().position(|x| x == name).map(|index| &self.meta_data[index])
     }
 
-    pub fn slice(&self, ifrom : usize, ito : usize) -> Result<Meta, Box<dyn Error>> {
+    pub fn slice(&self, ifrom : usize, ito : usize) -> Result<Meta, Error> {
 
         let n = ito-ifrom;
         let m = self.meta_name.len();
@@ -172,7 +172,7 @@ impl Meta {
         })
     }
 
-    pub fn subset(&self, indices: &[usize]) -> Result<Meta, Box<dyn Error>> {
+    pub fn subset(&self, indices: &[usize]) -> Result<Meta, Error> {
         let n = indices.len();
         let m = self.meta_name.len();
         let mut data = Vec::new();
@@ -188,7 +188,7 @@ impl Meta {
         })
     }
 
-    pub fn sort(&self, name: &str, reverse: bool) -> Result<Meta, Box<dyn Error>> {
+    pub fn sort(&self, name: &str, reverse: bool) -> Result<Self, Error> {
         let mut indices: Vec<usize> = (0..self.rows).collect();
 
         if reverse {

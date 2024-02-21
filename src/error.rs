@@ -1,4 +1,3 @@
-
 /* Copyright (C) 2024 Philipp Benner
  *
  * This program is free software: you can redistribute it and/or modify
@@ -15,16 +14,30 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+use std::fmt;
+
 /* -------------------------------------------------------------------------- */
 
-pub mod alphabet;
-pub mod genome;
-pub mod granges;
-pub mod range;
-pub mod error;
+pub struct Error {
+    message: String,
+}
 
-mod granges_findOverlaps;
-mod granges_bed;
-mod granges_pretty;
-mod meta;
-mod utility;
+/* -------------------------------------------------------------------------- */
+
+impl From<String> for Error {
+    fn from(str : String) -> Self {
+        Error{ str }
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+
+impl fmt::Debug for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            self.message
+        )
+    }
+}
