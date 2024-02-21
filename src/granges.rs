@@ -39,6 +39,19 @@ impl<'a> GRangesRow<'a> {
     }
 }
 
+impl<'a> fmt::Display for GRangesRow<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "GRangesRow(seqname={}, range=({}, {}), strand={})",
+            self.granges.seqnames[self.row],
+            self.granges.ranges[self.row].from,
+            self.granges.ranges[self.row].to,
+            self.granges.strand[self.row] as char
+        )
+    }
+}
+
 /* -------------------------------------------------------------------------- */
 
 pub struct GRanges {
@@ -326,18 +339,7 @@ impl GRanges {
     }
 }
 
-impl<'a> fmt::Display for GRangesRow<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "GRangesRow(seqname={}, range=({}, {}), strand={})",
-            self.granges.seqnames[self.row],
-            self.granges.ranges[self.row].from,
-            self.granges.ranges[self.row].to,
-            self.granges.strand[self.row] as char
-        )
-    }
-}
+/* -------------------------------------------------------------------------- */
 
 struct GRangesSort<'a> {
     granges: &'a GRanges,
@@ -383,6 +385,8 @@ impl<'a> Ord for GRangesSort<'a> {
         Ordering::Equal
     }
 }
+
+/* -------------------------------------------------------------------------- */
 
 fn remove_duplicates_int(indices: &[usize]) -> Vec<usize> {
     let mut set = std::collections::HashSet::new();
