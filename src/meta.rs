@@ -49,6 +49,19 @@ impl MetaData {
         }
     }
 
+    pub fn concat(&self, data : &Self) -> Result<Self, Error> {
+        match (self, data) {
+            (MetaData::FloatArray  (v), MetaData::FloatArray  (w)) => Ok(MetaData::FloatArray  (vec![*v, *w].concat())),
+            (MetaData::IntArray    (v), MetaData::IntArray    (w)) => Ok(MetaData::IntArray    (vec![*v, *w].concat())),
+            (MetaData::StringArray (v), MetaData::StringArray (w)) => Ok(MetaData::StringArray (vec![*v, *w].concat())),
+            (MetaData::StringMatrix(v), MetaData::StringMatrix(w)) => Ok(MetaData::StringMatrix(vec![*v, *w].concat())),
+            (MetaData::FloatMatrix (v), MetaData::FloatMatrix (w)) => Ok(MetaData::FloatMatrix (vec![*v, *w].concat())),
+            (MetaData::IntMatrix   (v), MetaData::IntMatrix   (w)) => Ok(MetaData::IntMatrix   (vec![*v, *w].concat())),
+            (MetaData::RangeArray  (v), MetaData::RangeArray  (w)) => Ok(MetaData::RangeArray  (vec![*v, *w].concat())),
+            _ => Err(format!("MetaData types do not match").into())
+        }
+    }
+
     pub fn slice(&self, ifrom : usize, ito : usize) -> Self {
         match self {
             MetaData::FloatArray  (v) => MetaData::FloatArray  (comp![ v[i] for i in ifrom..ito ]),
@@ -96,7 +109,7 @@ impl Meta {
             rows: 0,
         };
         for i in 0..names.len() {
-            meta.add_meta(names[i].clone(), data[i].clone())?;
+            meta.add_meta(names[i], data[i].clone())?;
         }
         Ok(meta)
     }
@@ -111,48 +124,72 @@ impl Meta {
         meta
     }
 
-    pub fn add_meta(&mut self, name: String, meta: MetaData) -> Result<Self, Error> {
+    pub fn num_rows(&self) -> usize {
+        self.rows
+    }
+
+    pub fn num_cols(&self) -> usize {
+        self.meta_name.len()
+    }
+
+    pub fn append(&self, meta : &Meta) -> Result<Self, Error> {
+        let n1 = self.num_rows();
+        let n2 = meta.num_rows();
+
+        let meta_name = Vec::new();
+        let meta_data = Vec::new();
+
+        for j in 0..self.num_cols() {
+            let meta_col1 = self.meta_data[j];
+            let meta_col2 = meta.get_meta(meta.meta_name[j])?;
+            let meta_col3 = meta_col1.concat(meta_col2)?;
+
+            meta_name.push(self.meta_name[j]);
+            meta_data.push(meta_col3);
+        }
+        let mut meta = Meta {
+            meta_name: meta_name,
+            meta_data: meta_data,
+            rows: n1+n2,
+        };
+        Ok(meta)
+    }
+
+    pub fn add_meta(&mut self, name: String, meta: MetaData) -> Result<(), Error> {
         let n = meta.len();
         if self.meta_name.len() > 0 {
             if n != self.rows {
                 return Err(format!("Column '{}' has invalid length: expected length of '{}' but column has length '{}'", name, self.rows, n).into());
             }
-        } else {
-            self.rows = n;
         }
-        self.delete_meta(&name);
+        self.delete_meta(name);
         self.meta_name.push(name);
         self.meta_data.push(meta);
         Ok(())
     }
 
-    pub fn append(&mut self, meta : &Meta) -> Result<(), Error> {
-        let m = self.meta_name.len();
-
-        for j in 0..m {
-            self.add_meta(meta.meta_name[j], meta.meta_data[j])?;
-        }
-        Ok(())
-    }
-
-    pub fn delete_meta(&mut self, name: &str) {
-        if let Some(index) = self.meta_name.iter().position(|x| x == name) {
+    pub fn delete_meta(&mut self, name: String) {
+        if let Some(index) = self.meta_name.iter().position(|x| *x == name) {
             self.meta_name.remove(index);
             self.meta_data.remove(index);
         }
     }
 
-    pub fn rename_meta(&mut self, name_old: &str, name_new: &str) {
+    pub fn rename_meta(&mut self, name_old: String, name_new: String) {
         if name_old == name_new {
             return;
         }
-        if let Some(index) = self.meta_name.iter().position(|x| x == name_old) {
+        if let Some(index) = self.meta_name.iter().position(|x| *x == name_old) {
             self.meta_name[index] = name_new.to_string();
         }
     }
 
-    pub fn get_meta(&self, name: &str) -> Option<&MetaData> {
-        self.meta_name.iter().position(|x| x == name).map(|index| &self.meta_data[index])
+    pub fn get_meta(&self, name: String) -> Result<&MetaData, Error> {
+        let r = self.meta_name.iter().position(|x| *x == name).map(|index| &self.meta_data[index]);
+        match r {
+            Some(v) => Ok(v),
+            None    => Err(format!("Column {} not found in meta object", name).into())
+        }
     }
 
     pub fn slice(&self, ifrom : usize, ito : usize) -> Result<Meta, Error> {
@@ -188,7 +225,7 @@ impl Meta {
         })
     }
 
-    pub fn sort(&self, name: &str, reverse: bool) -> Result<Self, Error> {
+    pub fn sort(&self, name: String, reverse: bool) -> Result<Self, Error> {
         let mut indices: Vec<usize> = (0..self.rows).collect();
 
         if reverse {

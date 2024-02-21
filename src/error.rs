@@ -26,7 +26,7 @@ pub struct Error {
 
 impl From<String> for Error {
     fn from(str : String) -> Self {
-        Error{ str }
+        Error{ message: str }
     }
 }
 

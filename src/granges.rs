@@ -24,6 +24,7 @@ use crate::range::Range;
 use crate::genome::Genome;
 use crate::granges_findOverlaps::find_overlaps;
 use crate::meta::Meta;
+use crate::error::Error;
 
 /* -------------------------------------------------------------------------- */
 
@@ -104,20 +105,20 @@ impl GRanges {
         GRangesRow::new(self, i)
     }
 
-    pub fn append(&self, other: &GRanges) -> Self {
+    pub fn append(&self, other: &GRanges) -> Result<Self, Error> {
         let mut seqnames = self.seqnames.clone();
         seqnames.extend(other.seqnames.iter().cloned());
         let mut ranges = self.ranges.clone();
         ranges.extend(other.ranges.iter().cloned());
         let mut strand = self.strand.clone();
         strand.extend(other.strand.iter().cloned());
-        let meta = self.meta.clone().append(&other.meta);
-        GRanges {
+        let meta = self.meta.clone().append(&other.meta)?;
+        Ok(GRanges {
             seqnames,
             ranges,
             strand,
             meta,
-        }
+        })
     }
 
     pub fn remove(&self, indices: &[usize]) -> Self {
