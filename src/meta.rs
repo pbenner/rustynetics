@@ -16,7 +16,6 @@
 
 /* -------------------------------------------------------------------------- */
 
-use std::fmt;
 use std::error::Error;
 use list_comprehension_macro::comp;
 
@@ -25,7 +24,7 @@ use crate::range::Range;
 /* -------------------------------------------------------------------------- */
 
 #[derive(Debug, Clone)]
-enum MetaData {
+pub enum MetaData {
     StringMatrix(Vec<Vec<String>>),
     StringArray(Vec<String>),
     FloatMatrix(Vec<Vec<f64>>),
@@ -38,11 +37,31 @@ enum MetaData {
 /* -------------------------------------------------------------------------- */
 
 impl MetaData {
-    fn len(&self) -> usize {
-        self.len()
+    pub fn len(&self) -> usize {
+        match self {
+            MetaData::FloatArray  (v) => v.len(),
+            MetaData::IntArray    (v) => v.len(),
+            MetaData::StringArray (v) => v.len(),
+            MetaData::StringMatrix(v) => v.len(),
+            MetaData::FloatMatrix (v) => v.len(),
+            MetaData::IntMatrix   (v) => v.len(),
+            MetaData::RangeArray  (v) => v.len(),
+        }
     }
 
-    fn subset(&self, indices : &[usize]) -> Self {
+    pub fn slice(&self, ifrom : usize, ito : usize) -> Self {
+        match self {
+            MetaData::FloatArray  (v) => MetaData::FloatArray  (comp![ v[i] for i in ifrom..ito ]),
+            MetaData::IntArray    (v) => MetaData::IntArray    (comp![ v[i] for i in ifrom..ito ]),
+            MetaData::StringArray (v) => MetaData::StringArray (comp![ v[i].clone() for i in ifrom..ito ]),
+            MetaData::StringMatrix(v) => MetaData::StringMatrix(comp![ v[i].clone() for i in ifrom..ito ]),
+            MetaData::FloatMatrix (v) => MetaData::FloatMatrix (comp![ v[i].clone() for i in ifrom..ito ]),
+            MetaData::IntMatrix   (v) => MetaData::IntMatrix   (comp![ v[i].clone() for i in ifrom..ito ]),
+            MetaData::RangeArray  (v) => MetaData::RangeArray  (comp![ v[i].clone() for i in ifrom..ito ]),
+        }
+    }
+
+    pub fn subset(&self, indices : &[usize]) -> Self {
         match self {
             MetaData::FloatArray  (v) => MetaData::FloatArray  (comp![ v[*i] for i in indices ]),
             MetaData::IntArray    (v) => MetaData::IntArray    (comp![ v[*i] for i in indices ]),
@@ -57,8 +76,8 @@ impl MetaData {
 
 /* -------------------------------------------------------------------------- */
 
-#[derive(Debug)]
-struct Meta {
+#[derive(Clone, Debug)]
+pub struct Meta {
     meta_name: Vec<String>,
     meta_data: Vec<MetaData>,
     rows: usize,
@@ -67,7 +86,7 @@ struct Meta {
 /* -------------------------------------------------------------------------- */
 
 impl Meta {
-    fn new(names: Vec<String>, data: Vec<MetaData>) -> Result<Meta, Box<dyn Error>> {
+    pub fn new(names: Vec<String>, data: Vec<MetaData>) -> Result<Meta, Box<dyn Error>> {
         if names.len() != data.len() {
             return Err("Invalid parameters!".into());
         }
@@ -82,7 +101,17 @@ impl Meta {
         Ok(meta)
     }
 
-    fn add_meta(&mut self, name: String, meta: MetaData) -> Result<(), Box<dyn Error>> {
+    pub fn new_empty(rows : usize) -> Meta {
+
+        let mut meta = Meta {
+            meta_name: Vec::new(),
+            meta_data: Vec::new(),
+            rows: rows,
+        };
+        meta
+    }
+
+    pub fn add_meta(&mut self, name: String, meta: MetaData) -> Result<(), Box<dyn Error>> {
         let n = meta.len();
         if self.meta_name.len() > 0 {
             if n != self.rows {
@@ -97,14 +126,23 @@ impl Meta {
         Ok(())
     }
 
-    fn delete_meta(&mut self, name: &str) {
+    pub fn append(&mut self, meta : &Meta) -> Result<(), Box<dyn Error>> {
+        let m = self.meta_name.len();
+
+        for j in 0..m {
+            self.add_meta(meta.meta_name[j], meta.meta_data[j])?;
+        }
+        Ok(())
+    }
+
+    pub fn delete_meta(&mut self, name: &str) {
         if let Some(index) = self.meta_name.iter().position(|x| x == name) {
             self.meta_name.remove(index);
             self.meta_data.remove(index);
         }
     }
 
-    fn rename_meta(&mut self, name_old: &str, name_new: &str) {
+    pub fn rename_meta(&mut self, name_old: &str, name_new: &str) {
         if name_old == name_new {
             return;
         }
@@ -113,11 +151,28 @@ impl Meta {
         }
     }
 
-    fn get_meta(&self, name: &str) -> Option<&MetaData> {
+    pub fn get_meta(&self, name: &str) -> Option<&MetaData> {
         self.meta_name.iter().position(|x| x == name).map(|index| &self.meta_data[index])
     }
 
-    fn subset(&self, indices: &[usize]) -> Result<Meta, Box<dyn Error>> {
+    pub fn slice(&self, ifrom : usize, ito : usize) -> Result<Meta, Box<dyn Error>> {
+
+        let n = ito-ifrom;
+        let m = self.meta_name.len();
+        let mut data = Vec::new();
+
+        for j in 0..m {
+            data.push(self.meta_data[j].slice(ifrom, ito));
+        }
+
+        Ok(Meta {
+            meta_name: self.meta_name.clone(),
+            meta_data: data,
+            rows: n,
+        })
+    }
+
+    pub fn subset(&self, indices: &[usize]) -> Result<Meta, Box<dyn Error>> {
         let n = indices.len();
         let m = self.meta_name.len();
         let mut data = Vec::new();
@@ -133,7 +188,7 @@ impl Meta {
         })
     }
 
-    fn sort(&self, name: &str, reverse: bool) -> Result<Meta, Box<dyn Error>> {
+    pub fn sort(&self, name: &str, reverse: bool) -> Result<Meta, Box<dyn Error>> {
         let mut indices: Vec<usize> = (0..self.rows).collect();
 
         if reverse {

@@ -23,59 +23,11 @@ use std::collections::HashMap;
 use crate::range::Range;
 use crate::genome::Genome;
 use crate::granges_findOverlaps::find_overlaps;
+use crate::meta::Meta;
 
 /* -------------------------------------------------------------------------- */
 
-#[derive(Clone)]
-struct Meta {
-    meta_name: Vec<String>,
-    meta_data: Vec<String>,
-    rows: usize,
-}
-
-impl Meta {
-    fn new() -> Self {
-        Meta {
-            meta_name: Vec::new(),
-            meta_data: Vec::new(),
-            rows: 0,
-        }
-    }
-
-    fn clone(&self) -> Self {
-        Meta {
-            meta_name: self.meta_name.clone(),
-            meta_data: self.meta_data.clone(),
-            rows: self.rows,
-        }
-    }
-
-    fn subset(&self, indices: &[usize]) -> Self {
-        let mut meta_name = Vec::new();
-        let mut meta_data = Vec::new();
-        for &i in indices {
-            meta_name.push(self.meta_name[i].clone());
-            meta_data.push(self.meta_data[i].clone());
-        }
-        Meta {
-            meta_name,
-            meta_data,
-            rows: indices.len(),
-        }
-    }
-
-    fn append(&self, _meta: &Meta) -> Meta {
-        self.clone()
-    }
-
-    fn slice(&self, _ifrom: usize, _ito: usize) -> Meta {
-        self.clone()
-    }
-}
-
-/* -------------------------------------------------------------------------- */
-
-struct GRangesRow<'a> {
+pub struct GRangesRow<'a> {
     granges: &'a GRanges,
     row: usize,
 }
@@ -115,7 +67,7 @@ impl GRanges {
             seqnames,
             ranges,
             strand,
-            meta: Meta::new(),
+            meta: Meta::new_empty(n),
         }
     }
 
@@ -127,7 +79,7 @@ impl GRanges {
             seqnames,
             ranges,
             strand,
-            meta: Meta::new(),
+            meta: Meta::new_empty(n),
         }
     }
 
@@ -235,7 +187,7 @@ impl GRanges {
         let to     = (ifrom..ito).map(|i| self.ranges[i].to  ).collect();
         let strand = (ifrom..ito).map(|i| self.strand[i]     ).collect();
         let result = GRanges::new(seqnames, from, to, strand);
-        let meta = self.meta.slice(ifrom, ito);
+        let meta   = self.meta.slice(ifrom, ito);
         GRanges {
             seqnames: result.seqnames,
             ranges: result.ranges,
