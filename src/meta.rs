@@ -91,8 +91,8 @@ impl MetaData {
 
 #[derive(Clone, Debug)]
 pub struct Meta {
-    meta_name: Vec<String>,
-    meta_data: Vec<MetaData>,
+    pub meta_name: Vec<String>,
+    pub meta_data: Vec<MetaData>,
     rows: usize,
 }
 

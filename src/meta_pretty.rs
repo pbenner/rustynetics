@@ -16,7 +16,10 @@
 
 /* -------------------------------------------------------------------------- */
 
-use std::fmt::Write;
+use std::fmt;
+use std::io;
+use std::io::BufWriter;
+use std::io::Write;
 
 use crate::error::Error;
 use crate::meta::Meta;
@@ -26,10 +29,7 @@ use crate::meta::MetaData;
 
 impl Meta {
 
-    fn write_pretty(&self, n: usize, args: &[impl Into<OptionPrintScientific>]) -> String {
-        let use_scientific = args
-            .iter()
-            .any(|arg| matches!(arg.into(), OptionPrintScientific { value: true }));
+    fn write_pretty(&self, n: usize, use_scientific: bool) -> String {
 
         let mut buffer = String::new();
 
@@ -38,14 +38,14 @@ impl Meta {
                                 i: usize,
                                 j: usize,
                                 data: &MetaData|
-         -> fmt::Result {
+         -> io::Result<()> {
             match data {
-                MetaData::StringSlice(v) => {
+                MetaData::StringMatrix(v) => {
                     for k in 0..v[i].len() {
                         write!(writer, " {}", v[i][k])?;
                     }
                 }
-                MetaData::FloatSlice(v) => {
+                MetaData::FloatMatrix(v) => {
                     if use_scientific {
                         for k in 0..v[i].len() {
                             write!(writer, " {:e}", v[i][k])?;
@@ -56,12 +56,11 @@ impl Meta {
                         }
                     }
                 }
-                MetaData::IntSlice(v) => {
+                MetaData::IntMatrix(v) => {
                     for k in 0..v[i].len() {
                         write!(writer, " {}", v[i][k])?;
                     }
                 }
-                _ => panic!("invalid meta data"),
             }
             Ok(())
         };
@@ -70,36 +69,36 @@ impl Meta {
                           widths: &[usize],
                           i: usize,
                           j: usize|
-         -> fmt::Result {
+         -> io::Result<()> {
             match &self.meta_data[j] {
-                MetaData::String(v) => write!(writer, " {:width$}", v[i], width = widths[j] - 1),
-                MetaData::Float(v) => {
+                MetaData::StringArray(v) => write!(writer, " {:width$}", v[i], width = widths[j] - 1),
+                MetaData::FloatArray(v)  => {
                     if use_scientific {
-                        write!(writer, " {:width$e}", v[i], width = widths[j] - 1)
+                        write!(writer, " {:width$e}" , v[i], width = widths[j] - 1)
                     } else {
                         write!(writer, " {:width$.2}", v[i], width = widths[j] - 1)
                     }
                 }
-                MetaData::Int(v) => write!(writer, " {:width$d}", v[i], width = widths[j] - 1),
-                MetaData::Range(v) => write!(writer, " [{}, {}]", v[i].from, v[i].to),
+                MetaData::IntArray(v)   => write!(writer, " {:width$}", v[i], width = widths[j] - 1),
+                MetaData::RangeArray(v) => write!(writer, " [{}, {}]", v[i].from, v[i].to),
                 _ => print_cell_slice(writer, widths, i, j, &self.meta_data[j]),
             }
         };
 
-        let print_row = |writer: &mut dyn Write, widths: &[usize], i: usize| -> fmt::Result {
+        let print_row = |writer: &mut dyn Write, widths: &[usize], i: usize| -> io::Result<()> {
             if i != 0 {
                 writeln!(writer)?;
             }
-            for j in 0..self.meta_length() {
+            for j in 0..self.num_cols() {
                 print_cell(writer, widths, i, j)?;
             }
             Ok(())
         };
 
-        let update_max_widths = |i: usize, widths: &mut [usize]| -> fmt::Result {
-            for j in 0..self.meta_length() {
-                let mut tmp_buffer = String::new();
-                let mut tmp_writer = std::io::BufWriter::new(&mut tmp_buffer);
+        let update_max_widths = |i: usize, widths: &mut [usize]| -> io::Result<()> {
+            for j in 0..self.num_cols() {
+                let mut tmp_buffer = Vec::new();
+                let mut tmp_writer = BufWriter::new(&mut tmp_buffer);
                 print_cell(&mut tmp_writer, widths, i, j)?;
                 tmp_writer.flush()?;
                 let width = tmp_buffer.len();
@@ -110,19 +109,19 @@ impl Meta {
             Ok(())
         };
 
-        let print_header = |writer: &mut dyn Write, widths: &[usize]| -> fmt::Result {
-            for j in 0..self.meta_length() {
+        let print_header = |writer: &mut dyn Write, widths: &[usize]| -> io::Result<()> {
+            for j in 0..self.num_cols() {
                 write!(writer, " {:width$}", self.meta_name[j], width = widths[j] - 1)?;
             }
             writeln!(writer)?;
             Ok(())
         };
 
-        let apply_rows = |f1: &mut dyn FnMut(usize) -> fmt::Result,
-                          f2: &mut dyn FnMut() -> fmt::Result|
-         -> fmt::Result {
-            if self.length() <= n + 1 {
-                for i in 0..self.length() {
+        let apply_rows = |f1: &mut dyn FnMut(usize) -> io::Result<()>,
+                          f2: &mut dyn FnMut() -> io::Result<()>|
+         -> io::Result<()> {
+            if self.num_rows() <= n + 1 {
+                for i in 0..self.num_rows() {
                     f1(i)?;
                 }
             } else {
@@ -130,15 +129,15 @@ impl Meta {
                     f1(i)?;
                 }
                 f2()?;
-                for i in self.length() - n / 2..self.length() {
+                for i in self.num_rows() - n / 2..self.num_rows() {
                     f1(i)?;
                 }
             }
             Ok(())
         };
 
-        let mut widths = vec![0; self.meta_length()];
-        for j in 0..self.meta_length() {
+        let mut widths = vec![0; self.num_cols()];
+        for j in 0..self.num_cols() {
             let width = format!(" {}", self.meta_name[j]).len();
             widths[j] = width;
         }
@@ -146,7 +145,7 @@ impl Meta {
         apply_rows(
             &mut |i| update_max_widths(i, &mut widths),
             &mut || Ok(()),
-        )?;
+        );
 
         print_header(&mut buffer, &widths)?;
         apply_rows(
@@ -163,12 +162,8 @@ impl Meta {
         buffer
     }
 
-    fn print_pretty(&self, n: usize, args: &[impl Into<OptionPrintScientific>]) -> String {
-        self.write_pretty(n, args)
+    fn print_pretty(&self, n: usize, use_scientific: bool) -> String {
+        self.write_pretty(n, use_scientific)
     }
 
-}
-
-struct OptionPrintScientific {
-    value: bool,
 }
