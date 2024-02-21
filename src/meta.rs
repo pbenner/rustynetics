@@ -192,7 +192,7 @@ impl Meta {
         }
     }
 
-    pub fn slice(&self, ifrom : usize, ito : usize) -> Result<Meta, Error> {
+    pub fn slice(&self, ifrom : usize, ito : usize) -> Meta {
 
         let n = ito-ifrom;
         let m = self.meta_name.len();
@@ -202,14 +202,14 @@ impl Meta {
             data.push(self.meta_data[j].slice(ifrom, ito));
         }
 
-        Ok(Meta {
+        Meta {
             meta_name: self.meta_name.clone(),
             meta_data: data,
             rows: n,
-        })
+        }
     }
 
-    pub fn subset(&self, indices: &[usize]) -> Result<Meta, Error> {
+    pub fn subset(&self, indices: &[usize]) -> Meta {
         let n = indices.len();
         let m = self.meta_name.len();
         let mut data = Vec::new();
@@ -218,11 +218,11 @@ impl Meta {
             data.push(self.meta_data[j].subset(indices));
         }
 
-        Ok(Meta {
+        Meta {
             meta_name: self.meta_name.clone(),
             meta_data: data,
             rows: n,
-        })
+        }
     }
 
     pub fn sort(&self, name: String, reverse: bool) -> Result<Self, Error> {
