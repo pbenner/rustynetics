@@ -234,7 +234,7 @@ impl GRanges {
         }
     }
 
-    pub fn sort(&self, name: &str, reverse: bool) -> Result<Self, String> {
+    pub fn sort(&self, name: &str, reverse: bool) -> Result<Self, Error> {
         if name.is_empty() {
             let mut l = GRangesSort::new(self);
             if reverse {

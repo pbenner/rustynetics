@@ -245,7 +245,7 @@ impl Meta {
             }
         }
 
-        self.subset(&indices)
+        Ok(self.subset(&indices))
     }
 }
 
