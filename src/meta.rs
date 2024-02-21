@@ -116,7 +116,7 @@ impl Meta {
 
     pub fn new_empty(rows : usize) -> Meta {
 
-        let mut meta = Meta {
+        let meta = Meta {
             meta_name: Vec::new(),
             meta_data: Vec::new(),
             rows: rows,
@@ -136,18 +136,18 @@ impl Meta {
         let n1 = self.num_rows();
         let n2 = meta.num_rows();
 
-        let meta_name = Vec::new();
-        let meta_data = Vec::new();
+        let mut meta_name = Vec::new();
+        let mut meta_data = Vec::new();
 
         for j in 0..self.num_cols() {
-            let meta_col1 = self.meta_data[j];
-            let meta_col2 = meta.get_meta(meta.meta_name[j])?;
+            let meta_col1 = self.meta_data[j].clone();
+            let meta_col2 = meta.get_meta(&meta.meta_name[j])?;
             let meta_col3 = meta_col1.concat(meta_col2)?;
 
-            meta_name.push(self.meta_name[j]);
+            meta_name.push(self.meta_name[j].clone());
             meta_data.push(meta_col3);
         }
-        let mut meta = Meta {
+        let meta = Meta {
             meta_name: meta_name,
             meta_data: meta_data,
             rows: n1+n2,
@@ -162,30 +162,30 @@ impl Meta {
                 return Err(format!("Column '{}' has invalid length: expected length of '{}' but column has length '{}'", name, self.rows, n).into());
             }
         }
-        self.delete_meta(name);
+        self.delete_meta(&name);
         self.meta_name.push(name);
         self.meta_data.push(meta);
         Ok(())
     }
 
-    pub fn delete_meta(&mut self, name: String) {
-        if let Some(index) = self.meta_name.iter().position(|x| *x == name) {
+    pub fn delete_meta(&mut self, name: &String) {
+        if let Some(index) = self.meta_name.iter().position(|x| x == name) {
             self.meta_name.remove(index);
             self.meta_data.remove(index);
         }
     }
 
-    pub fn rename_meta(&mut self, name_old: String, name_new: String) {
+    pub fn rename_meta(&mut self, name_old: &String, name_new: &String) {
         if name_old == name_new {
             return;
         }
-        if let Some(index) = self.meta_name.iter().position(|x| *x == name_old) {
+        if let Some(index) = self.meta_name.iter().position(|x| x == name_old) {
             self.meta_name[index] = name_new.to_string();
         }
     }
 
-    pub fn get_meta(&self, name: String) -> Result<&MetaData, Error> {
-        let r = self.meta_name.iter().position(|x| *x == name).map(|index| &self.meta_data[index]);
+    pub fn get_meta(&self, name: &String) -> Result<&MetaData, Error> {
+        let r = self.meta_name.iter().position(|x| x == name).map(|index| &self.meta_data[index]);
         match r {
             Some(v) => Ok(v),
             None    => Err(format!("Column {} not found in meta object", name).into())
@@ -225,7 +225,7 @@ impl Meta {
         }
     }
 
-    pub fn sort(&self, name: String, reverse: bool) -> Result<Self, Error> {
+    pub fn sort(&self, name: &String, reverse: bool) -> Result<Self, Error> {
         let mut indices: Vec<usize> = (0..self.rows).collect();
 
         if reverse {
