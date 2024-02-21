@@ -16,7 +16,6 @@
 
 /* -------------------------------------------------------------------------- */
 
-use std::iter;
 use list_comprehension_macro::comp;
 
 use crate::error::Error;
