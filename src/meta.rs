@@ -16,6 +16,7 @@
 
 /* -------------------------------------------------------------------------- */
 
+use std::iter;
 use list_comprehension_macro::comp;
 
 use crate::error::Error;
@@ -51,13 +52,13 @@ impl MetaData {
 
     pub fn concat(&self, data : &Self) -> Result<Self, Error> {
         match (self, data) {
-            (MetaData::FloatArray  (v), MetaData::FloatArray  (w)) => Ok(MetaData::FloatArray  (vec![*v, *w].concat())),
-            (MetaData::IntArray    (v), MetaData::IntArray    (w)) => Ok(MetaData::IntArray    (vec![*v, *w].concat())),
-            (MetaData::StringArray (v), MetaData::StringArray (w)) => Ok(MetaData::StringArray (vec![*v, *w].concat())),
-            (MetaData::StringMatrix(v), MetaData::StringMatrix(w)) => Ok(MetaData::StringMatrix(vec![*v, *w].concat())),
-            (MetaData::FloatMatrix (v), MetaData::FloatMatrix (w)) => Ok(MetaData::FloatMatrix (vec![*v, *w].concat())),
-            (MetaData::IntMatrix   (v), MetaData::IntMatrix   (w)) => Ok(MetaData::IntMatrix   (vec![*v, *w].concat())),
-            (MetaData::RangeArray  (v), MetaData::RangeArray  (w)) => Ok(MetaData::RangeArray  (vec![*v, *w].concat())),
+            (MetaData::FloatArray  (v), MetaData::FloatArray  (w)) => Ok(MetaData::FloatArray  ([v.clone(), w.clone()].concat())),
+            (MetaData::IntArray    (v), MetaData::IntArray    (w)) => Ok(MetaData::IntArray    ([v.clone(), w.clone()].concat())),
+            (MetaData::StringArray (v), MetaData::StringArray (w)) => Ok(MetaData::StringArray ([v.clone(), w.clone()].concat())),
+            (MetaData::StringMatrix(v), MetaData::StringMatrix(w)) => Ok(MetaData::StringMatrix([v.clone(), w.clone()].concat())),
+            (MetaData::FloatMatrix (v), MetaData::FloatMatrix (w)) => Ok(MetaData::FloatMatrix ([v.clone(), w.clone()].concat())),
+            (MetaData::IntMatrix   (v), MetaData::IntMatrix   (w)) => Ok(MetaData::IntMatrix   ([v.clone(), w.clone()].concat())),
+            (MetaData::RangeArray  (v), MetaData::RangeArray  (w)) => Ok(MetaData::RangeArray  ([v.clone(), w.clone()].concat())),
             _ => Err(format!("MetaData types do not match").into())
         }
     }
@@ -109,7 +110,7 @@ impl Meta {
             rows: 0,
         };
         for i in 0..names.len() {
-            meta.add_meta(names[i], data[i].clone())?;
+            meta.add_meta(names[i].clone(), data[i].clone())?;
         }
         Ok(meta)
     }
