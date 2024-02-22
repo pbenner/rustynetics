@@ -29,9 +29,9 @@ use crate::meta::MetaData;
 
 impl Meta {
 
-    fn write_pretty(&self, n: usize, use_scientific: bool) -> String {
+    fn write_pretty(&self, n: usize, use_scientific: bool) -> io::Result<Vec<u8>> {
 
-        let mut buffer = String::new();
+        let mut buffer = Vec::new();
 
         let print_cell_slice = |writer: &mut dyn Write,
                                 widths: &[usize],
@@ -152,18 +152,23 @@ impl Meta {
             &mut |i| print_row(&mut buffer, &widths, i),
             &mut || {
                 writeln!(buffer)?;
-                for j in 0..self.meta_length() {
+                for j in 0..self.num_cols() {
                     write!(buffer, " {:width$}", "...", width = widths[j] - 1)?;
                 }
                 Ok(())
             },
         )?;
 
-        buffer
+        Ok(buffer)
     }
 
-    fn print_pretty(&self, n: usize, use_scientific: bool) -> String {
-        self.write_pretty(n, use_scientific)
+    pub fn print_pretty(&self, n: usize, use_scientific: bool) -> String {
+        let r = self.write_pretty(n, use_scientific);
+
+        match r {
+            Ok (s) => String::from_utf8(s).unwrap(),
+            Err(_) => String::from("")
+        }
     }
 
 }
