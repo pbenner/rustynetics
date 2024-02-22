@@ -137,9 +137,8 @@ impl Meta {
             }
             // Print gap
             writeln!(writer)?;
-            writeln!(writer)?;
             for j in 0..self.num_cols() {
-                write!(writer, " {:width$}", "...", width = widths[j] - 1)?;
+                write!(writer, " {:>width$}", "...", width = widths[j] - 1)?;
             }
             // Print last n/2 rows
             for i in self.num_rows() - n / 2..self.num_rows() {
