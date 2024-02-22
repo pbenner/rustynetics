@@ -29,93 +29,98 @@ use crate::meta::MetaData;
 
 impl Meta {
 
+    fn print_cell_slice(&self,
+                        writer: &mut dyn Write,
+                        widths: &[usize],
+                        i: usize,
+                        j: usize,
+                        data: &MetaData,
+                        use_scientific: bool)
+        -> io::Result<()> {
+        match data {
+            MetaData::StringMatrix(v) => {
+                for k in 0..v[i].len() {
+                    write!(writer, " {}", v[i][k])?;
+                }
+            }
+            MetaData::FloatMatrix(v) => {
+                if use_scientific {
+                    for k in 0..v[i].len() {
+                        write!(writer, " {:e}", v[i][k])?;
+                    }
+                } else {
+                    for k in 0..v[i].len() {
+                        write!(writer, " {:.2}", v[i][k])?;
+                    }
+                }
+            }
+            MetaData::IntMatrix(v) => {
+                for k in 0..v[i].len() {
+                    write!(writer, " {}", v[i][k])?;
+                }
+            }
+            _ => panic!("internal error")
+        }
+        Ok(())
+    }
+
+    fn print_cell(&self,
+                  writer: &mut dyn Write,
+                  widths: &[usize],
+                  i: usize,
+                  j: usize,
+                  use_scientific: bool)
+        -> io::Result<()> {
+        match &self.meta_data[j] {
+            MetaData::StringArray(v) => write!(writer, " {:width$}", v[i], width = widths[j] - 1),
+            MetaData::FloatArray(v)  => {
+                if use_scientific {
+                    write!(writer, " {:width$e}" , v[i], width = widths[j] - 1)
+                } else {
+                    write!(writer, " {:width$.2}", v[i], width = widths[j] - 1)
+                }
+            }
+            MetaData::IntArray(v)   => write!(writer, " {:width$}", v[i], width = widths[j] - 1),
+            MetaData::RangeArray(v) => write!(writer, " [{}, {}]", v[i].from, v[i].to),
+            _ => self.print_cell_slice(writer, widths, i, j, &self.meta_data[j], use_scientific),
+        }
+    }
+
+    fn update_max_widths(&self, i: usize, widths: &mut [usize], use_scientific: bool) -> io::Result<()> {
+        for j in 0..self.num_cols() {
+            let mut tmp_buffer = Vec::new();
+            let mut tmp_writer = BufWriter::new(&mut tmp_buffer);
+            self.print_cell(&mut tmp_writer, widths, i, j, use_scientific)?;
+            tmp_writer.flush()?;
+            let width = tmp_buffer.len();
+            if width > widths[j] {
+                widths[j] = width;
+            }
+        }
+        Ok(())
+    }
+
+    fn print_header(&self, writer: &mut dyn Write, widths: &[usize]) -> io::Result<()> {
+        for j in 0..self.num_cols() {
+            write!(writer, " {:width$}", self.meta_name[j], width = widths[j] - 1)?;
+        }
+        writeln!(writer)?;
+        Ok(())
+    }
+
+    fn print_row(&self, writer: &mut dyn Write, widths: &[usize], i: usize, use_scientific: bool) -> io::Result<()> {
+        if i != 0 {
+            writeln!(writer)?;
+        }
+        for j in 0..self.num_cols() {
+            self.print_cell(writer, widths, i, j, use_scientific)?;
+        }
+        Ok(())
+    }
+
     fn write_pretty(&self, n: usize, use_scientific: bool) -> io::Result<Vec<u8>> {
 
         let mut buffer = Vec::new();
-
-        let print_cell_slice = |writer: &mut dyn Write,
-                                widths: &[usize],
-                                i: usize,
-                                j: usize,
-                                data: &MetaData|
-         -> io::Result<()> {
-            match data {
-                MetaData::StringMatrix(v) => {
-                    for k in 0..v[i].len() {
-                        write!(writer, " {}", v[i][k])?;
-                    }
-                }
-                MetaData::FloatMatrix(v) => {
-                    if use_scientific {
-                        for k in 0..v[i].len() {
-                            write!(writer, " {:e}", v[i][k])?;
-                        }
-                    } else {
-                        for k in 0..v[i].len() {
-                            write!(writer, " {:.2}", v[i][k])?;
-                        }
-                    }
-                }
-                MetaData::IntMatrix(v) => {
-                    for k in 0..v[i].len() {
-                        write!(writer, " {}", v[i][k])?;
-                    }
-                }
-            }
-            Ok(())
-        };
-
-        let print_cell = |writer: &mut dyn Write,
-                          widths: &[usize],
-                          i: usize,
-                          j: usize|
-         -> io::Result<()> {
-            match &self.meta_data[j] {
-                MetaData::StringArray(v) => write!(writer, " {:width$}", v[i], width = widths[j] - 1),
-                MetaData::FloatArray(v)  => {
-                    if use_scientific {
-                        write!(writer, " {:width$e}" , v[i], width = widths[j] - 1)
-                    } else {
-                        write!(writer, " {:width$.2}", v[i], width = widths[j] - 1)
-                    }
-                }
-                MetaData::IntArray(v)   => write!(writer, " {:width$}", v[i], width = widths[j] - 1),
-                MetaData::RangeArray(v) => write!(writer, " [{}, {}]", v[i].from, v[i].to),
-                _ => print_cell_slice(writer, widths, i, j, &self.meta_data[j]),
-            }
-        };
-
-        let print_row = |writer: &mut dyn Write, widths: &[usize], i: usize| -> io::Result<()> {
-            if i != 0 {
-                writeln!(writer)?;
-            }
-            for j in 0..self.num_cols() {
-                print_cell(writer, widths, i, j)?;
-            }
-            Ok(())
-        };
-
-        let update_max_widths = |i: usize, widths: &mut [usize]| -> io::Result<()> {
-            for j in 0..self.num_cols() {
-                let mut tmp_buffer = Vec::new();
-                let mut tmp_writer = BufWriter::new(&mut tmp_buffer);
-                print_cell(&mut tmp_writer, widths, i, j)?;
-                tmp_writer.flush()?;
-                let width = tmp_buffer.len();
-                if width > widths[j] {
-                    widths[j] = width;
-                }
-            }
-            Ok(())
-        };
-
-        let print_header = |writer: &mut dyn Write, widths: &[usize]| -> io::Result<()> {
-            for j in 0..self.num_cols() {
-                write!(writer, " {:width$}", self.meta_name[j], width = widths[j] - 1)?;
-            }
-            writeln!(writer)?;
-            Ok(())
-        };
 
         let apply_rows = |f1: &mut dyn FnMut(usize) -> io::Result<()>,
                           f2: &mut dyn FnMut() -> io::Result<()>|
@@ -143,13 +148,13 @@ impl Meta {
         }
 
         apply_rows(
-            &mut |i| update_max_widths(i, &mut widths),
+            &mut |i| self.update_max_widths(i, &mut widths, use_scientific),
             &mut || Ok(()),
         );
 
-        print_header(&mut buffer, &widths)?;
+        self.print_header(&mut buffer, &widths)?;
         apply_rows(
-            &mut |i| print_row(&mut buffer, &widths, i),
+            &mut |i| self.print_row(&mut buffer, &widths, i, use_scientific),
             &mut || {
                 writeln!(buffer)?;
                 for j in 0..self.num_cols() {
