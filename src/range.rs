@@ -27,6 +27,8 @@ pub struct Range {
     pub to: usize,
 }
 
+/* -------------------------------------------------------------------------- */
+
 impl Range {
     pub fn new(from: usize, to: usize) -> Range {
         if from > to {
@@ -46,6 +48,8 @@ impl Range {
         }
     }
 }
+
+/* -------------------------------------------------------------------------- */
 
 impl fmt::Display for Range {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
