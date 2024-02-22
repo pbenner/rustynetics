@@ -19,6 +19,8 @@ use std::fs::File;
 use flate2::read::GzDecoder;
 use flate2::write::GzEncoder;
 use flate2::Compression;
+use list_comprehension_macro::comp;
+use std::convert::TryInto;
 
 use crate::range::Range;
 use crate::granges::{GRanges};
@@ -47,13 +49,11 @@ impl GRanges {
     }
 
     pub fn write_bed6(&self, writer: &mut dyn Write) -> io::Result<()> {
-        //let name  = self.get_meta_str("name" ).unwrap_or(&vec![]);
-        //let score = self.get_meta_int("score").unwrap_or(vec![0; self.length()]);
-        let name  = String::from("todo");
-        let score = 3.0;
+        let name  = self.meta.get_column_str(&String::from("name" )).unwrap();
+        let score = self.meta.get_column_int(&String::from("score")).unwrap();
 
         for i in 0..self.length() {
-            let r = write!(writer, "{}\t{}\t{}\t{}\t{}\t{}\n", self.seqnames[i], self.ranges[i].from, self.ranges[i].to, name, score, self.strand.get(i).unwrap_or(&'.'));
+            let r = write!(writer, "{}\t{}\t{}\t{}\t{}\t{}\n", self.seqnames[i], self.ranges[i].from, self.ranges[i].to, name[i], score[i], self.strand.get(i).unwrap_or(&'.'));
 
             if r.is_err() {
                 return r
@@ -75,21 +75,18 @@ impl GRanges {
     }
 
     pub fn write_bed9(&self, writer: &mut dyn Write) -> io::Result<()> {
-        //let name = self.get_meta_str("name").unwrap_or(&vec![]);
-        //let score = self.get_meta_int("score").unwrap_or(vec![0; self.length()]);
-        //let item_rgb = self.get_meta_str("itemRgb").unwrap_or(&vec!["0,0,0".to_string(); self.length()]);
-        let name  = String::from("todo");
-        let score = 3.0;
-        let item_rgb = "0,0,0";
+        let name  = self.meta.get_column_str(&String::from("name" )).unwrap();
+        let score = self.meta.get_column_int(&String::from("score")).unwrap();
+        let item_rgb = match self.meta.get_column_str(&String::from("itemRgb")) {
+            Some(v) => v,
+            None    => &vec![String::from("0,0,0"); self.length()]
+        };
+        let thick_start = self.meta.get_column_int(&String::from("thickStart")).unwrap_or(&comp![ self.ranges[i].from.try_into().unwrap() for i in 0..self.length() ]);
+        let thick_end   = self.meta.get_column_int(&String::from("thickEnd"  )).unwrap_or(&comp![ self.ranges[i].to  .try_into().unwrap() for i in 0..self.length() ]);
 
         for i in 0..self.length() {
-            //let thick_start = self.get_meta_int("thickStart").unwrap_or(vec![self.ranges[i].from; self.length()]);
-            //let thick_end   = self.get_meta_int("thickEnd"  ).unwrap_or(vec![self.ranges[i].end ; self.length()]);
- 
-            let thick_start = self.ranges[i].from;
-            let thick_end   = self.ranges[i].to;
 
-            let r = write!(writer, "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n", self.seqnames[i], self.ranges[i].from, self.ranges[i].to, name, score, self.strand.get(i).unwrap_or(&'.'), thick_start, thick_end, item_rgb);
+            let r = write!(writer, "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n", self.seqnames[i], self.ranges[i].from, self.ranges[i].to, name[i], score[i], self.strand.get(i).unwrap_or(&'.'), thick_start[i], thick_end[i], item_rgb[i]);
             
             if r.is_err() {
                 return r

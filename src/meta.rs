@@ -30,8 +30,8 @@ pub enum MetaData {
     StringArray(Vec<String>),
     FloatMatrix(Vec<Vec<f64>>),
     FloatArray(Vec<f64>),
-    IntMatrix(Vec<Vec<i32>>),
-    IntArray(Vec<i32>),
+    IntMatrix(Vec<Vec<i64>>),
+    IntArray(Vec<i64>),
     RangeArray(Vec<Range>),
 }
 
@@ -84,6 +84,27 @@ impl MetaData {
             MetaData::FloatMatrix (v) => MetaData::FloatMatrix (comp![ v[*i].clone() for i in indices ]),
             MetaData::IntMatrix   (v) => MetaData::IntMatrix   (comp![ v[*i].clone() for i in indices ]),
             MetaData::RangeArray  (v) => MetaData::RangeArray  (comp![ v[*i].clone() for i in indices ]),
+        }
+    }
+
+    pub fn get_float(&self) -> Option<&Vec<f64>> {
+        match self {
+            MetaData::FloatArray(v) => Some(v),
+            _ => None
+        }
+    }
+
+    pub fn get_int(&self) -> Option<&Vec<i64>> {
+        match self {
+            MetaData::IntArray(v) => Some(v),
+            _ => None
+        }
+    }
+
+    pub fn get_str(&self) -> Option<&Vec<String>> {
+        match self {
+            MetaData::StringArray(v) => Some(v),
+            _ => None
         }
     }
 }
@@ -142,8 +163,12 @@ impl Meta {
 
         for j in 0..self.num_cols() {
             let meta_col1 = self.meta_data[j].clone();
-            let meta_col2 = meta.get_meta(&meta.meta_name[j])?;
-            let meta_col3 = meta_col1.concat(meta_col2)?;
+            let meta_col2 = meta.get_column(&meta.meta_name[j]);
+
+            if meta_col2.is_none() {
+                return Err(format!("Column {} not found in meta object", &meta.meta_name[j]).into())
+            }
+            let meta_col3 = meta_col1.concat(meta_col2.unwrap())?;
 
             meta_name.push(self.meta_name[j].clone());
             meta_data.push(meta_col3);
@@ -187,12 +212,23 @@ impl Meta {
         }
     }
 
-    pub fn get_meta(&self, name: &String) -> Result<&MetaData, Error> {
-        let r = self.meta_name.iter().position(|x| x == name).map(|index| &self.meta_data[index]);
-        match r {
-            Some(v) => Ok(v),
-            None    => Err(format!("Column {} not found in meta object", name).into())
-        }
+    pub fn get_column(&self, name: &String) -> Option<&MetaData> {
+        self.meta_name.iter().position(|x| x == name).map(|index| &self.meta_data[index])
+    }
+
+    pub fn get_column_int(&self, name: &String) -> Option<&Vec<i64>> {
+        let r = self.get_column(name)?;
+        r.get_int()
+    }
+
+    pub fn get_column_float(&self, name: &String) -> Option<&Vec<f64>> {
+        let r = self.get_column(name)?;
+        r.get_float()
+    }
+
+    pub fn get_column_str(&self, name: &String) -> Option<&Vec<String>> {
+        let r = self.get_column(name)?;
+        r.get_str()
     }
 
     pub fn slice(&self, ifrom : usize, ito : usize) -> Meta {
@@ -232,7 +268,7 @@ impl Meta {
         let mut indices: Vec<usize> = (0..self.rows).collect();
 
         if reverse {
-            match self.get_meta(name).unwrap() {
+            match self.get_column(name).unwrap() {
                 MetaData::StringArray(v) => indices.sort_by(|&i, &j| v[j].cmp(&v[i])),
                 MetaData::FloatArray (v) => indices.sort_by(|&i, &j| v[j].partial_cmp(&v[i]).unwrap()),
                 MetaData::IntArray   (v) => indices.sort_by(|&i, &j| v[j].cmp(&v[i])),
@@ -240,7 +276,7 @@ impl Meta {
             }
         }
         else {
-            match self.get_meta(name).unwrap() {
+            match self.get_column(name).unwrap() {
                 MetaData::StringArray(v) => indices.sort_by(|&i, &j| v[i].cmp(&v[j])),
                 MetaData::FloatArray (v) => indices.sort_by(|&i, &j| v[i].partial_cmp(&v[j]).unwrap()),
                 MetaData::IntArray   (v) => indices.sort_by(|&i, &j| v[i].cmp(&v[j])),

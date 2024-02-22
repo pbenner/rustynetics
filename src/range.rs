@@ -24,7 +24,7 @@ use std::fmt;
 #[derive(Clone, Debug)]
 pub struct Range {
     pub from: usize,
-    pub to: usize,
+    pub to  : usize,
 }
 
 /* -------------------------------------------------------------------------- */

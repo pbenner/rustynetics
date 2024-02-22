@@ -31,7 +31,7 @@ impl GRanges {
             write!(writer, " | ")?;
             let mut line = String::new();
             reader.read_line(&mut line)?;
-            write!(writer, "{}", line.trim_right_matches('\n'))?;
+            write!(writer, "{}", line.trim_end_matches('\n'))?;
         }
         Ok(())
     }
