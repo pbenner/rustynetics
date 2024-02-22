@@ -37,30 +37,33 @@ impl Meta {
                         data: &MetaData,
                         use_scientific: bool)
         -> io::Result<()> {
+        let mut buffer = Vec::new();
+
         match data {
             MetaData::StringMatrix(v) => {
                 for k in 0..v[i].len() {
-                    write!(writer, " {}", v[i][k])?;
+                    write!(buffer, " {}", v[i][k])?;
                 }
             }
             MetaData::FloatMatrix(v) => {
                 if use_scientific {
                     for k in 0..v[i].len() {
-                        write!(writer, " {:e}", v[i][k])?;
+                        write!(buffer, " {:e}", v[i][k])?;
                     }
                 } else {
                     for k in 0..v[i].len() {
-                        write!(writer, " {:.2}", v[i][k])?;
+                        write!(buffer, " {:.2}", v[i][k])?;
                     }
                 }
             }
             MetaData::IntMatrix(v) => {
                 for k in 0..v[i].len() {
-                    write!(writer, " {}", v[i][k])?;
+                    write!(buffer, " {}", v[i][k])?;
                 }
             }
             _ => panic!("internal error")
         }
+        write!(writer, "{:width$}" , String::from_utf8(buffer).unwrap(), width = widths[j] - 1)?;
         Ok(())
     }
 
@@ -81,7 +84,9 @@ impl Meta {
                 }
             }
             MetaData::IntArray(v)   => write!(writer, " {:width$}", v[i], width = widths[j] - 1),
-            MetaData::RangeArray(v) => write!(writer, " {:width$}", v[i], width = widths[j] - 1),
+            MetaData::RangeArray(v) => {
+                write!(writer, " {:width$}", v[i], width = widths[j] - 1)
+            },
             _ => self.print_cell_slice(writer, widths, i, j, &self.meta_data[j], use_scientific),
         }
     }

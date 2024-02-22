@@ -52,7 +52,7 @@ impl Range {
 /* -------------------------------------------------------------------------- */
 
 impl fmt::Display for Range {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "[{} {})", self.from, self.to)
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.pad(&format!("[{}, {})", self.from, self.to))
     }
 }
