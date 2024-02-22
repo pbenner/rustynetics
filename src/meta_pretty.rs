@@ -89,9 +89,11 @@ impl Meta {
     fn update_max_widths(&self, i: usize, widths: &mut [usize], use_scientific: bool) -> io::Result<()> {
         for j in 0..self.num_cols() {
             let mut tmp_buffer = Vec::new();
-            let mut tmp_writer = BufWriter::new(&mut tmp_buffer);
-            self.print_cell(&mut tmp_writer, widths, i, j, use_scientific)?;
-            tmp_writer.flush()?;
+            {
+                let mut tmp_writer = BufWriter::new(&mut tmp_buffer);
+                self.print_cell(&mut tmp_writer, widths, i, j, use_scientific)?;
+                tmp_writer.flush()?;
+            }
             let width = tmp_buffer.len();
             if width > widths[j] {
                 widths[j] = width;
