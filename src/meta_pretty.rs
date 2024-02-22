@@ -118,28 +118,33 @@ impl Meta {
         Ok(())
     }
 
+    fn print_all(&self, writer: &mut dyn Write, widths : &[usize], n: usize, use_scientific: bool) -> io::Result<()> {
+        if self.num_rows() <= n + 1 {
+            for i in 0..self.num_rows() {
+                self.print_row(writer, &widths, i, use_scientific)?;
+            }
+        } else {
+            // Print first n/2 rows
+            for i in 0..n / 2 {
+                self.print_row(writer, &widths, i, use_scientific)?;
+            }
+            // Print gap
+            writeln!(writer)?;
+            writeln!(writer)?;
+            for j in 0..self.num_cols() {
+                write!(writer, " {:width$}", "...", width = widths[j] - 1)?;
+            }
+            // Print last n/2 rows
+            for i in self.num_rows() - n / 2..self.num_rows() {
+                self.print_row(writer, &widths, i, use_scientific)?;
+            }
+        }
+        Ok(())
+    }
+
     fn write_pretty(&self, n: usize, use_scientific: bool) -> io::Result<Vec<u8>> {
 
         let mut buffer = Vec::new();
-
-        let apply_rows = |f1: &mut dyn FnMut(usize) -> io::Result<()>,
-                          f2: &mut dyn FnMut() -> io::Result<()>|
-         -> io::Result<()> {
-            if self.num_rows() <= n + 1 {
-                for i in 0..self.num_rows() {
-                    f1(i)?;
-                }
-            } else {
-                for i in 0..n / 2 {
-                    f1(i)?;
-                }
-                f2()?;
-                for i in self.num_rows() - n / 2..self.num_rows() {
-                    f1(i)?;
-                }
-            }
-            Ok(())
-        };
 
         let mut widths = vec![0; self.num_cols()];
         for j in 0..self.num_cols() {
@@ -147,22 +152,12 @@ impl Meta {
             widths[j] = width;
         }
 
-        apply_rows(
-            &mut |i| self.update_max_widths(i, &mut widths, use_scientific),
-            &mut || Ok(()),
-        );
+        for i in 0..self.num_rows() {
+            self.update_max_widths(i, &mut widths, use_scientific);
+        }
 
         self.print_header(&mut buffer, &widths)?;
-        apply_rows(
-            &mut |i| self.print_row(&mut buffer, &widths, i, use_scientific),
-            &mut || {
-                writeln!(buffer)?;
-                for j in 0..self.num_cols() {
-                    write!(buffer, " {:width$}", "...", width = widths[j] - 1)?;
-                }
-                Ok(())
-            },
-        )?;
+        self.print_all   (&mut buffer, &widths, n, use_scientific)?;
 
         Ok(buffer)
     }
