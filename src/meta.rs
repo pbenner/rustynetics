@@ -16,6 +16,7 @@
 
 /* -------------------------------------------------------------------------- */
 
+use std::fmt;
 use list_comprehension_macro::comp;
 
 use crate::error::Error;
@@ -155,16 +156,18 @@ impl Meta {
         Ok(meta)
     }
 
-    pub fn add_meta(&mut self, name: String, meta: MetaData) -> Result<(), Error> {
-        let n = meta.len();
+    pub fn add_meta(&mut self, name: String, data: MetaData) -> Result<(), Error> {
+        let n = data.len();
         if self.meta_name.len() > 0 {
             if n != self.rows {
                 return Err(format!("Column '{}' has invalid length: expected length of '{}' but column has length '{}'", name, self.rows, n).into());
             }
         }
-        self.delete_meta(&name);
+        if self.meta_name.len() == 0 {
+            self.rows = n;
+        }
         self.meta_name.push(name);
-        self.meta_data.push(meta);
+        self.meta_data.push(data);
         Ok(())
     }
 
@@ -251,14 +254,9 @@ impl Meta {
 
 /* -------------------------------------------------------------------------- */
 
-//impl fmt::Display for Meta {
-//    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-//        for i in 0..self.rows {
-//            for j in 0..self.meta_name.len() {
-//                write!(f, "{}: {}\n", self.meta_name[j], self.meta_data[j][i])?;
-//            }
-//            write!(f, "\n")?;
-//        }
-//        Ok(())
-//    }
-//}
+impl fmt::Display for Meta {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        writeln!(f, "{}", self.print_pretty(10, false))?;
+        Ok(())
+    }
+}
