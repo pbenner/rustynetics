@@ -78,11 +78,17 @@ impl GRanges {
         let name  = self.meta.get_column_str(&String::from("name" )).unwrap();
         let score = self.meta.get_column_int(&String::from("score")).unwrap();
         let item_rgb = match self.meta.get_column_str(&String::from("itemRgb")) {
-            Some(v) => v,
-            None    => &vec![String::from("0,0,0"); self.length()]
+            Some(v) => v.clone(),
+            None    => vec![String::from("0,0,0"); self.length()]
         };
-        let thick_start = self.meta.get_column_int(&String::from("thickStart")).unwrap_or(&comp![ self.ranges[i].from.try_into().unwrap() for i in 0..self.length() ]);
-        let thick_end   = self.meta.get_column_int(&String::from("thickEnd"  )).unwrap_or(&comp![ self.ranges[i].to  .try_into().unwrap() for i in 0..self.length() ]);
+        let thick_start = match self.meta.get_column_int(&String::from("thickStart")) {
+            Some(v) => v.clone(),
+            None    => comp![ self.ranges[i].from as i64 for i in 0..self.length() ]
+        };
+        let thick_end   = match self.meta.get_column_int(&String::from("thickStart")) {
+            Some(v) => v.clone(),
+            None    => comp![ self.ranges[i].to   as i64 for i in 0..self.length() ]
+        };
 
         for i in 0..self.length() {
 
