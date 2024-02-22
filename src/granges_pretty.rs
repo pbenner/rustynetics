@@ -14,9 +14,10 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-//use std::io::BufReader;
+use std::io::BufReader;
 use std::io::BufWriter;
 use std::io::Result;
+use std::io::BufRead;
 use std::io::Write;
 
 use crate::granges::{GRanges};
@@ -24,6 +25,16 @@ use crate::granges::{GRanges};
 /* -------------------------------------------------------------------------- */
 
 impl GRanges {
+
+    fn print_meta_row(&self, writer: &mut dyn Write, reader: &mut dyn BufRead) -> Result<()> {
+        if self.meta.num_cols() > 0 {
+            write!(writer, " | ")?;
+            let mut line = String::new();
+            reader.read_line(&mut line)?;
+            write!(writer, "{}", line.trim_right_matches('\n'))?;
+        }
+        Ok(())
+    }
 
     fn update_max_width(&self, widths: &mut [usize], j: usize, args: String) {
         let width = args.len();
@@ -40,34 +51,34 @@ impl GRanges {
         self.update_max_width(widths, 4, self.strand  [i]     .to_string());
     }
 
-    fn print_header(&self, writer: &mut dyn Write, widths: &[usize]) -> Result<()> {
+    fn print_header(&self, writer: &mut dyn Write, meta_reader: &mut dyn BufRead, widths: &[usize]) -> Result<()> {
         write!(writer,
             "{:width0$} {:width1$} {:width2$} {:width3$}",
             "", "seqnames", "ranges", "strand",
             width0=widths[0], width1=widths[1], width2=widths[2], width3=widths[3])?;
-        //print_meta_row(writer)?;
+        self.print_meta_row(writer, meta_reader)?;
         Ok(())
     }
 
-    fn print_row(&self, writer: &mut dyn Write, widths: &[usize], i: usize) -> Result<()> {
+    fn print_row(&self, writer: &mut dyn Write, meta_reader: &mut dyn BufRead, widths: &[usize], i: usize) -> Result<()> {
         writeln!(writer)?;
         write!(writer,
             "{:width0$} {:width1$} [{:width2$}, {:width3$}) {:width4$}",
             i + 1, self.seqnames[i], self.ranges[i].from, self.ranges[i].to, self.strand[i],
             width0=widths[0], width1=widths[1], width2=widths[2], width3=widths[3], width4=widths[4])?;
-        //print_meta_row(writer)?;
+        self.print_meta_row(writer, meta_reader)?;
         Ok(())
     }
 
-    fn print_all(&self, writer: &mut dyn Write, widths_header : &[usize], widths_row: &[usize], n: usize) -> Result<()> {
+    fn print_all(&self, writer: &mut dyn Write, meta_reader: &mut dyn BufRead, widths_header : &[usize], widths_row: &[usize], n: usize) -> Result<()> {
         if self.length() <= n + 1 {
             for i in 0..self.length() {
-                self.print_row(writer, &widths_row, i)?;
+                self.print_row(writer, meta_reader, &widths_row, i)?;
             }
         } else {
             // Print first n/2 rows
             for i in 0..n / 2 {
-                self.print_row(writer, &widths_row, i)?;
+                self.print_row(writer, meta_reader, &widths_row, i)?;
             }
             // Print gap
             writeln!(writer)?;
@@ -77,25 +88,15 @@ impl GRanges {
                 width0=widths_header[0], width1=widths_header[1], width2=widths_header[2], width3=widths_header[3])?;
             // Print last n/2 rows
             for i in self.length() - n / 2..self.length() {
-                self.print_row(writer, &widths_row, i)?;
+                self.print_row(writer, meta_reader, &widths_row, i)?;
             }
         }
         Ok(())
     }
 
     fn write_pretty(&self, writer: &mut dyn Write, n: usize) -> Result<()> {
-        //let meta_str = format!("{}", self.meta);
-        //let meta_reader = BufReader::new(meta_str.as_bytes());
-
-        //let print_meta_row = |writer: &mut dyn Write| -> Result<()> {
-        //    if self.meta_length() != 0 {
-        //        write!(writer, " | ")?;
-        //        let mut line = String::new();
-        //        meta_reader.read_line(&mut line)?;
-        //        write!(writer, "{}", line)?;
-        //    }
-        //    Ok(())
-        //};
+        let mut meta_str = format!("{}", self.meta);
+        let mut meta_reader = BufReader::new(meta_str.as_bytes());
 
         let mut widths : [usize; 5] = [1, 8, 1, 1, 6];
 
@@ -106,8 +107,8 @@ impl GRanges {
         let widths_row    = [widths[0], widths[1], widths[2], widths[3], widths[4]];
         let widths_header = [widths[0], widths[1], widths[2] + widths[3] + 4, widths[4]];
 
-        self.print_header(writer, &widths_header)?;
-        self.print_all   (writer, &widths_header, &widths_row, n)?;
+        self.print_header(writer, &mut meta_reader, &widths_header)?;
+        self.print_all   (writer, &mut meta_reader, &widths_header, &widths_row, n)?;
 
         Ok(())
     }
