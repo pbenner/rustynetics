@@ -283,7 +283,6 @@ impl Meta {
                 _ => ()
             }
         }
-
         Ok(self.subset(&indices))
     }
 }
@@ -291,8 +290,9 @@ impl Meta {
 /* -------------------------------------------------------------------------- */
 
 impl fmt::Display for Meta {
+
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        writeln!(f, "{}", self.print_pretty(10, false))?;
+        writeln!(f, "{}", self.pretty_string(10, false).unwrap())?;
         Ok(())
     }
 }

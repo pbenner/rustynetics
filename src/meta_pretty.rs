@@ -29,6 +29,22 @@ use crate::meta::MetaData;
 
 impl Meta {
 
+    fn update_max_widths(&self, i: usize, widths: &mut [usize], use_scientific: bool) -> io::Result<()> {
+        for j in 0..self.num_cols() {
+            let mut tmp_buffer = Vec::new();
+            {
+                let mut tmp_writer = BufWriter::new(&mut tmp_buffer);
+                self.print_cell(&mut tmp_writer, widths, i, j, use_scientific)?;
+                tmp_writer.flush()?;
+            }
+            let width = tmp_buffer.len();
+            if width > widths[j] {
+                widths[j] = width;
+            }
+        }
+        Ok(())
+    }
+
     fn print_cell_slice(&self,
                         writer: &mut dyn Write,
                         widths: &[usize],
@@ -90,22 +106,6 @@ impl Meta {
         }
     }
 
-    fn update_max_widths(&self, i: usize, widths: &mut [usize], use_scientific: bool) -> io::Result<()> {
-        for j in 0..self.num_cols() {
-            let mut tmp_buffer = Vec::new();
-            {
-                let mut tmp_writer = BufWriter::new(&mut tmp_buffer);
-                self.print_cell(&mut tmp_writer, widths, i, j, use_scientific)?;
-                tmp_writer.flush()?;
-            }
-            let width = tmp_buffer.len();
-            if width > widths[j] {
-                widths[j] = width;
-            }
-        }
-        Ok(())
-    }
-
     fn print_header(&self, writer: &mut dyn Write, widths: &[usize]) -> io::Result<()> {
         for j in 0..self.num_cols() {
             write!(writer, " {:width$}", self.meta_name[j], width = widths[j] - 1)?;
@@ -146,7 +146,7 @@ impl Meta {
         Ok(())
     }
 
-    fn write_pretty(&self, n: usize, use_scientific: bool) -> io::Result<Vec<u8>> {
+    fn print_pretty(&self, n: usize, use_scientific: bool) -> io::Result<Vec<u8>> {
 
         let mut buffer = Vec::new();
 
@@ -166,13 +166,13 @@ impl Meta {
         Ok(buffer)
     }
 
-    pub fn print_pretty(&self, n: usize, use_scientific: bool) -> String {
-        let r = self.write_pretty(n, use_scientific);
-
-        match r {
-            Ok (s) => String::from_utf8(s).unwrap(),
-            Err(_) => String::from("")
-        }
+    pub fn pretty_string(&self, n: usize, use_scientific: bool) -> Result<String, Error> {
+        let r = self.print_pretty(n, use_scientific)?;
+        let s = match String::from_utf8(r) {
+            Ok (v) => v,
+            Err(_) => panic!("internal error")
+        };
+        Ok(s)
     }
 
 }
