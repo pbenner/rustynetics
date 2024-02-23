@@ -26,8 +26,30 @@ mod tests {
     #[test]
     fn test_meta() {
 
-        let names = vec![String::from("hello"), String::from("genomics"), String::from("world"), String::from("yeehaa")];
+        let names = vec![String::from("name"), String::from("hello"), String::from("genomics"), String::from("score"), String::from("yeehaa")];
         let data  = vec![
+            MetaData::StringArray(vec![
+                "blurp".to_string(),
+                "blurp".to_string(),
+                "blurp".to_string(),
+                "blurp".to_string(),
+                "blurp".to_string(),
+                "blurp".to_string(),
+                "blurp".to_string(),
+                "blurp".to_string(),
+                "blurp".to_string(),
+                "blurp".to_string(),
+                "blurp".to_string(),
+                "blurp".to_string(),
+                "blurp".to_string(),
+                "blurp".to_string(),
+                "blurp".to_string(),
+                "blurp".to_string(),
+                "blurp".to_string(),
+                "blurp".to_string(),
+                "blurp".to_string(),
+                "blurp".to_string(),
+            ]),
             MetaData::FloatArray(vec![3.2, 2.2, 5.6, 3.2, 2.2, 5.6, 3.2, 2.2, 5.6, 3.4, 3.2, 2.2, 5.6, 3.2, 2.2, 5.6, 3.2, 2.2, 5.6, 3.4]),
             MetaData::RangeArray(vec![Range::new(0, 1000), Range::new(300, 400), Range::new(20,10000), Range::new(0, 1000), Range::new(300, 400), Range::new(20,10000), Range::new(0, 1000), Range::new(300, 400), Range::new(20,10000), Range::new(0, 1000), Range::new(300, 400), Range::new(20,10000), Range::new(0, 1000), Range::new(300, 400), Range::new(20,10000), Range::new(0, 1000), Range::new(300, 400), Range::new(20,10000), Range::new(0, 1000), Range::new(300, 400)]),
             MetaData::IntArray(vec![3, 2, 5, 3, 2, 5, 3, 2, 5, 3, 2, 5, 3, 2, 5, 3, 2, 5, 3, 2]),
