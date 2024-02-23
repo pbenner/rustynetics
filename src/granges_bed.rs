@@ -24,6 +24,7 @@ use list_comprehension_macro::comp;
 use crate::range::Range;
 use crate::granges::GRanges;
 use crate::error::Error;
+use crate::meta::MetaData;
 
 /* -------------------------------------------------------------------------- */
 
@@ -145,7 +146,9 @@ impl GRanges {
     }
 
     pub fn read_bed6(&mut self, reader: &mut dyn BufRead) -> Result<(), Error> {
-        let mut line = String::new();
+        let mut line  = String::new();
+        let mut name  = Vec::new();
+        let mut score = Vec::new();
         while reader.read_line(&mut line)? > 0 {
             let fields: Vec<&str> = line.trim().split('\t').collect();
             if fields.len() < 6 {
@@ -153,16 +156,16 @@ impl GRanges {
             }
             let from   = fields[1].parse::<usize>().unwrap();
             let to     = fields[2].parse::<usize>().unwrap();
-            let name   = fields[3].to_string();
-            let score  = fields[4].parse::<usize>().unwrap();
             let strand = fields[5].chars().next().unwrap_or('.');
             self.seqnames.push(fields[0].to_string());
-            self.ranges.push(Range::new(from, to));
-            self.strand.push(strand);
-            //self.add_meta("name" .to_string(), vec![name]);
-            //self.add_meta("score".to_string(), vec![score.to_string()]);
+            self.ranges  .push(Range::new(from, to));
+            self.strand  .push(strand);
+            name .push(fields[3].to_string());
+            score.push(fields[4].parse::<i64>().unwrap());
             line.clear();
         }
+        self.meta.add_meta("name" .to_string(), MetaData::StringArray(name));
+        self.meta.add_meta("score".to_string(), MetaData::IntArray   (score));
         Ok(())
     }
 
