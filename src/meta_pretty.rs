@@ -63,8 +63,7 @@ impl Meta {
             }
             _ => panic!("internal error")
         }
-        write!(writer, "{:width$}" , String::from_utf8(buffer).unwrap(), width = widths[j] - 1)?;
-        Ok(())
+        write!(writer, "{:width$}" , String::from_utf8(buffer).unwrap(), width = widths[j] - 1)
     }
 
     fn print_cell(&self,
@@ -111,8 +110,7 @@ impl Meta {
         for j in 0..self.num_cols() {
             write!(writer, " {:width$}", self.meta_name[j], width = widths[j] - 1)?;
         }
-        writeln!(writer)?;
-        Ok(())
+        writeln!(writer)
     }
 
     fn print_row(&self, writer: &mut dyn Write, widths: &[usize], i: usize, use_scientific: bool) -> io::Result<()> {
