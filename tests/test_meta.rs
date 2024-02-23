@@ -65,7 +65,12 @@ mod tests {
         };
         granges.meta = meta;
 
-        println!("{}", granges)
+        println!("{}", granges);
 
+
+        match granges.export_bed6("test.bed", false) {
+            Ok(_) => (),
+            Err(e) => panic!("Error message: {}", e)
+        }
     }
 }

@@ -15,18 +15,28 @@
  */
 
 use std::fmt;
+use std::io;
 
 /* -------------------------------------------------------------------------- */
 
-pub struct Error {
-    message: String,
+pub enum Error {
+    Generic(String),
+    IO(io::Error)
 }
 
 /* -------------------------------------------------------------------------- */
 
 impl From<String> for Error {
     fn from(str : String) -> Self {
-        Error{ message: str }
+        Error::Generic(str)
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+
+impl From<io::Error> for Error {
+    fn from(e : io::Error) -> Self {
+        Error::IO(e)
     }
 }
 
@@ -34,10 +44,20 @@ impl From<String> for Error {
 
 impl fmt::Debug for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            self.message
-        )
+        match self {
+            Error::Generic(v) => f.pad(&format!("{}", v)),
+            Error::IO(v)      => f.pad(&format!("{}", v))
+        }
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Error::Generic(v) => f.pad(&format!("{}", v)),
+            Error::IO(v)      => f.pad(&format!("{}", v))
+        }
     }
 }
