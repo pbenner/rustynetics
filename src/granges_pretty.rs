@@ -14,9 +14,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+use std::io;
 use std::io::BufReader;
 use std::io::BufWriter;
-use std::io::Result;
 use std::io::BufRead;
 use std::io::Write;
 
@@ -26,7 +26,7 @@ use crate::granges::{GRanges};
 
 impl GRanges {
 
-    fn print_meta_row(&self, writer: &mut dyn Write, reader: &mut dyn BufRead) -> Result<()> {
+    fn print_meta_row(&self, writer: &mut dyn Write, reader: &mut dyn BufRead) -> io::Result<()> {
         if self.meta.num_cols() > 0 {
             write!(writer, " | ")?;
             let mut line = String::new();
@@ -51,7 +51,7 @@ impl GRanges {
         self.update_max_width(widths, 4, self.strand  [i]     .to_string());
     }
 
-    fn print_header(&self, writer: &mut dyn Write, meta_reader: &mut dyn BufRead, widths: &[usize]) -> Result<()> {
+    fn print_header(&self, writer: &mut dyn Write, meta_reader: &mut dyn BufRead, widths: &[usize]) -> io::Result<()> {
         write!(writer,
             "{:width0$} {:width1$} {:width2$} {:width3$}",
             "", "seqnames", "ranges", "strand",
@@ -60,7 +60,7 @@ impl GRanges {
         Ok(())
     }
 
-    fn print_row(&self, writer: &mut dyn Write, meta_reader: &mut dyn BufRead, widths: &[usize], i: usize) -> Result<()> {
+    fn print_row(&self, writer: &mut dyn Write, meta_reader: &mut dyn BufRead, widths: &[usize], i: usize) -> io::Result<()> {
         writeln!(writer)?;
         write!(writer,
             "{:width0$} {:width1$} [{:width2$}, {:width3$}) {:width4$}",
@@ -70,7 +70,7 @@ impl GRanges {
         Ok(())
     }
 
-    fn print_all(&self, writer: &mut dyn Write, meta_reader: &mut dyn BufRead, widths_header : &[usize], widths_row: &[usize], n: usize) -> Result<()> {
+    fn print_all(&self, writer: &mut dyn Write, meta_reader: &mut dyn BufRead, widths_header : &[usize], widths_row: &[usize], n: usize) -> io::Result<()> {
         if self.length() <= n + 1 {
             for i in 0..self.length() {
                 self.print_row(writer, meta_reader, &widths_row, i)?;
@@ -94,7 +94,7 @@ impl GRanges {
         Ok(())
     }
 
-    fn write_pretty(&self, writer: &mut dyn Write, n: usize) -> Result<()> {
+    fn write_pretty(&self, writer: &mut dyn Write, n: usize) -> io::Result<()> {
         let mut meta_str = format!("{}", self.meta);
         let mut meta_reader = BufReader::new(meta_str.as_bytes());
 
