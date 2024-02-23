@@ -164,8 +164,8 @@ impl GRanges {
             score.push(fields[4].parse::<i64>().unwrap());
             line.clear();
         }
-        self.meta.add_meta("name" .to_string(), MetaData::StringArray(name));
-        self.meta.add_meta("score".to_string(), MetaData::IntArray   (score));
+        self.meta.add_meta("name" .to_string(), MetaData::StringArray(name ))?;
+        self.meta.add_meta("score".to_string(), MetaData::IntArray   (score))?;
         Ok(())
     }
 
@@ -181,7 +181,12 @@ impl GRanges {
     }
 
     pub fn read_bed9(&mut self, reader: &mut dyn BufRead) -> Result<(), Error> {
-        let mut line = String::new();
+        let mut line  = String::new();
+        let mut name  = Vec::new();
+        let mut score = Vec::new();
+        let mut thick_start = Vec::new();
+        let mut thick_end   = Vec::new();
+        let mut item_rgb    = Vec::new();
         while reader.read_line(&mut line)? > 0 {
             let fields: Vec<&str> = line.trim().split('\t').collect();
             if fields.len() < 9 {
@@ -189,22 +194,22 @@ impl GRanges {
             }
             let from        = fields[1].parse::<usize>().unwrap();
             let to          = fields[2].parse::<usize>().unwrap();
-            let name        = fields[3].to_string();
-            let score       = fields[4].parse::<usize>().unwrap();
             let strand      = fields[5].chars().next().unwrap_or('.');
-            let thick_start = fields[6].parse::<usize>().unwrap();
-            let thick_end   = fields[7].parse::<usize>().unwrap();
-            let item_rgb    = fields[8].to_string();
             self.seqnames.push(fields[0].to_string());
             self.ranges  .push(Range::new(from, to));
             self.strand  .push(strand);
-            //self.add_meta("name".to_string(), vec![name]);
-            //self.add_meta("score".to_string(), vec![score.to_string()]);
-            //self.add_meta("thickStart".to_string(), vec![thick_start.to_string()]);
-            //self.add_meta("thickEnd".to_string(), vec![thick_end.to_string()]);
-            //self.add_meta("itemRgb".to_string(), vec![item_rgb]);
+            name .push(fields[3].to_string());
+            score.push(fields[4].parse::<i64>().unwrap());
+            thick_start.push(fields[6].parse::<i64>().unwrap());
+            thick_end  .push(fields[7].parse::<i64>().unwrap());
+            item_rgb   .push(fields[8].to_string());
             line.clear();
         }
+        self.meta.add_meta("name" .to_string(), MetaData::StringArray(name ))?;
+        self.meta.add_meta("score".to_string(), MetaData::IntArray   (score))?;
+        self.meta.add_meta("thickStart".to_string(), MetaData::IntArray   (thick_start))?;
+        self.meta.add_meta("thickEnd"  .to_string(), MetaData::IntArray   (thick_end  ))?;
+        self.meta.add_meta("item_rgb"  .to_string(), MetaData::StringArray(item_rgb   ))?;
         Ok(())
     }
 
