@@ -16,7 +16,6 @@
 
 /* -------------------------------------------------------------------------- */
 
-use std::fmt;
 use std::io;
 use std::io::BufWriter;
 use std::io::Write;
@@ -157,7 +156,7 @@ impl Meta {
         }
 
         for i in 0..self.num_rows() {
-            self.update_max_widths(i, &mut widths, use_scientific);
+            self.update_max_widths(i, &mut widths, use_scientific)?;
         }
 
         self.print_header(&mut buffer, &widths)?;

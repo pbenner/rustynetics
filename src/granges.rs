@@ -278,9 +278,8 @@ impl GRanges {
         self.remove(&idx)
     }
 
-    pub fn set_lengths(&self, n_: usize) -> Self {
+    pub fn set_lengths(&self, n: usize) -> Self {
         let mut s = self.clone();
-        let mut n = n_;
 
         for i in 0..s.length() {
             if s.strand[i] == '+' {
@@ -401,7 +400,6 @@ fn remove_duplicates_int(indices: &[usize]) -> Vec<usize> {
 
 impl fmt::Display for GRanges {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.pad(&format!("{}", self.print_pretty(10)));
-        Ok(())
+        f.pad(&format!("{}", self.pretty_string(10).unwrap()))
     }
 }

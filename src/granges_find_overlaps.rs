@@ -25,9 +25,9 @@ use crate::granges::{GRanges};
 #[derive(Debug, Clone)]
 struct EndPoint {
     position: usize,
-    start: Option<Rc<EndPoint>>,
-    end: Option<Rc<EndPoint>>,
-    src_idx: usize,
+    start   : Option<Rc<EndPoint>>,
+    end     : Option<Rc<EndPoint>>,
+    src_idx : usize,
     is_query: bool,
 }
 

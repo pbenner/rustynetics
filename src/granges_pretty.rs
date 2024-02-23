@@ -20,21 +20,12 @@ use std::io::BufWriter;
 use std::io::BufRead;
 use std::io::Write;
 
-use crate::granges::{GRanges};
+use crate::granges::GRanges;
+use crate::error::Error;
 
 /* -------------------------------------------------------------------------- */
 
 impl GRanges {
-
-    fn print_meta_row(&self, writer: &mut dyn Write, reader: &mut dyn BufRead) -> io::Result<()> {
-        if self.meta.num_cols() > 0 {
-            write!(writer, " | ")?;
-            let mut line = String::new();
-            reader.read_line(&mut line)?;
-            write!(writer, "{}", line.trim_end_matches('\n'))?;
-        }
-        Ok(())
-    }
 
     fn update_max_width(&self, widths: &mut [usize], j: usize, args: String) {
         let width = args.len();
@@ -49,6 +40,16 @@ impl GRanges {
         self.update_max_width(widths, 2, self.ranges  [i].from.to_string());
         self.update_max_width(widths, 3, self.ranges  [i].to  .to_string());
         self.update_max_width(widths, 4, self.strand  [i]     .to_string());
+    }
+
+    fn print_meta_row(&self, writer: &mut dyn Write, reader: &mut dyn BufRead) -> io::Result<()> {
+        if self.meta.num_cols() > 0 {
+            write!(writer, " | ")?;
+            let mut line = String::new();
+            reader.read_line(&mut line)?;
+            write!(writer, "{}", line.trim_end_matches('\n'))?;
+        }
+        Ok(())
     }
 
     fn print_header(&self, writer: &mut dyn Write, meta_reader: &mut dyn BufRead, widths: &[usize]) -> io::Result<()> {
@@ -94,8 +95,8 @@ impl GRanges {
         Ok(())
     }
 
-    fn write_pretty(&self, writer: &mut dyn Write, n: usize) -> io::Result<()> {
-        let mut meta_str = format!("{}", self.meta);
+    fn print_pretty(&self, writer: &mut dyn Write, n: usize) -> io::Result<()> {
+        let meta_str = format!("{}", self.meta);
         let mut meta_reader = BufReader::new(meta_str.as_bytes());
 
         let mut widths : [usize; 5] = [1, 8, 1, 1, 6];
@@ -113,18 +114,20 @@ impl GRanges {
         Ok(())
     }
 
-    pub fn print_pretty(&self, n: usize) -> String {
+    pub fn pretty_string(&self, n: usize) -> Result<String, Error> {
         let mut buffer = Vec::new();
         {
             let mut writer = BufWriter::new(&mut buffer);
 
-            if let Err(_) = self.write_pretty(&mut writer, n) {
-                return String::new();
-            }
+            self.print_pretty(&mut writer, n)?;
 
             writer.flush().unwrap();
         }
 
-        String::from_utf8(buffer).unwrap()
+        let s = match String::from_utf8(buffer) {
+            Ok (v) => v,
+            Err(_) => panic!("internal error")
+        };
+        Ok(s)
     }
 }

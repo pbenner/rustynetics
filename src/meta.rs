@@ -292,7 +292,6 @@ impl Meta {
 impl fmt::Display for Meta {
 
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        writeln!(f, "{}", self.pretty_string(10, false).unwrap())?;
-        Ok(())
+        f.pad(&format!("{}", self.pretty_string(10, false).unwrap()))
     }
 }

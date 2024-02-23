@@ -20,7 +20,6 @@ use flate2::read::GzDecoder;
 use flate2::write::GzEncoder;
 use flate2::Compression;
 use list_comprehension_macro::comp;
-use std::convert::TryInto;
 
 use crate::range::Range;
 use crate::granges::GRanges;

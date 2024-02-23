@@ -55,7 +55,7 @@ mod tests {
             )
         ];
 
-        let mut meta = Meta::new(names, data).unwrap();
+        let meta = Meta::new(names, data).unwrap();
 
         let mut granges = GRanges::new_empty(0);
         
