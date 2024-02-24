@@ -26,8 +26,8 @@ mod tests {
     #[test]
     fn test_meta() {
 
-        let names = vec![String::from("name"), String::from("hello"), String::from("genomics"), String::from("score"), String::from("yeehaa")];
-        let data  = vec![
+        let names = vec!["name", "hello", "genomics", "score", "yeehaa"];
+        let mut data  = vec![
             MetaData::StringArray(vec![
                 "blurp".to_string(),
                 "blurp".to_string(),
@@ -87,7 +87,7 @@ mod tests {
         };
         granges.meta = meta;
 
-        match granges.meta.get_column_str_mut(&"name".to_string()) {
+        match granges.meta.get_column_str_mut("name") {
             Some(v) => v[1] = String::from("hello"),
             _ => ()
         };

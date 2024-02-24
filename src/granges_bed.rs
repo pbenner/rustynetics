@@ -163,8 +163,8 @@ impl GRanges {
             score.push(fields[4].parse::<i64>().unwrap());
             line.clear();
         }
-        self.meta.add_meta("name" .to_string(), MetaData::StringArray(name ))?;
-        self.meta.add_meta("score".to_string(), MetaData::IntArray   (score))?;
+        self.meta.add_meta("name" , MetaData::StringArray(name))?;
+        self.meta.add_meta("score", MetaData::IntArray   (score))?;
         Ok(())
     }
 
@@ -204,11 +204,11 @@ impl GRanges {
             item_rgb   .push(fields[8].to_string());
             line.clear();
         }
-        self.meta.add_meta("name" .to_string(), MetaData::StringArray(name ))?;
-        self.meta.add_meta("score".to_string(), MetaData::IntArray   (score))?;
-        self.meta.add_meta("thickStart".to_string(), MetaData::IntArray   (thick_start))?;
-        self.meta.add_meta("thickEnd"  .to_string(), MetaData::IntArray   (thick_end  ))?;
-        self.meta.add_meta("item_rgb"  .to_string(), MetaData::StringArray(item_rgb   ))?;
+        self.meta.add_meta("name"      , MetaData::StringArray(name ))?;
+        self.meta.add_meta("score"     , MetaData::IntArray   (score))?;
+        self.meta.add_meta("thickStart", MetaData::IntArray   (thick_start))?;
+        self.meta.add_meta("thickEnd"  , MetaData::IntArray   (thick_end  ))?;
+        self.meta.add_meta("item_rgb"  , MetaData::StringArray(item_rgb   ))?;
         Ok(())
     }
 

@@ -142,7 +142,7 @@ pub struct Meta {
 /* -------------------------------------------------------------------------- */
 
 impl Meta {
-    pub fn new(names: Vec<String>, data: Vec<MetaData>) -> Result<Self, Error> {
+    pub fn new(names: Vec<&str>, data: Vec<MetaData>) -> Result<Self, Error> {
         if names.len() != data.len() {
             return Err(format!("Invalid parameters!").into());
         }
@@ -152,7 +152,7 @@ impl Meta {
             rows: 0,
         };
         for i in 0..names.len() {
-            meta.add_meta(names[i].clone(), data[i].clone())?;
+            meta.add_meta(names[i], data[i].clone())?;
         }
         Ok(meta)
     }
@@ -202,7 +202,7 @@ impl Meta {
         Ok(meta)
     }
 
-    pub fn add_meta(&mut self, name: String, data: MetaData) -> Result<(), Error> {
+    pub fn add_meta(&mut self, name: &str, data: MetaData) -> Result<(), Error> {
         let n = data.len();
         if self.meta_name.len() > 0 {
             if n != self.rows {
@@ -212,19 +212,19 @@ impl Meta {
         if self.meta_name.len() == 0 {
             self.rows = n;
         }
-        self.meta_name.push(name);
+        self.meta_name.push(String::from(name));
         self.meta_data.push(data);
         Ok(())
     }
 
-    pub fn delete_meta(&mut self, name: &String) {
+    pub fn delete_meta(&mut self, name: &str) {
         if let Some(index) = self.meta_name.iter().position(|x| x == name) {
             self.meta_name.remove(index);
             self.meta_data.remove(index);
         }
     }
 
-    pub fn rename_meta(&mut self, name_old: &String, name_new: &String) {
+    pub fn rename_meta(&mut self, name_old: &str, name_new: &str) {
         if name_old == name_new {
             return;
         }
@@ -233,40 +233,40 @@ impl Meta {
         }
     }
 
-    pub fn get_column(&self, name: &String) -> Option<&MetaData> {
+    pub fn get_column(&self, name: &str) -> Option<&MetaData> {
         self.meta_name.iter().position(|x| x == name).map(|index| &self.meta_data[index])
     }
 
-    pub fn get_column_int(&self, name: &String) -> Option<&Vec<i64>> {
+    pub fn get_column_int(&self, name: &str) -> Option<&Vec<i64>> {
         let r = self.get_column(name)?;
         r.get_int()
     }
 
-    pub fn get_column_float(&self, name: &String) -> Option<&Vec<f64>> {
+    pub fn get_column_float(&self, name: &str) -> Option<&Vec<f64>> {
         let r = self.get_column(name)?;
         r.get_float()
     }
 
-    pub fn get_column_str(&self, name: &String) -> Option<&Vec<String>> {
+    pub fn get_column_str(&self, name: &str) -> Option<&Vec<String>> {
         let r = self.get_column(name)?;
         r.get_str()
     }
 
-    pub fn get_column_mut(&mut self, name: &String) -> Option<&mut MetaData> {
+    pub fn get_column_mut(&mut self, name: &str) -> Option<&mut MetaData> {
         self.meta_name.iter().position(|x| x == name).map(move |index| &mut self.meta_data[index])
     }
 
-    pub fn get_column_int_mut(&mut self, name: &String) -> Option<&mut Vec<i64>> {
+    pub fn get_column_int_mut(&mut self, name: &str) -> Option<&mut Vec<i64>> {
         let r = self.get_column_mut(name)?;
         r.get_int_mut()
     }
 
-    pub fn get_column_float_mut(&mut self, name: &String) -> Option<&mut Vec<f64>> {
+    pub fn get_column_float_mut(&mut self, name: &str) -> Option<&mut Vec<f64>> {
         let r = self.get_column_mut(name)?;
         r.get_float_mut()
     }
 
-    pub fn get_column_str_mut(&mut self, name: &String) -> Option<&mut Vec<String>> {
+    pub fn get_column_str_mut(&mut self, name: &str) -> Option<&mut Vec<String>> {
         let r = self.get_column_mut(name)?;
         r.get_str_mut()
     }
@@ -304,7 +304,7 @@ impl Meta {
         }
     }
 
-    pub fn sort(&self, name: &String, reverse: bool) -> Result<Self, Error> {
+    pub fn sort(&self, name: &str, reverse: bool) -> Result<Self, Error> {
         let mut indices: Vec<usize> = (0..self.rows).collect();
 
         if reverse {
