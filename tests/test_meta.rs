@@ -87,6 +87,11 @@ mod tests {
         };
         granges.meta = meta;
 
+        match granges.meta.get_column_str_mut(&"name".to_string()) {
+            Some(v) => v[1] = String::from("hello"),
+            _ => ()
+        };
+
         println!("{}", granges);
 
 

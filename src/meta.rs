@@ -107,6 +107,27 @@ impl MetaData {
             _ => None
         }
     }
+
+    pub fn get_float_mut(&mut self) -> Option<&mut Vec<f64>> {
+        match self {
+            MetaData::FloatArray(v) => Some(v),
+            _ => None
+        }
+    }
+
+    pub fn get_int_mut(&mut self) -> Option<&mut Vec<i64>> {
+        match self {
+            MetaData::IntArray(v) => Some(v),
+            _ => None
+        }
+    }
+
+    pub fn get_str_mut(&mut self) -> Option<&mut Vec<String>> {
+        match self {
+            MetaData::StringArray(v) => Some(v),
+            _ => None
+        }
+    }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -229,6 +250,25 @@ impl Meta {
     pub fn get_column_str(&self, name: &String) -> Option<&Vec<String>> {
         let r = self.get_column(name)?;
         r.get_str()
+    }
+
+    pub fn get_column_mut(&mut self, name: &String) -> Option<&mut MetaData> {
+        self.meta_name.iter().position(|x| x == name).map(move |index| &mut self.meta_data[index])
+    }
+
+    pub fn get_column_int_mut(&mut self, name: &String) -> Option<&mut Vec<i64>> {
+        let r = self.get_column_mut(name)?;
+        r.get_int_mut()
+    }
+
+    pub fn get_column_float_mut(&mut self, name: &String) -> Option<&mut Vec<f64>> {
+        let r = self.get_column_mut(name)?;
+        r.get_float_mut()
+    }
+
+    pub fn get_column_str_mut(&mut self, name: &String) -> Option<&mut Vec<String>> {
+        let r = self.get_column_mut(name)?;
+        r.get_str_mut()
     }
 
     pub fn slice(&self, ifrom : usize, ito : usize) -> Meta {
