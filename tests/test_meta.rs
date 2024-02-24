@@ -32,7 +32,7 @@ mod tests {
 
         let n = 20;
 
-        let names = vec!["name", "score", "hello", "genomics", "yeehaa"];
+        let names = vec!["name", "score", "float", "range", "matrix"];
         let data  = vec![
             MetaData::StringArray(
                 (0..n).map(|i: i32| format!("Entry {}", i)).collect()),
