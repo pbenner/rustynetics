@@ -19,6 +19,8 @@
 #[cfg(test)]
 mod tests {
 
+    use rand::{thread_rng, Rng};
+
     use rustynetics::meta::{Meta, MetaData};
     use rustynetics::range::Range;
     use rustynetics::granges::GRanges;
@@ -26,31 +28,16 @@ mod tests {
     #[test]
     fn test_meta() {
 
+        let mut rng = thread_rng();
+
+        let n = 20;
+
         let names = vec!["name", "hello", "genomics", "score", "yeehaa"];
-        let mut data  = vec![
-            MetaData::StringArray(vec![
-                "blurp".to_string(),
-                "blurp".to_string(),
-                "blurp".to_string(),
-                "blurp".to_string(),
-                "blurp".to_string(),
-                "blurp".to_string(),
-                "blurp".to_string(),
-                "blurp".to_string(),
-                "blurp".to_string(),
-                "blurp".to_string(),
-                "blurp".to_string(),
-                "blurp".to_string(),
-                "blurp".to_string(),
-                "blurp".to_string(),
-                "blurp".to_string(),
-                "blurp".to_string(),
-                "blurp".to_string(),
-                "blurp".to_string(),
-                "blurp".to_string(),
-                "blurp".to_string(),
-            ]),
-            MetaData::FloatArray(vec![3.2, 2.2, 5.6, 3.2, 2.2, 5.6, 3.2, 2.2, 5.6, 3.4, 3.2, 2.2, 5.6, 3.2, 2.2, 5.6, 3.2, 2.2, 5.6, 3.4]),
+        let data  = vec![
+            MetaData::StringArray(
+                (0..n).map(|i: i32| format!("Entry {}", i)).collect()),
+            MetaData::FloatArray(
+                (0..n).map(|_| rng.gen_range(-10.0..100.0)).collect()),
             MetaData::RangeArray(vec![Range::new(0, 1000), Range::new(300, 400), Range::new(20,10000), Range::new(0, 1000), Range::new(300, 400), Range::new(20,10000), Range::new(0, 1000), Range::new(300, 400), Range::new(20,10000), Range::new(0, 1000), Range::new(300, 400), Range::new(20,10000), Range::new(0, 1000), Range::new(300, 400), Range::new(20,10000), Range::new(0, 1000), Range::new(300, 400), Range::new(20,10000), Range::new(0, 1000), Range::new(300, 400)]),
             MetaData::IntArray(vec![3, 2, 5, 3, 2, 5, 3, 2, 5, 3, 2, 5, 3, 2, 5, 3, 2, 5, 3, 2]),
             MetaData::FloatMatrix(vec![
