@@ -32,36 +32,18 @@ mod tests {
 
         let n = 20;
 
-        let names = vec!["name", "hello", "genomics", "score", "yeehaa"];
+        let names = vec!["name", "score", "hello", "genomics", "yeehaa"];
         let data  = vec![
             MetaData::StringArray(
                 (0..n).map(|i: i32| format!("Entry {}", i)).collect()),
+            MetaData::IntArray(
+                (0..n).map(|_| rng.gen_range(-100..100)).collect()),
             MetaData::FloatArray(
-                (0..n).map(|_| rng.gen_range(-10.0..100.0)).collect()),
-            MetaData::RangeArray(vec![Range::new(0, 1000), Range::new(300, 400), Range::new(20,10000), Range::new(0, 1000), Range::new(300, 400), Range::new(20,10000), Range::new(0, 1000), Range::new(300, 400), Range::new(20,10000), Range::new(0, 1000), Range::new(300, 400), Range::new(20,10000), Range::new(0, 1000), Range::new(300, 400), Range::new(20,10000), Range::new(0, 1000), Range::new(300, 400), Range::new(20,10000), Range::new(0, 1000), Range::new(300, 400)]),
-            MetaData::IntArray(vec![3, 2, 5, 3, 2, 5, 3, 2, 5, 3, 2, 5, 3, 2, 5, 3, 2, 5, 3, 2]),
-            MetaData::FloatMatrix(vec![
-                vec![3.2, 2.2, 5.6],
-                vec![3.2, 2.2, 5.6],
-                vec![3.2, 2.2, 5.6],
-                vec![3.2, 2.2, 5.6],
-                vec![3.2, 2.2, 5.6],
-                vec![3.2, 2.2, 5.6],
-                vec![3.2, 2.2, 5.6],
-                vec![3.2, 2.2, 5.6],
-                vec![3.2, 2.2, 5.6],
-                vec![3.2, 2.2, 5.6],
-                vec![3.2, 2.2, 5.6],
-                vec![3.2, 2.2, 5.6],
-                vec![3.2, 2.2, 5.6],
-                vec![3.2, 2.2, 5.6],
-                vec![3.2, 2.2, 5.6],
-                vec![3.2, 2.2, 5.6],
-                vec![3.2, 2.2, 5.6],
-                vec![3.2, 2.2, 5.6],
-                vec![3.2, 2.2, 5.6],                
-                vec![3.2, 2.2, 5.6]]
-            )
+                (0..n).map(|_| rng.gen_range(-100.0..100.0)).collect()),
+            MetaData::RangeArray(
+                (0..n).map(|_| rng.gen_range(0..10000)).map(|x| Range::new(x, x+500)).collect()),
+            MetaData::FloatMatrix(
+                (0..n).map(|_| (0..5).map(|_| rng.gen_range(0.0..1000.0)).collect()).collect())
         ];
 
         let meta = Meta::new(names, data).unwrap();
@@ -75,12 +57,11 @@ mod tests {
         granges.meta = meta;
 
         match granges.meta.get_column_str_mut("name") {
-            Some(v) => v[1] = String::from("hello"),
+            Some(v) => v[1] = String::from("Test"),
             _ => ()
         };
 
         println!("{}", granges);
-
 
         match granges.export_bed6("test.bed", false) {
             Ok(_) => (),
