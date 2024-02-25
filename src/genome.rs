@@ -23,7 +23,7 @@ use std::path::Path;
 
 /* -------------------------------------------------------------------------- */
 
-#[derive(Clone)]
+#[derive(Clone, Eq)]
 pub struct Genome {
     pub seqnames: Vec<String>,
     pub lengths : Vec<usize>
@@ -85,22 +85,6 @@ impl Genome {
         }
     }
 
-    pub fn equals(&self, other: &Self) -> bool {
-        if self.length() != other.length() {
-            return false
-        }
-        for (seqname, l1) in self.seqnames.iter().zip(self.lengths.iter()) {
-            let l2 = match other.seq_length(seqname) {
-                Ok(l2) => l2,
-                Err(_) => return false,
-            };
-            if *l1 != l2 {
-                return false
-            }
-        }
-        true
-    }
-
     pub fn read<R: Read>(&mut self, reader: R) -> io::Result<()> {
         let reader = BufReader::new(reader);
         let mut seqnames = Vec::new();
@@ -126,6 +110,26 @@ impl Genome {
     pub fn import<P: AsRef<Path>>(&mut self, filename: P) -> io::Result<()> {
         let file = File::open(filename.as_ref())?;
         self.read(file).map_err(|e| io::Error::new(io::ErrorKind::Other, format!("reading genome from `{:?}` failed: {}", filename.as_ref(), e)))
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+
+impl PartialEq for Genome {
+    fn eq(&self, other: &Self) -> bool {
+        if self.length() != other.length() {
+            return false
+        }
+        for (seqname, l1) in self.seqnames.iter().zip(self.lengths.iter()) {
+            let l2 = match other.seq_length(seqname) {
+                Ok(l2) => l2,
+                Err(_) => return false,
+            };
+            if *l1 != l2 {
+                return false
+            }
+        }
+        true
     }
 }
 
