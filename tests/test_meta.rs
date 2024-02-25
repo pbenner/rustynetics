@@ -47,24 +47,48 @@ mod tests {
                 (0..n).map(|_| (0..5).map(|_| rng.gen_range(0.0..1000.0)).collect()).collect())
         ];
 
-        let mut granges = GRanges::new_empty();
+        let mut granges1 = GRanges::new_empty();
         
         assert!(
-            granges.import_bed("tests/test_granges.bed", 3, false).is_ok());
+            granges1.import_bed("tests/test_meta.bed", 3, false).is_ok());
 
-        granges.meta = Meta::new(names, data).unwrap();
+        granges1.meta = Meta::new(names, data).unwrap();
 
-        match granges.meta.get_column_str_mut("name") {
+        let granges2 = granges1.clone();
+
+        assert!(
+            granges1 == granges2);
+
+        match granges1.meta.get_column_str_mut("name") {
             Some(v) => v[1] = String::from("Test"),
             _ => ()
         };
 
-        println!("{}", granges);
+        println!("{}", granges1);
+        println!("{}", granges2);
 
         assert!(
-            granges.export_bed6("tests/test_granges.bed.tmp", false).is_ok());
-        assert!(
-            remove_file("tests/test_granges.bed.tmp").is_ok());
+            granges1 != granges2);
 
     }
+
+    #[test]
+    fn test_meta_bed6() {
+
+        let mut granges1 = GRanges::new_empty();
+        let mut granges2 = GRanges::new_empty();
+
+        assert!(
+            granges1.import_bed("tests/test_meta.bed", 6, false).is_ok());
+        assert!(
+            granges1.export_bed6("tests/test_meta.bed.tmp", false).is_ok());
+        assert!(
+            granges2.import_bed6("tests/test_meta.bed.tmp", false).is_ok());
+        assert!(
+            granges1 == granges2);
+        assert!(
+            remove_file("tests/test_meta.bed.tmp").is_ok());
+
+    }
+
 }
