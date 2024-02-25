@@ -19,6 +19,8 @@
 #[cfg(test)]
 mod tests {
 
+    use std::fs::remove_file;
+
     use rustynetics::granges::{GRanges};
 
     #[test]
@@ -26,11 +28,15 @@ mod tests {
 
         let mut granges = GRanges::new_empty();
         
-        match granges.import_bed("tests/test_granges.bed", 3, false) {
-            Err(r) => panic!("{}", r),
-            Ok (_) => (),
-        };
+        assert!(
+            granges.import_bed("tests/test_granges.bed", 3, false).is_ok());
 
-        println!("{}", granges)
-    }
+        println!("{}", granges);
+
+        assert!(
+            granges.export_bed3("tests/test_granges.bed.tmp", false).is_ok());
+        assert!(
+            remove_file("tests/test_granges.bed.tmp").is_ok());
+
+        }
 }
