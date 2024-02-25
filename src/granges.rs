@@ -111,7 +111,7 @@ impl GRanges {
         }
     }
 
-    pub fn length(&self) -> usize {
+    pub fn num_rows(&self) -> usize {
         self.ranges.len()
     }
 
@@ -142,7 +142,7 @@ impl GRanges {
         let indices = remove_duplicates_int(indices);
         let mut indices = indices.to_vec();
         indices.sort();
-        let n = self.length();
+        let n = self.num_rows();
         let m = n - indices.len();
         let mut idx = Vec::with_capacity(m);
         let mut k = 0;
@@ -193,8 +193,8 @@ impl GRanges {
     }
 
     pub fn slice(&self, ifrom: usize, ito: usize) -> Self {
-        let ifrom = ifrom.min(self.length());
-        let ito   = ito  .min(self.length());
+        let ifrom = ifrom.min(self.num_rows());
+        let ito   = ito  .min(self.num_rows());
         let seqnames = (ifrom..ito)
             .map(|i| self.seqnames[i].clone())
             .collect();
@@ -257,10 +257,10 @@ impl GRanges {
         for i in 0..genome.length() {
             seqnames.insert(genome.seqnames[i].clone(), genome.lengths[i]);
         }
-        for i in 0..self.length() {
-            let length = seqnames.get(&self.seqnames[i]).cloned();
-            if let Some(length) = length {
-                if self.ranges[i].to <= length {
+        for i in 0..self.num_rows() {
+            let num_rows = seqnames.get(&self.seqnames[i]).cloned();
+            if let Some(num_rows) = num_rows {
+                if self.ranges[i].to <= num_rows {
                     continue;
                 }
             }
@@ -271,7 +271,7 @@ impl GRanges {
 
     pub fn filter_strand(&self, s: char) -> Self {
         let mut idx = Vec::new();
-        for i in 0..self.length() {
+        for i in 0..self.num_rows() {
             if self.strand[i] != s {
                 idx.push(i);
             }
@@ -279,10 +279,10 @@ impl GRanges {
         self.remove(&idx)
     }
 
-    pub fn set_lengths(&self, n: usize) -> Self {
+    pub fn set_num_rowss(&self, n: usize) -> Self {
         let mut s = self.clone();
 
-        for i in 0..s.length() {
+        for i in 0..s.num_rows() {
             if s.strand[i] == '+' {
                 s.ranges[i].to = s.ranges[i].from + n;
             }
@@ -294,7 +294,7 @@ impl GRanges {
     }
 
     pub fn sorted_indices(&self, name: &str, reverse: bool) -> Result<Vec<usize>, String> {
-        let mut indices: Vec<usize> = (0..self.length()).collect();
+        let mut indices: Vec<usize> = (0..self.num_rows()).collect();
         match name {
             "" => Err("Invalid sort name".to_string()),
             "seqnames" => {
@@ -346,7 +346,7 @@ struct GRangesSort<'a> {
 
 impl<'a> GRangesSort<'a> {
     fn new(granges: &'a GRanges) -> Self {
-        let indices: Vec<usize> = (0..granges.length()).collect();
+        let indices: Vec<usize> = (0..granges.num_rows()).collect();
         GRangesSort { granges, indices }
     }
 }
@@ -373,7 +373,7 @@ impl<'a> PartialOrd for GRangesSort<'a> {
 
 impl<'a> Ord for GRangesSort<'a> {
     fn cmp(&self, other: &Self) -> Ordering {
-        let n = self.granges.length();
+        let n = self.granges.num_rows();
         for i in 0..n {
             let cmp = self.granges.seqnames[self.indices[i]].cmp(&self.granges.seqnames[other.indices[i]]);
             if cmp != Ordering::Equal {

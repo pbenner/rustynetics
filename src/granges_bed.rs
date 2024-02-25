@@ -31,7 +31,7 @@ use crate::meta::MetaData;
 impl GRanges {
 
     pub fn write_bed3(&self, writer: &mut dyn Write) -> Result<(), Error> {
-        for i in 0..self.length() {
+        for i in 0..self.num_rows() {
             write!(writer, "{}\t{}\t{}\n", self.seqnames[i], self.ranges[i].from, self.ranges[i].to)?;
         }
         Ok(())
@@ -58,7 +58,7 @@ impl GRanges {
             Some(v) => v,
             None    => return Err(Error::Generic("Meta data does not contain a column `score'".to_string()))
         };
-        for i in 0..self.length() {
+        for i in 0..self.num_rows() {
             let r = write!(writer, "{}\t{}\t{}\t{}\t{}\t{}\n", self.seqnames[i], self.ranges[i].from, self.ranges[i].to, name[i], score[i], self.strand.get(i).unwrap_or(&'.'))?;
         }
         Ok(())
@@ -85,18 +85,18 @@ impl GRanges {
             )?;
         let item_rgb = match self.meta.get_column_str("itemRgb") {
             Some(v) => v.clone(),
-            None    => vec![String::from("0,0,0"); self.length()]
+            None    => vec![String::from("0,0,0"); self.num_rows()]
         };
         let thick_start = match self.meta.get_column_int("thickStart") {
             Some(v) => v.clone(),
-            None    => comp![ self.ranges[i].from as i64 for i in 0..self.length() ]
+            None    => comp![ self.ranges[i].from as i64 for i in 0..self.num_rows() ]
         };
         let thick_end   = match self.meta.get_column_int("thickStart") {
             Some(v) => v.clone(),
-            None    => comp![ self.ranges[i].to   as i64 for i in 0..self.length() ]
+            None    => comp![ self.ranges[i].to   as i64 for i in 0..self.num_rows() ]
         };
 
-        for i in 0..self.length() {
+        for i in 0..self.num_rows() {
             write!(writer, "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n", self.seqnames[i], self.ranges[i].from, self.ranges[i].to, name[i], score[i], self.strand.get(i).unwrap_or(&'.'), thick_start[i], thick_end[i], item_rgb[i])?;
         }
         Ok(())

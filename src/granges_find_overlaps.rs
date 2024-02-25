@@ -156,8 +156,8 @@ fn find_overlaps_entry(
 }
 
 pub fn find_overlaps(query: &GRanges, subject: &GRanges) -> (Vec<usize>, Vec<usize>) {
-    let n = query.length();
-    let m = subject.length();
+    let n = query  .num_rows();
+    let m = subject.num_rows();
 
     let mut query_hits = Vec::new();
     let mut subject_hits = Vec::new();

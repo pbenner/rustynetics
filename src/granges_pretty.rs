@@ -72,8 +72,8 @@ impl GRanges {
     }
 
     fn print_all(&self, writer: &mut dyn Write, meta_reader: &mut dyn BufRead, widths_header : &[usize], widths_row: &[usize], n: usize) -> io::Result<()> {
-        if self.length() <= n + 1 {
-            for i in 0..self.length() {
+        if self.num_rows() <= n + 1 {
+            for i in 0..self.num_rows() {
                 self.print_row(writer, meta_reader, &widths_row, i)?;
             }
         } else {
@@ -88,7 +88,7 @@ impl GRanges {
                 "", "...", "...", "",
                 width0=widths_header[0], width1=widths_header[1], width2=widths_header[2], width3=widths_header[3])?;
             // Print last n/2 rows
-            for i in self.length() - n / 2..self.length() {
+            for i in self.num_rows() - n / 2..self.num_rows() {
                 self.print_row(writer, meta_reader, &widths_row, i)?;
             }
         }
@@ -101,7 +101,7 @@ impl GRanges {
 
         let mut widths : [usize; 5] = [1, 8, 1, 1, 6];
 
-        for i in 0..self.length() {
+        for i in 0..self.num_rows() {
             self.update_max_widths(i, &mut widths);
         }
 
