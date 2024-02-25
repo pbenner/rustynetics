@@ -35,6 +35,14 @@ impl From<String> for Error {
 
 /* -------------------------------------------------------------------------- */
 
+impl From<&str> for Error {
+    fn from(str : &str) -> Self {
+        Error::Generic(String::from(str))
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+
 impl From<io::Error> for Error {
     fn from(e : io::Error) -> Self {
         Error::IO(e)

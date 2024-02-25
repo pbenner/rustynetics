@@ -78,10 +78,10 @@ impl GRanges {
 
     pub fn write_bed9(&self, writer: &mut dyn Write) -> Result<(), Error> {
         let name  = self.meta.get_column_str("name").ok_or(
-            Error::Generic("Meta data does not contain a column `name'".to_string())
+            Error::from("Meta data does not contain a column `name'")
             )?;
         let score = self.meta.get_column_int("score").ok_or(
-            Error::Generic("Meta data does not contain a column `score'".to_string())
+            Error::from("Meta data does not contain a column `score'")
             )?;
         let item_rgb = match self.meta.get_column_str("itemRgb") {
             Some(v) => v.clone(),
