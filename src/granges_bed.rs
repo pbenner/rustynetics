@@ -77,23 +77,21 @@ impl GRanges {
     }
 
     pub fn write_bed9(&self, writer: &mut dyn Write) -> Result<(), Error> {
-        let name  = match self.meta.get_column_str(&String::from("name" )) {
-            Some(v) => v,
-            None    => return Err(Error::Generic("Meta data does not contain a column `name'".to_string()))
-        };
-        let score = match self.meta.get_column_int(&String::from("score")) {
-            Some(v) => v,
-            None    => return Err(Error::Generic("Meta data does not contain a column `score'".to_string()))
-        };
-        let item_rgb = match self.meta.get_column_str(&String::from("itemRgb")) {
+        let name  = self.meta.get_column_str("name").ok_or(
+            Error::Generic("Meta data does not contain a column `name'".to_string())
+            )?;
+        let score = self.meta.get_column_int("score").ok_or(
+            Error::Generic("Meta data does not contain a column `score'".to_string())
+            )?;
+        let item_rgb = match self.meta.get_column_str("itemRgb") {
             Some(v) => v.clone(),
             None    => vec![String::from("0,0,0"); self.length()]
         };
-        let thick_start = match self.meta.get_column_int(&String::from("thickStart")) {
+        let thick_start = match self.meta.get_column_int("thickStart") {
             Some(v) => v.clone(),
             None    => comp![ self.ranges[i].from as i64 for i in 0..self.length() ]
         };
-        let thick_end   = match self.meta.get_column_int(&String::from("thickStart")) {
+        let thick_end   = match self.meta.get_column_int("thickStart") {
             Some(v) => v.clone(),
             None    => comp![ self.ranges[i].to   as i64 for i in 0..self.length() ]
         };
