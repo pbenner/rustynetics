@@ -26,15 +26,26 @@ mod tests {
     #[test]
     fn test_granges_bed3() {
 
-        let mut granges = GRanges::new_empty();
-        
-        assert!(
-            granges.import_bed("tests/test_granges.bed", 3, false).is_ok());
+        let mut granges1 = GRanges::new_empty();
+        let mut granges2 = GRanges::new_empty();
 
-        println!("{}", granges);
-
+        // Import given granges
         assert!(
-            granges.export_bed3("tests/test_granges.bed.tmp", false).is_ok());
+            granges1.import_bed("tests/test_granges.bed", 3, false).is_ok());
+
+        // Export to new file and import again
+        assert!(
+            granges1.export_bed3("tests/test_granges.bed.tmp", false).is_ok());
+        assert!(
+            granges2.import_bed3("tests/test_granges.bed.tmp", false).is_ok());
+        assert!(
+            granges1 == granges2);
+
+        // Modify granges and test for inequality
+        granges2.seqnames[2] = String::from("test");
+        assert!(
+            granges1 != granges2);
+
         assert!(
             remove_file("tests/test_granges.bed.tmp").is_ok());
 

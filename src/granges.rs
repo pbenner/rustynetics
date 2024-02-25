@@ -55,6 +55,7 @@ impl<'a> fmt::Display for GRangesRow<'a> {
 
 /* -------------------------------------------------------------------------- */
 
+#[derive(Debug, Clone)]
 pub struct GRanges {
     pub seqnames: Vec<String>,
     pub ranges  : Vec<Range>,
@@ -381,6 +382,16 @@ impl<'a> Ord for GRangesSort<'a> {
             }
         }
         Ordering::Equal
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+
+impl PartialEq for GRanges {
+    fn eq(&self, other: &Self) -> bool {
+        self.seqnames == other.seqnames &&
+        self.ranges   == other.ranges   &&
+        self.strand   == other.strand
     }
 }
 

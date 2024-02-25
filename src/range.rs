@@ -51,6 +51,15 @@ impl Range {
 
 /* -------------------------------------------------------------------------- */
 
+impl PartialEq for Range {
+    fn eq(&self, other: &Self) -> bool {
+        self.from == other.from &&
+        self.to   == other.to
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+
 impl fmt::Display for Range {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.pad(&format!("[{}, {})", self.from, self.to))

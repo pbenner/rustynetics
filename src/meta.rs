@@ -132,6 +132,23 @@ impl MetaData {
 
 /* -------------------------------------------------------------------------- */
 
+impl PartialEq for MetaData {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (MetaData::FloatArray  (v), MetaData::FloatArray  (w)) => v == w,
+            (MetaData::IntArray    (v), MetaData::IntArray    (w)) => v == w,
+            (MetaData::StringArray (v), MetaData::StringArray (w)) => v == w,
+            (MetaData::StringMatrix(v), MetaData::StringMatrix(w)) => v == w,
+            (MetaData::FloatMatrix (v), MetaData::FloatMatrix (w)) => v == w,
+            (MetaData::IntMatrix   (v), MetaData::IntMatrix   (w)) => v == w,
+            (MetaData::RangeArray  (v), MetaData::RangeArray  (w)) => v == w,
+            _ => false
+        }
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+
 #[derive(Clone, Debug)]
 pub struct Meta {
     pub meta_name: Vec<String>,
@@ -324,6 +341,33 @@ impl Meta {
             }
         }
         Ok(self.subset(&indices))
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+
+impl PartialEq for Meta {
+    fn eq(&self, other: &Self) -> bool {
+        if self.num_cols() != other.num_cols() {
+            return false;
+        }
+        if self.num_rows() != other.num_rows() {
+            return false;
+        }
+        for j in 0..self.num_cols() {
+            let name = &self.meta_name[j];
+
+            let meta_col1 = self.meta_data[j].clone();
+            let meta_col2 = other.get_column(name);
+
+            if meta_col2.is_none() {
+                return false;
+            }
+            if meta_col1 != *meta_col2.unwrap() {
+                return false;
+            }
+        }
+        true
     }
 }
 
