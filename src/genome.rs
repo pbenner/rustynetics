@@ -23,7 +23,7 @@ use std::path::Path;
 
 /* -------------------------------------------------------------------------- */
 
-#[derive(Clone, Eq)]
+#[derive(Clone)]
 pub struct Genome {
     pub seqnames: Vec<String>,
     pub lengths : Vec<usize>
@@ -132,6 +132,8 @@ impl PartialEq for Genome {
         true
     }
 }
+
+impl Eq for EndPoint {}
 
 /* -------------------------------------------------------------------------- */
 

@@ -49,5 +49,28 @@ mod tests {
         assert!(
             remove_file("tests/test_granges.bed.tmp").is_ok());
 
-        }
+    }
+
+    #[test]
+    fn test_granges_overlaps() {
+
+        let mut granges1 = GRanges::new_empty();
+        let mut granges2 = GRanges::new_empty();
+
+        // Import given granges
+        assert!(
+            granges1.import_bed("tests/test_granges.bed", 3, false).is_ok()
+        );
+        assert!(
+            granges2.import_bed("tests/test_granges.bed", 3, false).is_ok()
+        );
+
+        let granges3 = granges1.intersection(&granges2);
+
+        println!("Granges 1\n{}", granges1.pretty_string(50).unwrap());
+        println!("Granges 2\n{}", granges2.pretty_string(50).unwrap());
+        println!("Granges 3\n{}", granges3.pretty_string(50).unwrap());
+
+    }
+
 }
