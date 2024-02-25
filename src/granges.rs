@@ -25,6 +25,7 @@ use crate::genome::Genome;
 use crate::granges_find_overlaps::find_overlaps;
 use crate::meta::Meta;
 use crate::error::Error;
+use crate::utility::remove_duplicates_int;
 
 /* -------------------------------------------------------------------------- */
 
@@ -381,19 +382,6 @@ impl<'a> Ord for GRangesSort<'a> {
         }
         Ordering::Equal
     }
-}
-
-/* -------------------------------------------------------------------------- */
-
-fn remove_duplicates_int(indices: &[usize]) -> Vec<usize> {
-    let mut set = std::collections::HashSet::new();
-    let mut result = Vec::new();
-    for &i in indices {
-        if set.insert(i) {
-            result.push(i);
-        }
-    }
-    result
 }
 
 /* -------------------------------------------------------------------------- */

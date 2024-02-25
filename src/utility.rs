@@ -26,10 +26,10 @@ use regex::Regex;
 
 /* -------------------------------------------------------------------------- */
 
-pub fn remove_duplicates_int(s: Vec<i32>) -> Vec<i32> {
-    let mut m: HashSet<i32> = HashSet::new();
-    let mut r: Vec<i32> = Vec::new();
-    for v in s {
+pub fn remove_duplicates_int(s: &[usize]) -> Vec<usize> {
+    let mut m: HashSet<usize> = HashSet::new();
+    let mut r: Vec<usize> = Vec::new();
+    for &v in s {
         if m.insert(v) {
             r.push(v);
         }
