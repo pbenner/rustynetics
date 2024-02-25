@@ -31,7 +31,7 @@ use crate::utility::remove_duplicates_int;
 
 pub struct GRangesRow<'a> {
     granges: &'a GRanges,
-    row: usize,
+    row    : usize,
 }
 
 impl<'a> GRangesRow<'a> {
@@ -46,9 +46,9 @@ impl<'a> fmt::Display for GRangesRow<'a> {
             f,
             "GRangesRow(seqname={}, range=({}, {}), strand={})",
             self.granges.seqnames[self.row],
-            self.granges.ranges[self.row].from,
-            self.granges.ranges[self.row].to,
-            self.granges.strand[self.row] as char
+            self.granges.ranges  [self.row].from,
+            self.granges.ranges  [self.row].to,
+            self.granges.strand  [self.row] as char
         )
     }
 }
@@ -183,7 +183,7 @@ impl GRanges {
         let to       = indices.iter().map(|&i| self.ranges  [i].to     ).collect();
         let strand   = indices.iter().map(|&i| self.strand  [i]        ).collect();
         let result   = GRanges::new(seqnames, from, to, strand);
-        let meta = self.meta.subset(indices);
+        let meta     = self.meta.subset(indices);
         GRanges {
             seqnames: result.seqnames,
             ranges: result.ranges,
