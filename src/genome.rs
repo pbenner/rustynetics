@@ -133,7 +133,7 @@ impl PartialEq for Genome {
     }
 }
 
-impl Eq for EndPoint {}
+impl Eq for Genome {}
 
 /* -------------------------------------------------------------------------- */
 

@@ -83,6 +83,8 @@ impl Ord for EndPoint {
     }
 }
 
+/* -------------------------------------------------------------------------- */
+
 #[derive(Debug)]
 struct EndPointList(Vec<Rc<EndPoint>>);
 
@@ -122,6 +124,8 @@ impl Ord for EndPointList {
     }
 }
 
+/* -------------------------------------------------------------------------- */
+
 fn find_overlaps_entry(
     query_hits: &mut Vec<usize>,
     subject_hits: &mut Vec<usize>,
@@ -154,6 +158,8 @@ fn find_overlaps_entry(
         }
     }
 }
+
+/* -------------------------------------------------------------------------- */
 
 pub fn find_overlaps(query: &GRanges, subject: &GRanges) -> (Vec<usize>, Vec<usize>) {
     let n = query  .num_rows();
@@ -213,4 +219,34 @@ pub fn find_overlaps(query: &GRanges, subject: &GRanges) -> (Vec<usize>, Vec<usi
     }
 
     (query_hits, subject_hits)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_overlaps_list() {
+
+        let r1 = Rc::new(EndPoint{position: 100, start: None, end: None, src_idx: 1, is_query: true});
+        let r2 = Rc::new(EndPoint{position: 200, start: None, end: None, src_idx: 1, is_query: true});
+        let r3 = Rc::new(EndPoint{position: 300, start: None, end: None, src_idx: 1, is_query: true});
+        let r4 = Rc::new(EndPoint{position: 300, start: None, end: None, src_idx: 1, is_query: true});
+        let r5 = Rc::clone(&r2);
+
+        let mut s = EndPointList::new();
+
+        s.append(Rc::clone(&r1));
+        s.append(Rc::clone(&r2));
+        s.append(Rc::clone(&r3));
+        s.append(Rc::clone(&r4));
+
+        s.remove(&r5);
+
+        assert!(Rc::clone(&r1) == s.0[0]);
+        assert!(Rc::clone(&r3) == s.0[1]);
+        assert!(Rc::clone(&r3) == s.0[2]);
+        assert!(Rc::clone(&r4) == s.0[2]);
+
+    }
 }

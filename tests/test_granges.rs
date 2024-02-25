@@ -67,9 +67,9 @@ mod tests {
 
         let granges3 = granges1.intersection(&granges2);
 
-        println!("Granges 1\n{}", granges1.pretty_string(50).unwrap());
-        println!("Granges 2\n{}", granges2.pretty_string(50).unwrap());
-        println!("Granges 3\n{}", granges3.pretty_string(50).unwrap());
+        //println!("Granges 1\n{}", granges1.pretty_string(50).unwrap());
+        //println!("Granges 2\n{}", granges2.pretty_string(50).unwrap());
+        //println!("Granges 3\n{}", granges3.pretty_string(50).unwrap());
 
     }
 
