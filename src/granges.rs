@@ -391,7 +391,8 @@ impl PartialEq for GRanges {
     fn eq(&self, other: &Self) -> bool {
         self.seqnames == other.seqnames &&
         self.ranges   == other.ranges   &&
-        self.strand   == other.strand
+        self.strand   == other.strand   &&
+        self.meta     == other.meta
     }
 }
 

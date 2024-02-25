@@ -64,8 +64,8 @@ mod tests {
             _ => ()
         };
 
-        println!("{}", granges1);
-        println!("{}", granges2);
+        //println!("{}", granges1);
+        //println!("{}", granges2);
 
         assert!(
             granges1 != granges2);
