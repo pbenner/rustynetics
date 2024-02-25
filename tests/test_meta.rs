@@ -20,6 +20,7 @@
 mod tests {
 
     use rand::{thread_rng, Rng};
+    use std::fs::remove_file;
 
     use rustynetics::meta::{Meta, MetaData};
     use rustynetics::range::Range;
@@ -46,15 +47,12 @@ mod tests {
                 (0..n).map(|_| (0..5).map(|_| rng.gen_range(0.0..1000.0)).collect()).collect())
         ];
 
-        let meta = Meta::new(names, data).unwrap();
-
-        let mut granges = GRanges::new_empty(0);
+        let mut granges = GRanges::new_empty();
         
-        match granges.import_bed("tests/test_granges.bed", 3, false) {
-            Err(r) => panic!("{}", r),
-            Ok (_) => (),
-        };
-        granges.meta = meta;
+        assert!(
+            granges.import_bed("tests/test_granges.bed", 3, false).is_ok());
+
+        granges.meta = Meta::new(names, data).unwrap();
 
         match granges.meta.get_column_str_mut("name") {
             Some(v) => v[1] = String::from("Test"),
@@ -63,9 +61,10 @@ mod tests {
 
         println!("{}", granges);
 
-        match granges.export_bed6("test.bed", false) {
-            Ok(_) => (),
-            Err(e) => panic!("Error message: {}", e)
-        }
+        assert!(
+            granges.export_bed6("tests/test_granges.bed.tmp", false).is_ok());
+        assert!(
+            remove_file("tests/test_granges.bed.tmp").is_ok());
+
     }
 }

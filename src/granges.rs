@@ -82,27 +82,27 @@ impl GRanges {
             seqnames,
             ranges,
             strand,
-            meta: Meta::new_empty(n),
+            meta: Meta::new_empty(),
         }
     }
 
-    pub fn new_empty(n: usize) -> Self {
-        let seqnames = vec![String::new(); n];
-        let ranges = vec![Range::new(0, 0); n];
-        let strand = vec!['*'; n];
+    pub fn new_empty() -> Self {
+        let seqnames = vec![String::new(); 0];
+        let ranges   = vec![Range::new(0, 0); 0];
+        let strand   = vec!['*'; 0];
         GRanges {
             seqnames,
             ranges,
             strand,
-            meta: Meta::new_empty(n),
+            meta: Meta::new_empty(),
         }
     }
 
     pub fn clone(&self) -> Self {
         let seqnames = self.seqnames.clone();
-        let ranges = self.ranges.clone();
-        let strand = self.strand.clone();
-        let meta = self.meta.clone();
+        let ranges   = self.ranges.clone();
+        let strand   = self.strand.clone();
+        let meta     = self.meta.clone();
         GRanges {
             seqnames,
             ranges,

@@ -157,12 +157,12 @@ impl Meta {
         Ok(meta)
     }
 
-    pub fn new_empty(rows : usize) -> Meta {
+    pub fn new_empty() -> Meta {
 
         let meta = Meta {
             meta_name: Vec::new(),
             meta_data: Vec::new(),
-            rows: rows,
+            rows: 0,
         };
         meta
     }

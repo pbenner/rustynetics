@@ -24,7 +24,7 @@ mod tests {
     #[test]
     fn test_granges_bed3() {
 
-        let mut granges = GRanges::new_empty(0);
+        let mut granges = GRanges::new_empty();
         
         match granges.import_bed("tests/test_granges.bed", 3, false) {
             Err(r) => panic!("{}", r),
