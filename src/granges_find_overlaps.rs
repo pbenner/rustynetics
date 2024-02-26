@@ -14,6 +14,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+use std::fmt;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -22,7 +23,7 @@ use crate::granges::{GRanges};
 
 /* -------------------------------------------------------------------------- */
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 struct EndPoint {
     position: usize,
     start   : Option<Rc<EndPoint>>,
@@ -75,11 +76,20 @@ impl Ord for EndPoint {
     fn cmp(&self, other: &Self) -> Ordering {
         if self.position != other.position {
             self.position.cmp(&other.position)
-        } else if self.start.is_none() && other.start.is_some() {
+        } else if self.is_start() && other.is_end() {
             Ordering::Less
         } else {
             Ordering::Greater
         }
+    }
+}
+
+impl fmt::Debug for EndPoint {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "<{},{}>", self.get_start(), self.get_end()
+        )
     }
 }
 
@@ -136,20 +146,20 @@ fn find_overlaps_entry(
 
     for endpoint in &entry.0 {
         if endpoint.is_query {
-            if endpoint.start.is_none() {
+            if endpoint.is_start() {
                 query_list.append(endpoint.clone());
                 for subject_endpoint in &subject_list.0 {
-                    query_hits.push(endpoint.src_idx);
+                    query_hits  .push(endpoint.src_idx);
                     subject_hits.push(subject_endpoint.src_idx);
                 }
             } else {
                 query_list.remove(endpoint.start.as_ref().unwrap());
             }
         } else {
-            if endpoint.start.is_none() {
+            if endpoint.is_start() {
                 subject_list.append(endpoint.clone());
                 for query_endpoint in &query_list.0 {
-                    query_hits.push(query_endpoint.src_idx);
+                    query_hits  .push(query_endpoint.src_idx);
                     subject_hits.push(endpoint.src_idx);
                 }
             } else {
@@ -173,16 +183,16 @@ pub fn find_overlaps(query: &GRanges, subject: &GRanges) -> (Vec<usize>, Vec<usi
     for i in 0..n {
         let start = Rc::new(EndPoint {
             position: query.ranges[i].from,
-            start: None,
-            end: None,
-            src_idx: i,
+            start   : None,
+            end     : None,
+            src_idx : i,
             is_query: true,
         });
         let end = Rc::new(EndPoint {
             position: query.ranges[i].to - 1,
-            start: Some(Rc::clone(&start)),
-            end: None,
-            src_idx: i,
+            start   : Some(Rc::clone(&start)),
+            end     : None,
+            src_idx : i,
             is_query: true,
         });
         let entry = rmap.entry(query.seqnames[i].clone()).or_insert_with(EndPointList::new);
@@ -193,16 +203,16 @@ pub fn find_overlaps(query: &GRanges, subject: &GRanges) -> (Vec<usize>, Vec<usi
     for i in 0..m {
         let start = Rc::new(EndPoint {
             position: subject.ranges[i].from,
-            start: None,
-            end: None,
-            src_idx: i,
+            start   : None,
+            end     : None,
+            src_idx : i,
             is_query: false,
         });
         let end = Rc::new(EndPoint {
             position: subject.ranges[i].to - 1,
-            start: Some(Rc::clone(&start)),
-            end: None,
-            src_idx: i,
+            start   : Some(Rc::clone(&start)),
+            end     : None,
+            src_idx : i,
             is_query: false,
         });
         let entry = rmap.entry(subject.seqnames[i].clone()).or_insert_with(EndPointList::new);
@@ -255,13 +265,13 @@ mod tests {
     #[test]
     fn test_overlaps() {
 
-        let mut granges1 = GRanges::new(
+        let granges1 = GRanges::new(
             vec!["chr4", "chr4"].iter().map(|x| String::from(*x)).collect(),
             vec![600, 850],
             vec![950, 950],
             vec![]
         );
-        let mut granges2 = GRanges::new(
+        let granges2 = GRanges::new(
             vec!["chr4", "chr4", "chr4", "chr4"].iter().map(|x| String::from(*x)).collect(),
             vec![100, 200, 300, 400],
             vec![900, 800, 700, 600],
@@ -269,9 +279,6 @@ mod tests {
         );
 
         let (query_hits, subject_hits) = find_overlaps(&granges1, &granges2);
-
-        println!("{:?}", query_hits);
-        println!("{:?}", subject_hits);
 
         assert!(query_hits[0] == 0);
         assert!(query_hits[1] == 0);
