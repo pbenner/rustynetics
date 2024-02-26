@@ -215,25 +215,26 @@ impl GRanges {
     pub fn intersection(&self, s: &GRanges) -> Self {
         let (query_hits, subject_hits) = find_overlaps(self, s);
         let n = query_hits.len();
-        let seqnames = (0..n)
-            .map(|i| {
-                let i_q = query_hits[i];
-                let i_s = subject_hits[i];
-                let gr = self.ranges[i_q].intersection(&s.ranges[i_s]);
-                self.seqnames[i_q].clone()
-            })
-            .collect();
-        let strand = (0..n).map(|i| self.strand[query_hits[i]]     ).collect();
-        let from   = (0..n).map(|i| self.ranges[query_hits[i]].from).collect();
-        let to     = (0..n).map(|i| self.ranges[query_hits[i]].to  ).collect();
-        let result = GRanges::new(seqnames, from, to, strand);
-        let meta = self.meta.subset(&query_hits);
-        GRanges {
-            seqnames: result.seqnames,
-            ranges: result.ranges,
-            strand: result.strand,
-            meta,
+
+        let mut seqnames = Vec::with_capacity(n);
+        let mut from     = Vec::with_capacity(n);
+        let mut to       = Vec::with_capacity(n);
+        let mut strand   = Vec::with_capacity(n);
+
+        for i in 0..n {
+            let i_q =   query_hits[i];
+            let i_s = subject_hits[i];
+            let gr  = self.ranges[i_q].intersection(&s.ranges[i_s]);
+
+            seqnames.push(self.seqnames[i_q].clone());
+            strand  .push(self.strand  [i_q]);
+            from    .push(gr.from);
+            to      .push(gr.to  );
         }
+        let mut granges = GRanges::new(seqnames, from, to, strand);
+
+        granges.meta = self.meta.subset(&query_hits);
+        granges
     }
 
     pub fn sort(&self, name: &str, reverse: bool) -> Result<Self, Error> {
