@@ -59,7 +59,7 @@ impl GRanges {
             None    => return Err(Error::Generic("Meta data does not contain a column `score'".to_string()))
         };
         for i in 0..self.num_rows() {
-            let r = write!(writer, "{}\t{}\t{}\t{}\t{}\t{}\n", self.seqnames[i], self.ranges[i].from, self.ranges[i].to, name[i], score[i], self.strand.get(i).unwrap_or(&'.'))?;
+            write!(writer, "{}\t{}\t{}\t{}\t{}\t{}\n", self.seqnames[i], self.ranges[i].from, self.ranges[i].to, name[i], score[i], self.strand.get(i).unwrap_or(&'.'))?;
         }
         Ok(())
     }

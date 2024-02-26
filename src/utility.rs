@@ -17,12 +17,6 @@
 /* -------------------------------------------------------------------------- */
 
 use std::collections::HashSet;
-use std::fs::File;
-use std::io::{self, BufRead, BufReader, Read};
-use std::path::Path;
-use flate2::write::GzEncoder;
-use flate2::Compression;
-use regex::Regex;
 
 /* -------------------------------------------------------------------------- */
 
@@ -36,6 +30,17 @@ pub fn remove_duplicates_int(s: &[usize]) -> Vec<usize> {
     }
     r
 }
+
+/* -------------------------------------------------------------------------- */
+
+/*
+
+use std::fs::File;
+use std::io::{self, BufRead, BufReader, Read};
+use std::path::Path;
+use flate2::write::GzEncoder;
+use flate2::Compression;
+use regex::Regex;
 
 pub fn i_min(a: i32, b: i32) -> i32 {
     std::cmp::min(a, b)
@@ -136,3 +141,5 @@ pub fn byte_superset(a: &[u8], b: &[u8]) -> bool {
     let m: HashSet<u8> = a.iter().cloned().collect();
     b.iter().all(|&c| m.contains(&c))
 }
+
+*/
