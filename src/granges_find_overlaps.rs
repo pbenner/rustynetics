@@ -165,7 +165,7 @@ pub fn find_overlaps(query: &GRanges, subject: &GRanges) -> (Vec<usize>, Vec<usi
     let n = query  .num_rows();
     let m = subject.num_rows();
 
-    let mut query_hits = Vec::new();
+    let mut query_hits   = Vec::new();
     let mut subject_hits = Vec::new();
 
     let mut rmap: HashMap<String, EndPointList> = HashMap::new();
@@ -223,7 +223,9 @@ pub fn find_overlaps(query: &GRanges, subject: &GRanges) -> (Vec<usize>, Vec<usi
 
 #[cfg(test)]
 mod tests {
+
     use super::*;
+    use crate::granges::GRanges;
 
     #[test]
     fn test_overlaps_list() {
@@ -249,4 +251,37 @@ mod tests {
         assert!(Rc::clone(&r4) == s.0[2]);
 
     }
+
+    #[test]
+    fn test_overlaps() {
+
+        let mut granges1 = GRanges::new(
+            vec!["chr4", "chr4"].iter().map(|x| String::from(*x)).collect(),
+            vec![600, 850],
+            vec![950, 950],
+            vec![]
+        );
+        let mut granges2 = GRanges::new(
+            vec!["chr4", "chr4", "chr4", "chr4"].iter().map(|x| String::from(*x)).collect(),
+            vec![100, 200, 300, 400],
+            vec![900, 800, 700, 600],
+            vec![]
+        );
+
+        let (query_hits, subject_hits) = find_overlaps(&granges1, &granges2);
+
+        println!("{:?}", query_hits);
+        println!("{:?}", subject_hits);
+
+        assert!(query_hits[0] == 0);
+        assert!(query_hits[1] == 0);
+        assert!(query_hits[2] == 0);
+        assert!(query_hits[3] == 1);
+
+        assert!(subject_hits[0] == 0);
+        assert!(subject_hits[1] == 1);
+        assert!(subject_hits[2] == 2);
+        assert!(subject_hits[3] == 0);
+    }
+
 }
