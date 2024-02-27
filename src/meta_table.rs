@@ -16,10 +16,11 @@
 
 use std::fmt;
 use std::any::Any;
-use std::io::{self, BufRead, BufReader, Read, Write};
+use std::io::{self, BufRead, BufReader, BufWriter, Read, Write};
 use std::str::FromStr;
 
 use crate::meta::Meta;
+use crate::meta::MetaData;
 
 /* -------------------------------------------------------------------------- */
 
@@ -32,27 +33,21 @@ struct OptionPrintScientific {
 
 impl Meta {
 
-    fn print_meta_cell_slice<W: Write>(&self, writer: &mut W, widths: &[usize], i: usize, j: usize, data: &dyn Any, use_scientific: bool) -> io::Result<()> {
+    fn print_meta_cell_slice<W: Write>(&self, writer: &mut W, widths: &[usize], i: usize, j: usize, data: &MetaData, use_scientific: bool) -> io::Result<()> {
         let mut tmp_buffer = Vec::new();
         {
             let mut tmp_writer = io::Cursor::new(&mut tmp_buffer);
             match data {
-                v @ &Vec::<String>::new() => {
-                    if v.is_empty() {
-                        write!(tmp_writer, "nil")?;
-                    }
-                    for (k, s) in v.iter().enumerate() {
+                MetaData::StringMatrix(v) => {
+                    for (k, s) in v[i].iter().enumerate() {
                         if k != 0 {
                             write!(tmp_writer, ",")?;
                         }
                         write!(tmp_writer, "{}", s)?;
                     }
                 }
-                v @ &Vec::<f64>::new() => {
-                    if v.is_empty() {
-                        write!(tmp_writer, "nil")?;
-                    }
-                    for (k, f) in v.iter().enumerate() {
+                MetaData::FloatMatrix(v) => {
+                    for (k, f) in v[i].iter().enumerate() {
                         if k != 0 {
                             write!(tmp_writer, ",")?;
                         }
@@ -63,11 +58,8 @@ impl Meta {
                         }
                     }
                 }
-                v @ &Vec::<i32>::new() => {
-                    if v.is_empty() {
-                        write!(tmp_writer, "nil")?;
-                    }
-                    for (k, i) in v.iter().enumerate() {
+                MetaData::IntMatrix(v) => {
+                    for (k, i) in v[i].iter().enumerate() {
                         if k != 0 {
                             write!(tmp_writer, ",")?;
                         }
@@ -82,37 +74,42 @@ impl Meta {
 
     fn print_meta_cell<W: Write>(&self, writer: &mut W, widths: &[usize], i: usize, j: usize, use_scientific: bool) -> io::Result<()> {
         match &self.meta_data[j] {
-            v @ &Vec::<String>::new() => {
-                let format = format!(" %{}s", widths[j] - 1);
+            MetaData::StringArray(v) => {
                 write!(writer, " %{:width$}s", v[i], width = widths[j] - 1)
             }
-            v @ &Vec::<f64>::new() => {
+            MetaData::FloatArray(v) => {
                 if use_scientific {
                     write!(writer, " %{:width$}e", v[i], width = widths[j] - 1)
                 } else {
                     write!(writer, " %{:width$}f", v[i], width = widths[j] - 1)
                 }
             }
-            v @ &Vec::<i32>::new() => {
+            MetaData::IntArray(v) => {
                 write!(writer, " %{:width$}d", v[i], width = widths[j] - 1)
             }
-            _ => print_meta_cell_slice(writer, widths, i, j, &self.meta_data[j]),
+            _ => self.print_meta_cell_slice(writer, widths, i, j, &self.meta_data[j], use_scientific),
         }
     }
 
-    fn print_meta_row<W: Write>(&self, writer: &mut W, widths: &[usize], i: usize) -> io::Result<()> {
+    fn print_meta_row<W: Write>(&self, writer: &mut W, widths: &[usize], i: usize, use_scientific: bool) -> io::Result<()> {
         if i != 0 {
             writeln!(writer)?;
         }
-        for j in 0..self.meta_length() {
-            print_meta_cell(writer, widths, i, j)?;
+        for j in 0..self.num_cols() {
+            self.print_meta_cell(writer, widths, i, j, use_scientific)?;
         }
         Ok(())
     }
 
-    fn meta_update_max_widths<W: Write>(&self, i: usize, widths: &mut [usize]) -> io::Result<()> {
-        for j in 0..self.meta_length() {
-            let width = print_meta_cell(&mut io::sink(), widths, i, j)?;
+    fn meta_update_max_widths(&self, i: usize, widths: &mut [usize], use_scientific: bool) -> io::Result<()> {
+        for j in 0..self.num_cols() {
+            let mut tmp_buffer = Vec::new();
+            {
+                let mut tmp_writer = BufWriter::new(&mut tmp_buffer);
+                self.print_meta_cell(&mut tmp_writer, widths, i, j, use_scientific)?;
+                tmp_writer.flush()?;
+            }
+            let width = tmp_buffer.len();
             if width > widths[j] {
                 widths[j] = width;
             }
@@ -121,14 +118,14 @@ impl Meta {
     }
 
     fn print_meta_header<W: Write>(&self, writer: &mut W, widths: &[usize]) -> io::Result<()> {
-        for j in 0..self.meta_length() {
+        for j in 0..self.num_cols() {
             write!(writer, " %{:width$}s", self.meta_name[j], width = widths[j] - 1)?;
         }
         writeln!(writer)
     }
 
     fn apply_rows(&self, f1: &mut dyn FnMut(usize) -> io::Result<()>) -> io::Result<()> {
-        for i in 0..self.length() {
+        for i in 0..self.num_cols() {
             f1(i)?;
         }
         Ok(())
@@ -142,22 +139,21 @@ impl Meta {
             }
         }
 
-        let mut widths = vec![0; self.meta_length()];
-        for j in 0..self.meta_length() {
-            let width = write!(io::sink(), " {}", self.meta_name[j])?;
-            widths[j] = width;
+        let mut widths = vec![0; self.num_cols()];
+        for j in 0..self.num_cols() {
+            widths[j] = self.meta_name[j].len();
         }
 
-        apply_rows(&mut |i| self.meta_update_max_widths(i, &mut widths))?;
+        self.apply_rows(&mut |i| self.meta_update_max_widths(i, &mut widths, use_scientific))?;
 
         if header {
             self.print_meta_header(writer, &widths)?;
         }
 
-        apply_rows(&mut |i| self.print_meta_row(writer, &widths, i))
+        self.apply_rows(&mut |i| self.print_meta_row(writer, &widths, i, use_scientific))
     }
 
-    fn print_table(&self, header: bool, args: &[&dyn fmt::Debug]) -> String {
+    fn print_table(&self, header: bool, args: &[&dyn Any]) -> String {
         let mut buffer = Vec::new();
         {
             let mut writer = io::Cursor::new(&mut buffer);
@@ -173,17 +169,17 @@ impl Meta {
             panic!("invalid arguments");
         }
 
-        let mut idx_map = std::collections::HashMap::new();
+        let mut idx_map  = std::collections::HashMap::new();
         let mut meta_map = std::collections::HashMap::new();
         for i in 0..names.len() {
             idx_map.insert(names[i].clone(), -1);
             match types[i].as_str() {
-                "Vec<String>" => meta_map.insert(names[i].clone(), Vec::<String>::new()),
-                "Vec<i32>" => meta_map.insert(names[i].clone(), Vec::<i32>::new()),
-                "Vec<f64>" => meta_map.insert(names[i].clone(), Vec::<f64>::new()),
-                "Vec<Vec<String>>" => meta_map.insert(names[i].clone(), Vec::<Vec<String>>::new()),
-                "Vec<Vec<i32>>" => meta_map.insert(names[i].clone(), Vec::<Vec<i32>>::new()),
-                "Vec<Vec<f64>>" => meta_map.insert(names[i].clone(), Vec::<Vec<f64>>::new()),
+                "String"      => meta_map.insert(names[i].clone(), MetaData::StringArray(Vec::new())),
+                "Int"         => meta_map.insert(names[i].clone(), MetaData::IntArray(Vec::new())),
+                "Float"       => meta_map.insert(names[i].clone(), MetaData::FloatArray(Vec::new())),
+                "Vec<String>" => meta_map.insert(names[i].clone(), MetaData::StringMatrix(Vec::new())),
+                "Vec<Int>"    => meta_map.insert(names[i].clone(), MetaData::IntMatrix(Vec::new())),
+                "Vec<Float>"  => meta_map.insert(names[i].clone(), MetaData::FloatMatrix(Vec::new())),
                 _ => panic!("invalid types argument"),
             };
         }
@@ -218,11 +214,11 @@ impl Meta {
                     return Err(io::Error::new(io::ErrorKind::InvalidData, "invalid table"));
                 }
                 match meta_map.get_mut(name).unwrap() {
-                    v @ &mut Vec::<String>::new() => {
+                    MetaData::StringArray(v) => {
                         v.push(fields[*idx as usize].to_string());
                     }
-                    v @ &mut Vec::<i32>::new() => {
-                        let value = i32::from_str(fields[*idx as usize]).map_err(|e| {
+                    MetaData::IntArray(v) => {
+                        let value = i64::from_str(fields[*idx as usize]).map_err(|e| {
                             io::Error::new(
                                 io::ErrorKind::InvalidData,
                                 format!("parsing meta information failed at line `{}`: {}", i, e),
@@ -230,7 +226,7 @@ impl Meta {
                         })?;
                         v.push(value);
                     }
-                    v @ &mut Vec::<f64>::new() => {
+                    MetaData::FloatArray(v) => {
                         if fields[*idx as usize] == "NA" || fields[*idx as usize] == "NaN" {
                             v.push(f64::NAN);
                         } else {
@@ -243,14 +239,14 @@ impl Meta {
                             v.push(value);
                         }
                     }
-                    v @ &mut Vec::<Vec<i32>>::new() => {
+                    MetaData::IntMatrix(v) => {
                         let data: Vec<&str> = fields[*idx as usize].split(',').collect();
                         if data.len() == 1 && data[0] == "nil" {
-                            v.push(Vec::<i32>::new());
+                            v.push(Vec::<i64>::new());
                         } else {
                             let mut entry = Vec::with_capacity(data.len());
                             for d in data {
-                                let value = i32::from_str(d).map_err(|e| {
+                                let value = i64::from_str(d).map_err(|e| {
                                     io::Error::new(
                                         io::ErrorKind::InvalidData,
                                         format!("parsing meta information failed at line `{}`: {}", i, e),
@@ -261,7 +257,7 @@ impl Meta {
                             v.push(entry);
                         }
                     }
-                    v @ &mut Vec::<Vec<f64>>::new() => {
+                    MetaData::FloatMatrix(v) => {
                         let data: Vec<&str> = fields[*idx as usize].split(',').collect();
                         if data.len() == 1 && data[0] == "nil" {
                             v.push(Vec::<f64>::new());
@@ -279,7 +275,7 @@ impl Meta {
                             v.push(entry);
                         }
                     }
-                    v @ &mut Vec::<Vec<String>>::new() => {
+                    MetaData::StringMatrix(v) => {
                         let data: Vec<&str> = fields[*idx as usize].split(',').collect();
                         if data.len() == 1 && data[0] == "nil" {
                             v.push(Vec::<String>::new());
@@ -299,7 +295,7 @@ impl Meta {
 
         for (name, idx) in idx_map {
             if idx != -1 {
-                self.add_meta(name, meta_map.remove(&name).unwrap());
+                self.add_meta(&name, meta_map.remove(&name).unwrap());
             }
         }
 
