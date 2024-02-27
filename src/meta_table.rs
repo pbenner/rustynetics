@@ -150,7 +150,7 @@ impl Meta {
         Ok(())
     }
 
-    fn print_table(&self, header: bool, args: &[&dyn Any]) -> String {
+    pub fn print_table(&self, header: bool, args: &[&dyn Any]) -> String {
         let mut buffer = Vec::new();
         {
             let mut writer = io::Cursor::new(&mut buffer);
@@ -159,7 +159,7 @@ impl Meta {
         String::from_utf8(buffer).unwrap()
     }
 
-    fn read_table<R: Read>(&mut self, reader: R, names: &[String], types: &[String]) -> io::Result<()> {
+    pub fn read_table<R: Read>(&mut self, reader: R, names: &[String], types: &[String]) -> io::Result<()> {
         let mut reader = BufReader::new(reader);
 
         if names.len() != types.len() {
@@ -292,7 +292,9 @@ impl Meta {
 
         for (name, idx) in idx_map {
             if idx != -1 {
-                self.add_meta(&name, meta_map.remove(&name).unwrap());
+                if let Err(_) = self.add_meta(&name, meta_map.remove(&name).unwrap()) {
+                    panic!("internal error")
+                }
             }
         }
 
