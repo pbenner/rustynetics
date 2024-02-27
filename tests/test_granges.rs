@@ -21,7 +21,8 @@ mod tests {
 
     use std::fs::remove_file;
 
-    use rustynetics::granges::{GRanges};
+    use rustynetics::range::Range;
+    use rustynetics::granges::GRanges;
 
     #[test]
     fn test_granges_bed3() {
@@ -52,7 +53,7 @@ mod tests {
     }
 
     #[test]
-    fn test_granges_overlaps() {
+    fn test_granges_intersection() {
 
         let mut granges1 = GRanges::new_empty();
         let mut granges2 = GRanges::new_empty();
@@ -64,12 +65,23 @@ mod tests {
         assert!(
             granges2.import_bed("tests/test_granges.bed", 3, false).is_ok()
         );
+        granges1 = granges1.subset(&[0,1]);
+        granges2 = granges1.subset(&[0,1]);
 
         let granges3 = granges1.intersection(&granges2);
 
-        //println!("Granges 1\n{}", granges1.pretty_string(50).unwrap());
-        //println!("Granges 2\n{}", granges2.pretty_string(50).unwrap());
-        //println!("Granges 3\n{}", granges3.pretty_string(50).unwrap());
+        assert!(
+            granges3.ranges[0] == Range::new(100000266, 100000291)
+        );
+        assert!(
+            granges3.ranges[1] == Range::new(100000271, 100000291)
+        );
+        assert!(
+            granges3.ranges[2] == Range::new(100000271, 100000291)
+        );
+        assert!(
+            granges3.ranges[3] == Range::new(100000271, 100000296)
+        );
 
     }
 
