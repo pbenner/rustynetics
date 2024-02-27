@@ -26,7 +26,8 @@ use crate::granges::GRanges;
 use crate::error::Error;
 use crate::meta::MetaData;
 
-/* -------------------------------------------------------------------------- */
+/* Export / write GRanges to BED files
+ * -------------------------------------------------------------------------- */
 
 impl GRanges {
 
@@ -133,6 +134,12 @@ impl GRanges {
         self.write_bed(&mut writer, columns)?;
         Ok(())
     }
+}
+
+/* Import / read GRanges from BED files
+ * -------------------------------------------------------------------------- */
+
+impl GRanges {
 
     pub fn read_bed3(&mut self, reader: &mut dyn BufRead) -> Result<(), Error> {
         let mut line = String::new();
