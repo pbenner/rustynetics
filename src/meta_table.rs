@@ -32,6 +32,108 @@ struct OptionPrintScientific {
 
 impl Meta {
 
+    fn print_meta_cell_slice<W: Write>(&self, writer: &mut W, widths: &[usize], i: usize, j: usize, data: &dyn fmt::Debug, use_scientific: bool) -> io::Result<()> {
+        let mut tmp_buffer = Vec::new();
+        {
+            let mut tmp_writer = io::Cursor::new(&mut tmp_buffer);
+            match data {
+                v @ &Vec::<String>::new() => {
+                    if v.is_empty() {
+                        write!(tmp_writer, "nil")?;
+                    }
+                    for (k, s) in v.iter().enumerate() {
+                        if k != 0 {
+                            write!(tmp_writer, ",")?;
+                        }
+                        write!(tmp_writer, "{}", s)?;
+                    }
+                }
+                v @ &Vec::<f64>::new() => {
+                    if v.is_empty() {
+                        write!(tmp_writer, "nil")?;
+                    }
+                    for (k, f) in v.iter().enumerate() {
+                        if k != 0 {
+                            write!(tmp_writer, ",")?;
+                        }
+                        if use_scientific {
+                            write!(tmp_writer, "{:e}", f)?;
+                        } else {
+                            write!(tmp_writer, "{:?}", f)?;
+                        }
+                    }
+                }
+                v @ &Vec::<i32>::new() => {
+                    if v.is_empty() {
+                        write!(tmp_writer, "nil")?;
+                    }
+                    for (k, i) in v.iter().enumerate() {
+                        if k != 0 {
+                            write!(tmp_writer, ",")?;
+                        }
+                        write!(tmp_writer, "{}", i)?;
+                    }
+                }
+                _ => panic!("invalid meta data"),
+            }
+        }
+        write!(writer, " {:width$}s", String::from_utf8(tmp_buffer).unwrap(), width = widths[j] - 1)
+    }
+
+    fn print_cell<W: Write>(&self, writer: &mut W, widths: &[usize], i: usize, j: usize, use_scientific: bool) -> io::Result<()> {
+        match &self.meta_data[j] {
+            v @ &Vec::<String>::new() => {
+                let format = format!(" %{}s", widths[j] - 1);
+                write!(writer, " %{:width$}s", v[i], width = widths[j] - 1)
+            }
+            v @ &Vec::<f64>::new() => {
+                if use_scientific {
+                    write!(writer, " %{:width$}e", v[i], width = widths[j] - 1)
+                } else {
+                    write!(writer, " %{:width$}f", v[i], width = widths[j] - 1)
+                }
+            }
+            v @ &Vec::<i32>::new() => {
+                write!(writer, " %{:width$}d", v[i], width = widths[j] - 1)
+            }
+            _ => print_cell_slice(writer, widths, i, j, &self.meta_data[j]),
+        }
+    }
+
+    fn print_row<W: Write>(&self, writer: &mut W, widths: &[usize], i: usize) -> io::Result<()> {
+        if i != 0 {
+            writeln!(writer)?;
+        }
+        for j in 0..self.meta_length() {
+            print_cell(writer, widths, i, j)?;
+        }
+        Ok(())
+    }
+
+    fn update_max_widths<W: Write>(&self, i: usize, widths: &mut [usize]) -> io::Result<()> {
+        for j in 0..self.meta_length() {
+            let width = print_cell(&mut io::sink(), widths, i, j)?;
+            if width > widths[j] {
+                widths[j] = width;
+            }
+        }
+        Ok(())
+    }
+
+    fn print_header<W: Write>(&self, writer: &mut W, widths: &[usize]) -> io::Result<()> {
+        for j in 0..self.meta_length() {
+            write!(writer, " %{:width$}s", self.meta_name[j], width = widths[j] - 1)?;
+        }
+        writeln!(writer)
+    }
+
+    fn apply_rows(&self, f1: &mut dyn FnMut(usize) -> io::Result<()>) -> io::Result<()> {
+        for i in 0..self.length() {
+            f1(i)?;
+        }
+        Ok(())
+    }
+
     fn write_table<W: Write>(&self, writer: &mut W, header: bool, args: &[&dyn Any]) -> io::Result<()> {
         let mut use_scientific = false;
         for arg in args {
@@ -39,108 +141,6 @@ impl Meta {
                 use_scientific = option.value;
             }
         }
-
-        let print_cell_slice = |writer: &mut W, widths: &[usize], i: usize, j: usize, data: &dyn fmt::Debug| -> io::Result<()> {
-            let mut tmp_buffer = Vec::new();
-            {
-                let mut tmp_writer = io::Cursor::new(&mut tmp_buffer);
-                match data {
-                    v @ &Vec::<String>::new() => {
-                        if v.is_empty() {
-                            write!(tmp_writer, "nil")?;
-                        }
-                        for (k, s) in v.iter().enumerate() {
-                            if k != 0 {
-                                write!(tmp_writer, ",")?;
-                            }
-                            write!(tmp_writer, "{}", s)?;
-                        }
-                    }
-                    v @ &Vec::<f64>::new() => {
-                        if v.is_empty() {
-                            write!(tmp_writer, "nil")?;
-                        }
-                        for (k, f) in v.iter().enumerate() {
-                            if k != 0 {
-                                write!(tmp_writer, ",")?;
-                            }
-                            if use_scientific {
-                                write!(tmp_writer, "{:e}", f)?;
-                            } else {
-                                write!(tmp_writer, "{:?}", f)?;
-                            }
-                        }
-                    }
-                    v @ &Vec::<i32>::new() => {
-                        if v.is_empty() {
-                            write!(tmp_writer, "nil")?;
-                        }
-                        for (k, i) in v.iter().enumerate() {
-                            if k != 0 {
-                                write!(tmp_writer, ",")?;
-                            }
-                            write!(tmp_writer, "{}", i)?;
-                        }
-                    }
-                    _ => panic!("invalid meta data"),
-                }
-            }
-            write!(writer, " {:width$}s", String::from_utf8(tmp_buffer).unwrap(), width = widths[j] - 1)
-        };
-
-        let print_cell = |writer: &mut W, widths: &[usize], i: usize, j: usize| -> io::Result<()> {
-            match &self.meta_data[j] {
-                v @ &Vec::<String>::new() => {
-                    let format = format!(" %{}s", widths[j] - 1);
-                    write!(writer, " %{:width$}s", v[i], width = widths[j] - 1)
-                }
-                v @ &Vec::<f64>::new() => {
-                    if use_scientific {
-                        write!(writer, " %{:width$}e", v[i], width = widths[j] - 1)
-                    } else {
-                        write!(writer, " %{:width$}f", v[i], width = widths[j] - 1)
-                    }
-                }
-                v @ &Vec::<i32>::new() => {
-                    write!(writer, " %{:width$}d", v[i], width = widths[j] - 1)
-                }
-                _ => print_cell_slice(writer, widths, i, j, &self.meta_data[j]),
-            }
-        };
-
-        let print_row = |writer: &mut W, widths: &[usize], i: usize| -> io::Result<()> {
-            if i != 0 {
-                writeln!(writer)?;
-            }
-            for j in 0..self.meta_length() {
-                print_cell(writer, widths, i, j)?;
-            }
-            Ok(())
-        };
-
-        let update_max_widths = |i: usize, widths: &mut [usize]| -> io::Result<()> {
-            for j in 0..self.meta_length() {
-                let width = print_cell(&mut io::sink(), widths, i, j)?;
-                if width > widths[j] {
-                    widths[j] = width;
-                }
-            }
-            Ok(())
-        };
-
-        let print_header = |writer: &mut W, widths: &[usize]| -> io::Result<()> {
-            for j in 0..self.meta_length() {
-                write!(writer, " %{:width$}s", self.meta_name[j], width = widths[j] - 1)?;
-            }
-            writeln!(writer)
-        };
-
-        let apply_rows = |f1: &mut dyn FnMut(usize) -> io::Result<()>| -> io::Result<()> {
-            for i in 0..self.length() {
-                f1(i)?;
-            }
-            Ok(())
-        };
 
         let mut widths = vec![0; self.meta_length()];
         for j in 0..self.meta_length() {
