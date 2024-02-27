@@ -14,7 +14,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-use std::fmt;
 use std::any::Any;
 use std::io::{self, BufRead, BufReader, BufWriter, Read, Write};
 use std::str::FromStr;
@@ -25,8 +24,8 @@ use crate::meta::MetaData;
 /* -------------------------------------------------------------------------- */
 
 #[derive(Debug)]
-struct OptionPrintScientific {
-    value: bool,
+pub struct OptionPrintScientific {
+    pub value: bool,
 }
 
 /* -------------------------------------------------------------------------- */
@@ -124,14 +123,7 @@ impl Meta {
         writeln!(writer)
     }
 
-    fn apply_rows(&self, f1: &mut dyn FnMut(usize) -> io::Result<()>) -> io::Result<()> {
-        for i in 0..self.num_cols() {
-            f1(i)?;
-        }
-        Ok(())
-    }
-
-    fn write_table<W: Write>(&self, writer: &mut W, header: bool, args: &[&dyn Any]) -> io::Result<()> {
+    pub fn write_table<W: Write>(&self, writer: &mut W, header: bool, args: &[&dyn Any]) -> io::Result<()> {
         let mut use_scientific = false;
         for arg in args {
             if let Some(option) = arg.downcast_ref::<OptionPrintScientific>() {
@@ -144,13 +136,18 @@ impl Meta {
             widths[j] = self.meta_name[j].len();
         }
 
-        self.apply_rows(&mut |i| self.meta_update_max_widths(i, &mut widths, use_scientific))?;
+        for i in 0..self.num_rows() {
+            self.meta_update_max_widths(i, &mut widths, use_scientific)?;
+        }
 
         if header {
             self.print_meta_header(writer, &widths)?;
         }
 
-        self.apply_rows(&mut |i| self.print_meta_row(writer, &widths, i, use_scientific))
+        for i in 0..self.num_rows() {
+            self.print_meta_row(writer, &widths, i, use_scientific)?;
+        }
+        Ok(())
     }
 
     fn print_table(&self, header: bool, args: &[&dyn Any]) -> String {
