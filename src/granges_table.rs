@@ -190,12 +190,12 @@ fn update_max_widths(i: usize, widths: &mut [usize], granges: &GRanges, strand: 
 
 fn print_header(writer: &mut dyn Write, widths: &[usize], strand: bool) -> io::Result<()> {
     if strand {
-        writeln!(writer,
+        write!(writer,
             "{:width0$} {:width1$} {:width2$} {:width3$}",
             "seqnames", "from", "to", "strand",
             width0=widths[0], width1=widths[1], width2=widths[2], width3=widths[3])?;
     } else {
-        writeln!(writer,
+        write!(writer,
             "{:width0$} {:width1$} {:width2$}",
             "seqnames", "from", "to",
             width0=widths[0], width1=widths[1], width2=widths[2])?;
@@ -208,14 +208,13 @@ fn print_row(writer: &mut dyn Write, widths: &[usize], i: usize, granges: &GRang
     if i != 0 {
         writeln!(writer)?;
     }
-
     if strand {
-        writeln!(writer,
+        write!(writer,
             "{:width0$} {:width1$} {:width2$} {:width3$}",
             granges.seqnames[i], granges.ranges[i].from, granges.ranges[i].to, granges.strand[i],
             width0=widths[0], width1=widths[1], width2=widths[2], width3=widths[3])?;
     } else {
-        writeln!(writer,
+        write!(writer,
             "{:width0$} {:width1$} {:width2$}",
             granges.seqnames[i], granges.ranges[i].from, granges.ranges[i].to,
             width0=widths[0], width1=widths[1], width2=widths[2])?;

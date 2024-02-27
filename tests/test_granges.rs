@@ -85,4 +85,19 @@ mod tests {
 
     }
 
+    #[test]
+    fn test_granges_table() {
+
+        let mut granges1 = GRanges::new_empty();
+
+        // Import given granges
+        assert!(
+            granges1.import_bed("tests/test_granges.bed", 3, false).is_ok());
+
+        // Export to new file and import again
+        assert!(
+            granges1.export_table("tests/test_granges.table.tmp".to_string(), true, true, false, &[]).is_ok());
+
+    }
+
 }
