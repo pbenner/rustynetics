@@ -65,7 +65,7 @@ impl Meta {
                         write!(tmp_writer, "{}", i)?;
                     }
                 }
-                _ => panic!("invalid meta data"),
+                _ => unreachable!(),
             }
         }
         write!(writer, " {:width$}s", String::from_utf8(tmp_buffer).unwrap(), width = widths[j] - 1)

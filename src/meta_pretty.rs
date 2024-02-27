@@ -76,7 +76,7 @@ impl Meta {
                     write!(buffer, " {}", v[i][k])?;
                 }
             }
-            _ => panic!("internal error")
+            _ => unreachable!(),
         }
         write!(writer, "{:width$}" , String::from_utf8(buffer).unwrap(), width = widths[j] - 1)
     }
