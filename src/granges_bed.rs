@@ -114,6 +114,26 @@ impl GRanges {
         Ok(())
     }
 
+    pub fn write_bed(&self, writer: &mut dyn Write, columns: usize) -> Result<(), Error> {
+        match columns {
+            3 => self.write_bed3(writer),
+            6 => self.write_bed6(writer),
+            9 => self.write_bed9(writer),
+            _ => Err(Error::Generic("Invalid number of columns".to_string())),
+        }
+    }
+
+    pub fn export_bed(&mut self, filename: &str, columns: usize, compress: bool) -> Result<(), Error> {
+        let file = File::create(filename)?;
+        let mut writer: Box<dyn Write> = if compress {
+            Box::new(GzEncoder::new(file, Compression::default()))
+        } else {
+            Box::new(file)
+        };
+        self.write_bed(&mut writer, columns)?;
+        Ok(())
+    }
+
     pub fn read_bed3(&mut self, reader: &mut dyn BufRead) -> Result<(), Error> {
         let mut line = String::new();
         while reader.read_line(&mut line)? > 0 {
