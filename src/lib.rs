@@ -29,4 +29,5 @@ mod granges_bed;
 mod granges_pretty;
 mod granges_table;
 mod meta_pretty;
+mod meta_table;
 mod utility;
