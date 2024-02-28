@@ -53,7 +53,7 @@ impl Meta {
                         if use_scientific {
                             write!(tmp_writer, "{:e}", f)?;
                         } else {
-                            write!(tmp_writer, "{:?}", f)?;
+                            write!(tmp_writer, "{}", f)?;
                         }
                     }
                 }
@@ -74,7 +74,7 @@ impl Meta {
     fn print_meta_cell<W: Write>(&self, writer: &mut W, widths: &[usize], i: usize, j: usize, use_scientific: bool) -> io::Result<()> {
         match &self.meta_data[j] {
             MetaData::StringArray(v) => {
-                write!(writer, " {:width$}s", v[i], width = widths[j] - 1)
+                write!(writer, " {:width$}", v[i], width = widths[j] - 1)
             }
             MetaData::FloatArray(v) => {
                 if use_scientific {

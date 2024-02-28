@@ -48,10 +48,8 @@ impl GRanges {
         for i in 0..self.num_rows() {
             print_row(writer, &widths, i, self, strand)?;
             self.meta_print_table_row(writer, &mut meta_reader)?;
+            writeln!(writer)?;
         }
-
-        writeln!(writer)?;
-
         Ok(())
     }
 
@@ -203,9 +201,6 @@ fn print_header(writer: &mut dyn Write, widths: &[usize], strand: bool) -> io::R
 }
 
 fn print_row(writer: &mut dyn Write, widths: &[usize], i: usize, granges: &GRanges, strand: bool) -> io::Result<()> {
-    if i != 0 {
-        writeln!(writer)?;
-    }
     if strand {
         write!(writer,
             "{:width0$} {:width1$} {:width2$} {:width3$}",
