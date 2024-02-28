@@ -14,7 +14,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-use std::io::{self, BufRead, BufReader, BufWriter, Write};
+use std::any::Any;
+use std::io::{self, BufRead, BufReader, Write};
 use std::fs::File;
 use std::str::FromStr;
 
@@ -29,9 +30,9 @@ use crate::granges::GRanges;
 
 impl GRanges {
 
-    pub fn write_table(&self, writer: &mut dyn Write, header: bool, strand: bool, _args: &[&dyn std::fmt::Display]) -> io::Result<()> {
-        //let meta_str = self.meta_print_table(header, args);
-        //let mut meta_reader = BufReader::new(meta_str.as_bytes());
+    pub fn write_table(&self, writer: &mut dyn Write, header: bool, strand: bool, args: &[&dyn Any]) -> io::Result<()> {
+        let meta_str = self.meta.print_table(header, args);
+        let mut meta_reader = BufReader::new(meta_str.as_bytes());
 
         let mut widths = vec![8, 4, 2, 6];
         for i in 0..self.num_rows() {
@@ -45,6 +46,7 @@ impl GRanges {
 
         for i in 0..self.num_rows() {
             print_row(writer, &widths, i, self, strand)?;
+            self.meta_print_table_row(writer, &mut meta_reader)?;
         }
 
         writeln!(writer)?;
@@ -52,22 +54,17 @@ impl GRanges {
         Ok(())
     }
 
-    fn meta_print_table(&self, header: bool, args: &[&dyn std::fmt::Display]) -> String {
-        let mut buffer = Vec::new();
-        {
-            let mut writer = BufWriter::new(&mut buffer);
-
-            if header {
-                for arg in args {
-                    write!(writer, "{} ", arg).unwrap();
-                }
-                writeln!(writer).unwrap();
-            }
+    fn meta_print_table_row(&self, writer: &mut dyn Write, reader: &mut dyn BufRead) -> io::Result<()> {
+        if self.meta.num_cols() > 0 {
+            write!(writer, " | ")?;
+            let mut line = String::new();
+            reader.read_line(&mut line)?;
+            write!(writer, "{}", line.trim_end_matches('\n'))?;
         }
-        String::from_utf8_lossy(&buffer).to_string()
+        Ok(())
     }
 
-    pub fn export_table(&self, filename: String, header: bool, strand: bool, compress: bool, args: &[&dyn std::fmt::Display]) -> io::Result<()> {
+    pub fn export_table(&self, filename: String, header: bool, strand: bool, compress: bool, args: &[&dyn Any]) -> io::Result<()> {
         let file = File::create(filename)?;
         let mut writer: Box<dyn Write> = if compress {
             Box::new(GzEncoder::new(file, Compression::default()))
