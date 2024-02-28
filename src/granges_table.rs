@@ -76,7 +76,7 @@ impl GRanges {
         Ok(())
     }
 
-    pub fn read_table(&mut self, reader: &mut dyn BufRead, _names: &[&str], _types: &[&str]) -> io::Result<()> {
+    pub fn read_table(&mut self, reader: &mut dyn BufRead, names: &[&str], types: &[&str]) -> io::Result<()> {
         let mut buf_reader = BufReader::new(reader);
         let mut line = String::new();
 
@@ -141,6 +141,7 @@ impl GRanges {
 
             line.clear();
         }
+        self.meta.read_table(buf_reader, names, types)?;
         Ok(())
     }
 
