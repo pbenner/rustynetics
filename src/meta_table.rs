@@ -68,23 +68,23 @@ impl Meta {
                 _ => unreachable!(),
             }
         }
-        write!(writer, " {:width$}s", String::from_utf8(tmp_buffer).unwrap(), width = widths[j] - 1)
+        write!(writer, " {:width$}", String::from_utf8(tmp_buffer).unwrap(), width = widths[j] - 1)
     }
 
     fn print_meta_cell<W: Write>(&self, writer: &mut W, widths: &[usize], i: usize, j: usize, use_scientific: bool) -> io::Result<()> {
         match &self.meta_data[j] {
             MetaData::StringArray(v) => {
-                write!(writer, " %{:width$}s", v[i], width = widths[j] - 1)
+                write!(writer, " {:width$}s", v[i], width = widths[j] - 1)
             }
             MetaData::FloatArray(v) => {
                 if use_scientific {
-                    write!(writer, " %{:width$}e", v[i], width = widths[j] - 1)
+                    write!(writer, " {:width$e}", v[i], width = widths[j] - 1)
                 } else {
-                    write!(writer, " %{:width$}f", v[i], width = widths[j] - 1)
+                    write!(writer, " {:width$}", v[i], width = widths[j] - 1)
                 }
             }
             MetaData::IntArray(v) => {
-                write!(writer, " %{:width$}d", v[i], width = widths[j] - 1)
+                write!(writer, " {:width$}", v[i], width = widths[j] - 1)
             }
             _ => self.print_meta_cell_slice(writer, widths, i, j, &self.meta_data[j], use_scientific),
         }
@@ -118,7 +118,7 @@ impl Meta {
 
     fn print_meta_header<W: Write>(&self, writer: &mut W, widths: &[usize]) -> io::Result<()> {
         for j in 0..self.num_cols() {
-            write!(writer, " %{:width$}s", self.meta_name[j], width = widths[j] - 1)?;
+            write!(writer, " {:width$}", self.meta_name[j], width = widths[j] - 1)?;
         }
         writeln!(writer)
     }

@@ -41,6 +41,7 @@ impl GRanges {
 
         if header {
             print_header(writer, &widths, strand)?;
+            self.meta_print_table_row(writer, &mut meta_reader)?;
             writeln!(writer)?;
         }
 

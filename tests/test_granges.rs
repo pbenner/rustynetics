@@ -92,7 +92,7 @@ mod tests {
 
         // Import given granges
         assert!(
-            granges1.import_bed("tests/test_granges.bed", 3, false).is_ok());
+            granges1.import_bed("tests/test_granges.bed", 6, false).is_ok());
 
         // Export to new file and import again
         assert!(
