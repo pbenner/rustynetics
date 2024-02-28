@@ -76,7 +76,7 @@ impl GRanges {
         Ok(())
     }
 
-    pub fn read_table(&mut self, reader: &mut dyn BufRead, _names: &[String], _types: &[String]) -> io::Result<()> {
+    pub fn read_table(&mut self, reader: &mut dyn BufRead, _names: &[&str], _types: &[&str]) -> io::Result<()> {
         let mut buf_reader = BufReader::new(reader);
         let mut line = String::new();
 
@@ -144,7 +144,7 @@ impl GRanges {
         Ok(())
     }
 
-    pub fn import_table(&mut self, filename: String, names: &[String], types: &[String], compress: bool) -> io::Result<()> {
+    pub fn import_table(&mut self, filename: String, names: &[&str], types: &[&str], compress: bool) -> io::Result<()> {
         let file = File::open(filename)?;
         let mut reader: Box<dyn BufRead> = if compress {
             Box::new(BufReader::new(GzDecoder::new(file)))

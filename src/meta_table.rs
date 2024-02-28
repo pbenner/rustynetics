@@ -162,7 +162,7 @@ impl Meta {
         String::from_utf8(buffer).unwrap()
     }
 
-    pub fn read_table<R: Read>(&mut self, reader: R, names: &[String], types: &[String]) -> io::Result<()> {
+    pub fn read_table<R: Read>(&mut self, reader: R, names: &[&str], types: &[&str]) -> io::Result<()> {
         let mut reader = BufReader::new(reader);
 
         if names.len() != types.len() {
@@ -172,14 +172,14 @@ impl Meta {
         let mut idx_map  = std::collections::HashMap::new();
         let mut meta_map = std::collections::HashMap::new();
         for i in 0..names.len() {
-            idx_map.insert(names[i].clone(), -1);
-            match types[i].as_str() {
-                "String"      => meta_map.insert(names[i].clone(), MetaData::StringArray(Vec::new())),
-                "Int"         => meta_map.insert(names[i].clone(), MetaData::IntArray(Vec::new())),
-                "Float"       => meta_map.insert(names[i].clone(), MetaData::FloatArray(Vec::new())),
-                "Vec<String>" => meta_map.insert(names[i].clone(), MetaData::StringMatrix(Vec::new())),
-                "Vec<Int>"    => meta_map.insert(names[i].clone(), MetaData::IntMatrix(Vec::new())),
-                "Vec<Float>"  => meta_map.insert(names[i].clone(), MetaData::FloatMatrix(Vec::new())),
+            idx_map.insert(names[i], -1);
+            match types[i] {
+                "String"      => meta_map.insert(names[i], MetaData::StringArray(Vec::new())),
+                "Int"         => meta_map.insert(names[i], MetaData::IntArray(Vec::new())),
+                "Float"       => meta_map.insert(names[i], MetaData::FloatArray(Vec::new())),
+                "Vec<String>" => meta_map.insert(names[i], MetaData::StringMatrix(Vec::new())),
+                "Vec<Int>"    => meta_map.insert(names[i], MetaData::IntMatrix(Vec::new())),
+                "Vec<Float>"  => meta_map.insert(names[i], MetaData::FloatMatrix(Vec::new())),
                 _ => panic!("invalid types argument"),
             };
         }
