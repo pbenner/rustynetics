@@ -20,9 +20,11 @@
 mod tests {
 
     use std::fs::remove_file;
+    use rand::{thread_rng, Rng};
 
     use rustynetics::range::Range;
     use rustynetics::granges::GRanges;
+    use rustynetics::meta::{Meta, MetaData};
 
     #[test]
     fn test_granges_bed3() {
@@ -88,11 +90,30 @@ mod tests {
     #[test]
     fn test_granges_table() {
 
+        let mut rng = thread_rng();
+
+        let n = 20;
+
+        let names = vec!["name", "score", "float", "range", "matrix"];
+        let data  = vec![
+            MetaData::StringArray(
+                (0..n).map(|i: i32| format!("Entry {}", i)).collect()),
+            MetaData::IntArray(
+                (0..n).map(|_| rng.gen_range(-100..100)).collect()),
+            MetaData::FloatArray(
+                (0..n).map(|_| rng.gen_range(-100.0..100.0)).collect()),
+            MetaData::RangeArray(
+                (0..n).map(|_| rng.gen_range(0..10000)).map(|x| Range::new(x, x+500)).collect()),
+            MetaData::FloatMatrix(
+                (0..n).map(|_| (0..5).map(|_| rng.gen_range(0.0..1000.0)).collect()).collect())
+        ];
+
         let mut granges1 = GRanges::new_empty();
 
-        // Import given granges
         assert!(
-            granges1.import_bed("tests/test_granges.bed", 6, false).is_ok());
+            granges1.import_bed("tests/test_meta.bed", 3, false).is_ok());
+
+        granges1.meta = Meta::new(names, data).unwrap();
 
         // Export to new file and import again
         assert!(

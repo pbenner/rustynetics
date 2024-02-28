@@ -151,8 +151,7 @@ impl Meta {
 
         let mut widths = vec![0; self.num_cols()];
         for j in 0..self.num_cols() {
-            let width = format!(" {}", self.meta_name[j]).len();
-            widths[j] = width;
+            widths[j] = self.meta_name[j].len()+1;
         }
 
         for i in 0..self.num_rows() {

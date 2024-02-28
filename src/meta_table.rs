@@ -86,6 +86,9 @@ impl Meta {
             MetaData::IntArray(v) => {
                 write!(writer, " {:width$}", v[i], width = widths[j] - 1)
             }
+            MetaData::RangeArray(v) => {
+                write!(writer, " {:width$}", v[i], width = widths[j] - 1)
+            }
             _ => self.print_meta_cell_slice(writer, widths, i, j, &self.meta_data[j], use_scientific),
         }
     }
@@ -133,7 +136,7 @@ impl Meta {
 
         let mut widths = vec![0; self.num_cols()];
         for j in 0..self.num_cols() {
-            widths[j] = self.meta_name[j].len();
+            widths[j] = self.meta_name[j].len()+1;
         }
 
         for i in 0..self.num_rows() {
