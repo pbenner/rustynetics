@@ -16,6 +16,8 @@
  
 use std::cmp::Ordering;
 use std::collections::HashMap;
+use std::rc::Rc;
+use std::borrow::BorrowMut;
 
 use crate::granges::GRanges;
 
@@ -24,8 +26,8 @@ use crate::granges::GRanges;
 #[derive(Debug, Clone)]
 struct EndPoint {
     position: i64,
-    start   : Option<i64>,
-    end     : Option<i64>,
+    start   : Option<Rc<EndPoint>>,
+    end     : Option<Rc<EndPoint>>,
     index   : usize,
     is_query: bool,
 }
@@ -37,7 +39,7 @@ impl EndPoint {
         EndPoint {
             position,
             start: None,
-            end: None,
+            end  : None,
             index,
             is_query,
         }
@@ -47,7 +49,7 @@ impl EndPoint {
 /* -------------------------------------------------------------------------- */
 
 #[derive(Debug)]
-struct EndPointList(Vec<EndPoint>);
+struct EndPointList(Vec<Rc<EndPoint>>);
 
 /* -------------------------------------------------------------------------- */
 
@@ -56,7 +58,7 @@ impl EndPointList {
         EndPointList(Vec::new())
     }
 
-    fn push(&mut self, endpoint: EndPoint) {
+    fn push(&mut self, endpoint: Rc<EndPoint>) {
         self.0.push(endpoint);
     }
 
@@ -66,7 +68,7 @@ impl EndPointList {
 }
 
 impl std::ops::Deref for EndPointList {
-    type Target = Vec<EndPoint>;
+    type Target = Vec<Rc<EndPoint>>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -137,12 +139,12 @@ fn distance(r1: &EndPoint, r2: &EndPoint) -> (i64, i64) {
         (r1, r2)
     };
 
-    if r1.start.is_none() || r2.position <= r1.start.unwrap() {
+    if r1.start.is_none() || r2.position <= r1.start.as_ref().unwrap().position {
         return (0, sign);
     }
 
-    let d1 = r2.position - r1.start.unwrap();
-    let d2 = r2.position - r1.end  .unwrap();
+    let d1 = r2.position - r1.start.as_ref().unwrap().position;
+    let d2 = r2.position - r1.end  .as_ref().unwrap().position;
 
     if d1 < d2 {
         (d1, sign)
@@ -175,7 +177,7 @@ fn find_overlaps_entry(
             }
 
             for _ in 0..entry.len() {
-                if i2 < entry.len() && !entry[i2].is_query && entry[i2].start.is_some() && entry[i2].position > r.end.unwrap() {
+                if i2 < entry.len() && !entry[i2].is_query && entry[i2].start.is_some() && entry[i2].position > r.end.as_ref().unwrap().position {
                     break;
                 }
                 i2 += 1;
@@ -219,14 +221,13 @@ fn find_nearest(query: &GRanges, subject: &GRanges, k: usize) -> FindNearestHits
 
     let mut query_hits   = Vec::new();
     let mut subject_hits = Vec::new();
-    let mut distances    = Vec::new();
 
     let mut rmap: HashMap<String, EndPointList> = HashMap::new();
 
     for i in 0..n {
-        let start = EndPoint::new(query.ranges[i].from as i64, i, true);
-        let end   = EndPoint::new(query.ranges[i].to   as i64, i, true);
-        start.end = Some(end.clone());
+        let start = Rc::new(EndPoint::new(query.ranges[i].from as i64, i, true));
+        let end   = Rc::new(EndPoint::new(query.ranges[i].to   as i64, i, true));
+        start.end = Some(Rc::clone(&end));
 
         let entry = rmap.entry(query.seqnames[i].clone()).or_insert(EndPointList::new());
         entry.push(start);
@@ -234,16 +235,16 @@ fn find_nearest(query: &GRanges, subject: &GRanges, k: usize) -> FindNearestHits
     }
 
     for i in 0..m {
-        let start = EndPoint::new(subject.ranges[i].from as i64, i, false);
-        let end   = EndPoint::new(subject.ranges[i].to   as i64, i, false);
-        start.end = Some(end.clone());
+        let start = Rc::new(EndPoint::new(subject.ranges[i].from as i64, i, false));
+        let end   = Rc::new(EndPoint::new(subject.ranges[i].to   as i64, i, false));
+        start.end = Some(Rc::clone(&end));
 
         let entry = rmap.entry(subject.seqnames[i].clone()).or_insert(EndPointList::new());
         entry.push(start);
         entry.push(end);
     }
 
-    for (_, mut entry) in rmap.iter_mut() {
+    for (_, entry) in rmap.iter_mut() {
         entry.sort();
     }
 
@@ -264,7 +265,7 @@ fn find_nearest(query: &GRanges, subject: &GRanges, k: usize) -> FindNearestHits
                 }
 
                 for _ in 0..entry.len() {
-                    if i2 < entry.len() && !entry[i2].is_query && entry[i2].start.is_some() && entry[i2].position > r.end.unwrap().position {
+                    if i2 < entry.len() && !entry[i2].is_query && entry[i2].start.is_some() && entry[i2].position > r.end.as_ref().unwrap().position {
                         break;
                     }
                     i2 += 1;

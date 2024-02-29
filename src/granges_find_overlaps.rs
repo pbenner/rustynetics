@@ -19,7 +19,7 @@ use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use crate::granges::{GRanges};
+use crate::granges::GRanges;
 
 /* -------------------------------------------------------------------------- */
 
