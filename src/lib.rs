@@ -28,6 +28,7 @@ pub mod options_print;
 mod granges_find_overlaps;
 mod granges_bed;
 mod granges_pretty;
+mod granges_random;
 mod granges_table;
 mod granges_table_reader;
 mod granges_table_writer;
