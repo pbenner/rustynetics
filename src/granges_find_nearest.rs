@@ -222,6 +222,7 @@ impl GRanges {
 
         let mut query_hits   = Vec::new();
         let mut subject_hits = Vec::new();
+        let mut distances    = Vec::new();
 
         let mut rmap: HashMap<String, EndPointList> = HashMap::new();
 
@@ -253,8 +254,8 @@ impl GRanges {
             for i in 0..entry.len() {
                 let r = &entry[i];
                 if r.is_query && r.end.is_some() {
-                    let mut i1 = i as i32 - 1;
-                    let mut i2 = i + 1;
+                    let mut i1 = i as i64 - 1;
+                    let mut i2 = i as i64 + 1;
 
                     for _ in 0..entry.len() {
                         if i1 >= 0 && !entry[i1 as usize].is_query && entry[i1 as usize].end.is_some() {
@@ -269,29 +270,32 @@ impl GRanges {
                         }
                         i2 += 1;
                     }
+                    let ir = -1;
+                    let dr = -1;
 
-                    if i1 >= 0 && i2 < entry.len() {
+                    if i1 >= 0 && i2 < entry.len() as i64 {
                         let (d1, s1) = distance(r, &entry[i1 as usize]);
-                        let (d2, s2) = distance(r, &entry[i2]);
+                        let (d2, s2) = distance(r, &entry[i2 as usize]);
 
                         if d1 <= d2 {
-                            query_hits.push(r.index as i32);
-                            subject_hits.push(entry[i1 as usize].index as i32);
+                            dr = d1*s1; ir = i1; i1 -= 1;
                         } else {
-                            query_hits.push(r.index as i32);
-                            subject_hits.push(entry[i2].index as i32);
+                            dr = d2*s2; ir = i2; i2 += 1;
                         }
                     } else {
                         if i1 >= 0 {
                             let (d1, s1) = distance(r, &entry[i1 as usize]);
-                            query_hits.push(r.index as i32);
-                            subject_hits.push(entry[i1 as usize].index as i32);
+                            dr = d1*s1; ir = i1; i1 -= 1;
                         }
                         if i2 < entry.len() {
                             let (d2, s2) = distance(r, &entry[i2]);
-                            query_hits.push(r.index as i32);
-                            subject_hits.push(entry[i2].index as i32);
+                            dr = d2*s2; ir = i2; i2 += 1;
                         }
+                    }
+                    if ir != -1 {
+                          query_hits.push(entry[i ].index as i32);
+                        subject_hits.push(entry[ir].index as i32);
+                           distances.push(dr);
                     }
                 }
             }
