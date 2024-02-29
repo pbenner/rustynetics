@@ -17,7 +17,6 @@
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::rc::Rc;
-use std::borrow::BorrowMut;
 
 use crate::granges::GRanges;
 
@@ -104,7 +103,7 @@ impl std::cmp::Ord for EndPoint {
 /* -------------------------------------------------------------------------- */
 
 #[derive(Debug)]
-struct FindNearestHits {
+pub struct FindNearestHits {
     query_hits: Vec<i32>,
     subject_hits: Vec<i32>,
     distances: Vec<i32>,
@@ -215,91 +214,95 @@ fn find_overlaps_entry(
 
 /* -------------------------------------------------------------------------- */
 
-fn find_nearest(query: &GRanges, subject: &GRanges, k: usize) -> FindNearestHits {
-    let n = query  .num_rows();
-    let m = subject.num_rows();
+impl GRanges {
 
-    let mut query_hits   = Vec::new();
-    let mut subject_hits = Vec::new();
+    pub fn find_nearest(query: &GRanges, subject: &GRanges, k: usize) -> FindNearestHits {
+        let n = query  .num_rows();
+        let m = subject.num_rows();
 
-    let mut rmap: HashMap<String, EndPointList> = HashMap::new();
+        let mut query_hits   = Vec::new();
+        let mut subject_hits = Vec::new();
 
-    for i in 0..n {
-        let end   = Rc::new(EndPoint::new(query.ranges[i].to   as i64, i, true, None));
-        let start = Rc::new(EndPoint::new(query.ranges[i].from as i64, i, true, Some(Rc::clone(&end))));
+        let mut rmap: HashMap<String, EndPointList> = HashMap::new();
 
-        let entry = rmap.entry(query.seqnames[i].clone()).or_insert(EndPointList::new());
-        entry.push(start);
-        entry.push(end);
-    }
+        for i in 0..n {
+            let end   = Rc::new(EndPoint::new(query.ranges[i].to   as i64, i, true, None));
+            let start = Rc::new(EndPoint::new(query.ranges[i].from as i64, i, true, Some(Rc::clone(&end))));
 
-    for i in 0..m {
-        let end   = Rc::new(EndPoint::new(subject.ranges[i].to   as i64, i, false, None));
-        let start = Rc::new(EndPoint::new(subject.ranges[i].from as i64, i, false, Some(Rc::clone(&end))));
+            let entry = rmap.entry(query.seqnames[i].clone()).or_insert(EndPointList::new());
+            entry.push(start);
+            entry.push(end);
+        }
 
-        let entry = rmap.entry(subject.seqnames[i].clone()).or_insert(EndPointList::new());
-        entry.push(start);
-        entry.push(end);
-    }
+        for i in 0..m {
+            let end   = Rc::new(EndPoint::new(subject.ranges[i].to   as i64, i, false, None));
+            let start = Rc::new(EndPoint::new(subject.ranges[i].from as i64, i, false, Some(Rc::clone(&end))));
 
-    for (_, entry) in rmap.iter_mut() {
-        entry.sort();
-    }
+            let entry = rmap.entry(subject.seqnames[i].clone()).or_insert(EndPointList::new());
+            entry.push(start);
+            entry.push(end);
+        }
 
-    for (_, mut entry) in rmap.iter_mut() {
-        find_overlaps_entry(&mut query_hits, &mut subject_hits, &mut entry);
+        for (_, entry) in rmap.iter_mut() {
+            entry.sort();
+        }
 
-        for i in 0..entry.len() {
-            let r = &entry[i];
-            if r.is_query && r.end.is_some() {
-                let mut i1 = i as i32 - 1;
-                let mut i2 = i + 1;
+        for (_, mut entry) in rmap.iter_mut() {
+            find_overlaps_entry(&mut query_hits, &mut subject_hits, &mut entry);
 
-                for _ in 0..entry.len() {
-                    if i1 >= 0 && !entry[i1 as usize].is_query && entry[i1 as usize].end.is_some() {
-                        break;
+            for i in 0..entry.len() {
+                let r = &entry[i];
+                if r.is_query && r.end.is_some() {
+                    let mut i1 = i as i32 - 1;
+                    let mut i2 = i + 1;
+
+                    for _ in 0..entry.len() {
+                        if i1 >= 0 && !entry[i1 as usize].is_query && entry[i1 as usize].end.is_some() {
+                            break;
+                        }
+                        i1 -= 1;
                     }
-                    i1 -= 1;
-                }
 
-                for _ in 0..entry.len() {
-                    if i2 < entry.len() && !entry[i2].is_query && entry[i2].start.is_some() && entry[i2].position > r.end.as_ref().unwrap().position {
-                        break;
+                    for _ in 0..entry.len() {
+                        if i2 < entry.len() && !entry[i2].is_query && entry[i2].start.is_some() && entry[i2].position > r.end.as_ref().unwrap().position {
+                            break;
+                        }
+                        i2 += 1;
                     }
-                    i2 += 1;
-                }
 
-                if i1 >= 0 && i2 < entry.len() {
-                    let (d1, s1) = distance(r, &entry[i1 as usize]);
-                    let (d2, s2) = distance(r, &entry[i2]);
-
-                    if d1 <= d2 {
-                        query_hits.push(r.index as i32);
-                        subject_hits.push(entry[i1 as usize].index as i32);
-                    } else {
-                        query_hits.push(r.index as i32);
-                        subject_hits.push(entry[i2].index as i32);
-                    }
-                } else {
-                    if i1 >= 0 {
+                    if i1 >= 0 && i2 < entry.len() {
                         let (d1, s1) = distance(r, &entry[i1 as usize]);
-                        query_hits.push(r.index as i32);
-                        subject_hits.push(entry[i1 as usize].index as i32);
-                    }
-                    if i2 < entry.len() {
                         let (d2, s2) = distance(r, &entry[i2]);
-                        query_hits.push(r.index as i32);
-                        subject_hits.push(entry[i2].index as i32);
+
+                        if d1 <= d2 {
+                            query_hits.push(r.index as i32);
+                            subject_hits.push(entry[i1 as usize].index as i32);
+                        } else {
+                            query_hits.push(r.index as i32);
+                            subject_hits.push(entry[i2].index as i32);
+                        }
+                    } else {
+                        if i1 >= 0 {
+                            let (d1, s1) = distance(r, &entry[i1 as usize]);
+                            query_hits.push(r.index as i32);
+                            subject_hits.push(entry[i1 as usize].index as i32);
+                        }
+                        if i2 < entry.len() {
+                            let (d2, s2) = distance(r, &entry[i2]);
+                            query_hits.push(r.index as i32);
+                            subject_hits.push(entry[i2].index as i32);
+                        }
                     }
                 }
             }
         }
+
+        let mut find_nearest_hits = FindNearestHits::new();
+        for i in 0..query_hits.len() {
+            find_nearest_hits.push(query_hits[i], subject_hits[i], 0);
+        }
+
+        find_nearest_hits
     }
 
-    let mut find_nearest_hits = FindNearestHits::new();
-    for i in 0..query_hits.len() {
-        find_nearest_hits.push(query_hits[i], subject_hits[i], 0);
-    }
-
-    find_nearest_hits
 }
