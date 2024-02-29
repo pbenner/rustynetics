@@ -92,7 +92,7 @@ fn update_max_widths(meta: &Meta, i: usize, widths: &mut [usize], use_scientific
     Ok(())
 }
 
-fn print_cell_slice(writer: &mut dyn Write,
+fn print_cell_slice<W: Write>(writer: &mut W,
                     widths: &[usize],
                     i: usize,
                     j: usize,
@@ -128,8 +128,8 @@ fn print_cell_slice(writer: &mut dyn Write,
     write!(writer, "{:>width$}" , String::from_utf8(buffer).unwrap(), width = widths[j]+1)
 }
 
-fn print_cell(meta: &Meta,
-              writer: &mut dyn Write,
+fn print_cell<W: Write>(meta: &Meta,
+              writer: &mut W,
               widths: &[usize],
               i: usize,
               j: usize,
@@ -152,14 +152,14 @@ fn print_cell(meta: &Meta,
     }
 }
 
-fn print_header(meta: &Meta, writer: &mut dyn Write, widths: &[usize]) -> io::Result<()> {
+fn print_header<W: Write>(meta: &Meta, writer: &mut W, widths: &[usize]) -> io::Result<()> {
     for j in 0..meta.num_cols() {
         write!(writer, " {:>width$}", meta.meta_name[j], width = widths[j])?;
     }
     writeln!(writer)
 }
 
-fn print_row(meta: &Meta, writer: &mut dyn Write, widths: &[usize], i: usize, use_scientific: bool) -> io::Result<()> {
+fn print_row<W: Write>(meta: &Meta, writer: &mut W, widths: &[usize], i: usize, use_scientific: bool) -> io::Result<()> {
     if i != 0 {
         writeln!(writer)?;
     }
@@ -169,7 +169,7 @@ fn print_row(meta: &Meta, writer: &mut dyn Write, widths: &[usize], i: usize, us
     Ok(())
 }
 
-fn print_all(meta: &Meta, writer: &mut dyn Write, widths : &[usize], n: usize, use_scientific: bool) -> io::Result<()> {
+fn print_all<W: Write>(meta: &Meta, writer: &mut W, widths : &[usize], n: usize, use_scientific: bool) -> io::Result<()> {
     if meta.num_rows() <= n + 1 {
         for i in 0..meta.num_rows() {
             print_row(meta, writer, &widths, i, use_scientific)?;
