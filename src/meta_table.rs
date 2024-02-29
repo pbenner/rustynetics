@@ -139,6 +139,10 @@ impl Meta {
             widths[j] = self.meta_name[j].len()+1;
         }
 
+        if header {
+            (0..self.num_cols()).map(|j| widths[j] = self.meta_name[j].len());
+        }
+
         for i in 0..self.num_rows() {
             self.meta_update_max_widths(i, &mut widths, use_scientific)?;
         }
