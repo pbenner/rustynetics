@@ -74,7 +74,7 @@ fn update_max_width(widths: &mut [usize], j: usize, args: String) {
 }
 
 fn update_max_widths(granges: &GRanges, i: usize, widths: &mut [usize; 5]) {
-    update_max_width(widths, 0, (i + 1)              .to_string());
+    update_max_width(widths, 0, (i + 1)                 .to_string());
     update_max_width(widths, 1, granges.seqnames[i]     .to_string());
     update_max_width(widths, 2, granges.ranges  [i].from.to_string());
     update_max_width(widths, 3, granges.ranges  [i].to  .to_string());
