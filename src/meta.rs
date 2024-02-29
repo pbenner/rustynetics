@@ -376,6 +376,6 @@ impl PartialEq for Meta {
 impl fmt::Display for Meta {
 
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.pad(&format!("{}", self.pretty_string(10, false).unwrap()))
+        f.pad(&format!("{}", self.format_pretty(10, false).unwrap()))
     }
 }

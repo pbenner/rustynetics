@@ -401,6 +401,6 @@ impl PartialEq for GRanges {
 
 impl fmt::Display for GRanges {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.pad(&format!("{}", self.pretty_string(10).unwrap()))
+        f.pad(&format!("{}", self.format_pretty(10).unwrap()))
     }
 }

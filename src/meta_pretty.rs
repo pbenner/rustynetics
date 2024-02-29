@@ -58,7 +58,7 @@ impl Meta {
         Ok(buffer)
     }
 
-    pub fn pretty_string(&self, n: usize, use_scientific: bool) -> Result<String, Error> {
+    pub fn format_pretty(&self, n: usize, use_scientific: bool) -> Result<String, Error> {
         let r = self.print_pretty(n, use_scientific)?;
         let s = match String::from_utf8(r) {
             Ok (v) => v,

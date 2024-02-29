@@ -46,7 +46,7 @@ impl GRanges {
         Ok(())
     }
 
-    pub fn pretty_string(&self, n: usize) -> Result<String, Error> {
+    pub fn format_pretty(&self, n: usize) -> Result<String, Error> {
         let mut buffer = Vec::new();
         {
             let mut writer = BufWriter::new(&mut buffer);
