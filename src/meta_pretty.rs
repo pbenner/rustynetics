@@ -36,7 +36,7 @@ impl Meta {
                 self.print_cell(&mut tmp_writer, widths, i, j, use_scientific)?;
                 tmp_writer.flush()?;
             }
-            let width = tmp_buffer.len();
+            let width = tmp_buffer.len()-1;
             if width > widths[j] {
                 widths[j] = width;
             }
@@ -78,7 +78,7 @@ impl Meta {
             }
             _ => unreachable!(),
         }
-        write!(writer, "{:width$}" , String::from_utf8(buffer).unwrap(), width = widths[j] - 1)
+        write!(writer, "{:>width$}" , String::from_utf8(buffer).unwrap(), width = widths[j]+1)
     }
 
     fn print_cell(&self,
@@ -89,17 +89,17 @@ impl Meta {
                   use_scientific: bool)
         -> io::Result<()> {
         match &self.meta_data[j] {
-            MetaData::StringArray(v) => write!(writer, " {:width$}", v[i], width = widths[j] - 1),
+            MetaData::StringArray(v) => write!(writer, " {:>width$}", v[i], width = widths[j]),
             MetaData::FloatArray(v)  => {
                 if use_scientific {
-                    write!(writer, " {:width$e}" , v[i], width = widths[j] - 1)
+                    write!(writer, " {:>width$e}" , v[i], width = widths[j])
                 } else {
-                    write!(writer, " {:width$.2}", v[i], width = widths[j] - 1)
+                    write!(writer, " {:>width$.2}", v[i], width = widths[j])
                 }
             }
-            MetaData::IntArray(v)   => write!(writer, " {:width$}", v[i], width = widths[j] - 1),
+            MetaData::IntArray(v)   => write!(writer, " {:>width$}", v[i], width = widths[j]),
             MetaData::RangeArray(v) => {
-                write!(writer, " {:width$}", v[i], width = widths[j] - 1)
+                write!(writer, " {:>width$}", v[i], width = widths[j])
             },
             _ => self.print_cell_slice(writer, widths, i, j, &self.meta_data[j], use_scientific),
         }
@@ -107,7 +107,7 @@ impl Meta {
 
     fn print_header(&self, writer: &mut dyn Write, widths: &[usize]) -> io::Result<()> {
         for j in 0..self.num_cols() {
-            write!(writer, " {:width$}", self.meta_name[j], width = widths[j] - 1)?;
+            write!(writer, " {:>width$}", self.meta_name[j], width = widths[j])?;
         }
         writeln!(writer)
     }
@@ -135,7 +135,7 @@ impl Meta {
             // Print gap
             writeln!(writer)?;
             for j in 0..self.num_cols() {
-                write!(writer, " {:>width$}", "...", width = widths[j] - 1)?;
+                write!(writer, " {:>width$}", "...", width = widths[j])?;
             }
             // Print last n/2 rows
             for i in self.num_rows() - n / 2..self.num_rows() {
@@ -151,7 +151,7 @@ impl Meta {
 
         let mut widths = vec![0; self.num_cols()];
         for j in 0..self.num_cols() {
-            widths[j] = self.meta_name[j].len()+1;
+            widths[j] = self.meta_name[j].len();
         }
 
         for i in 0..self.num_rows() {

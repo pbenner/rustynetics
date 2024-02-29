@@ -103,10 +103,9 @@ fn write_header<W: Write>(writer: &mut W, widths: &[usize], strand: bool) -> io:
 
 fn write_row_meta(granges: &GRanges, writer: &mut dyn Write, meta_reader: &mut dyn BufRead) -> io::Result<()> {
     if granges.meta.num_cols() > 0 {
-        write!(writer, " | ")?;
         let mut line = String::new();
         meta_reader.read_line(&mut line)?;
-        write!(writer, "{}", line.trim_end_matches('\n'))?;
+        write!(writer, " | {}", line.trim_end_matches('\n'))?;
     }
     Ok(())
 }

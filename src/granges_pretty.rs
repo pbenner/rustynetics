@@ -44,7 +44,7 @@ impl GRanges {
 
     fn print_meta_row(&self, writer: &mut dyn Write, reader: &mut dyn BufRead) -> io::Result<()> {
         if self.meta.num_cols() > 0 {
-            write!(writer, " | ")?;
+            write!(writer, " |")?;
             let mut line = String::new();
             reader.read_line(&mut line)?;
             write!(writer, "{}", line.trim_end_matches('\n'))?;

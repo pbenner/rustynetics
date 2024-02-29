@@ -76,7 +76,7 @@ fn update_max_widths(meta: &Meta, i: usize, widths: &mut [usize], use_scientific
             write_cell(meta, &mut tmp_writer, i, j, widths, use_scientific)?;
             tmp_writer.flush()?;
         }
-        let width = tmp_buffer.len();
+        let width = tmp_buffer.len()-1;
         if width > widths[j] {
             widths[j] = width;
         }
