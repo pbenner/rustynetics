@@ -49,14 +49,12 @@ impl<'a> GRangesTableWriter<'a> {
     }
 
     pub fn write_header<R: BufRead, W: Write>(&self, writer: &mut W, meta_reader: &mut R) -> io::Result<()> {
-        for j in 0..self.granges.meta.num_cols() {
-            write!(writer, " {:width$}", self.granges.meta.meta_name[j], width = self.widths[j] - 1)?;
-        }
+        write_header(writer, &self.widths, self.use_strand)?;
         write_row_meta(self.granges, writer, meta_reader)?;
         writeln!(writer)    
     }
 
-    pub fn write_row<R: BufRead, W: Write + ?Sized>(&self, writer: &mut W, meta_reader: &mut R, i: usize) -> io::Result<()> {
+    pub fn write_row<R: BufRead, W: Write>(&self, writer: &mut W, meta_reader: &mut R, i: usize) -> io::Result<()> {
         if i != 0 {
             writeln!(writer)?;
         }
@@ -91,7 +89,7 @@ fn update_max_widths(granges: &GRanges, i: usize, widths: &mut [usize], strand: 
     Ok(())
 }
 
-fn write_header<W: Write + ?Sized>(writer: &mut W, widths: &[usize], strand: bool) -> io::Result<()> {
+fn write_header<W: Write>(writer: &mut W, widths: &[usize], strand: bool) -> io::Result<()> {
     if strand {
         write!(writer,
             "{:width0$} {:width1$} {:width2$} {:width3$}",
@@ -117,7 +115,7 @@ fn write_row_meta(granges: &GRanges, writer: &mut dyn Write, meta_reader: &mut d
     Ok(())
 }
 
-fn write_row<W: Write + ?Sized>(granges: &GRanges, writer: &mut W, i: usize, widths: &[usize], strand: bool) -> io::Result<()> {
+fn write_row<W: Write>(granges: &GRanges, writer: &mut W, i: usize, widths: &[usize], strand: bool) -> io::Result<()> {
     if strand {
         write!(writer,
             "{:width0$} {:width1$} {:width2$} {:width3$}",

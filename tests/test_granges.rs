@@ -118,7 +118,7 @@ mod tests {
 
         // Export to new file and import again
         assert!(
-            granges1.export_table("tests/test_granges.table.tmp", true, false, &[]).is_ok());
+            granges1.export_table("tests/test_granges.table.tmp", false, &[]).is_ok());
         if let Err(v) = granges2.import_table(
                 "tests/test_granges.table.tmp",
                 &["name", "score", "float", "matrix"],

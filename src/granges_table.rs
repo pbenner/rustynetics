@@ -15,7 +15,7 @@
  */
 
 use std::any::Any;
-use std::io::{self, BufRead, BufReader, Write};
+use std::io::{self, BufRead, BufReader, Read, Write};
 use std::fs::File;
 
 use flate2::Compression;
@@ -33,7 +33,7 @@ use crate::options_print::OptionPrintScientific;
 
 impl GRanges {
 
-    pub fn write_table(&self, writer: &mut dyn Write, strand: bool, args: &[&dyn Any]) -> io::Result<()> {
+    pub fn write_table<W: Write>(&self, writer: &mut W, args: &[&dyn Any]) -> io::Result<()> {
         let mut use_scientific = false;
         let mut use_strand = false;
         for arg in args {
@@ -50,7 +50,7 @@ impl GRanges {
         let mut meta_reader = BufReader::new(meta_str.as_bytes());
 
         gwriter.determine_widths()?;
-        gwriter.write_header(&mut writer, &mut meta_reader)?;
+        gwriter.write_header(writer, &mut meta_reader)?;
 
         for i in 0..self.num_rows() {
             gwriter.write_row(writer, &mut meta_reader, i)?;
@@ -59,7 +59,7 @@ impl GRanges {
         Ok(())
     }
 
-    pub fn export_table(&self, filename: &str, strand: bool, compress: bool, args: &[&dyn Any]) -> io::Result<()> {
+    pub fn export_table(&self, filename: &str, compress: bool, args: &[&dyn Any]) -> io::Result<()> {
         let file = File::create(filename)?;
         let mut writer: Box<dyn Write> = if compress {
             Box::new(GzEncoder::new(file, Compression::default()))
@@ -67,12 +67,12 @@ impl GRanges {
             Box::new(file)
         };
 
-        self.write_table(&mut writer, strand, args)?;
+        self.write_table(&mut writer, args)?;
 
         Ok(())
     }
 
-    fn read_table(&mut self, reader: &mut dyn BufRead, names: &[&str], types: &[&str]) -> io::Result<()> {
+    fn read_table<R: Read>(&mut self, reader: R, names: &[&str], types: &[&str]) -> io::Result<()> {
         let mut mreader = MetaTableReader   ::new(names, types);
         let mut greader = GRangesTableReader::new();
 
