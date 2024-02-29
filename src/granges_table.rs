@@ -54,7 +54,6 @@ impl GRanges {
 
         for i in 0..self.num_rows() {
             gwriter.write_row(writer, &mut meta_reader, i)?;
-            writeln!(writer)?;
         }
         Ok(())
     }

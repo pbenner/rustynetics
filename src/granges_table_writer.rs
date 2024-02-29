@@ -55,12 +55,9 @@ impl<'a> GRangesTableWriter<'a> {
     }
 
     pub fn write_row<R: BufRead, W: Write>(&self, writer: &mut W, meta_reader: &mut R, i: usize) -> io::Result<()> {
-        if i != 0 {
-            writeln!(writer)?;
-        }
         write_row     (self.granges, writer, i, &self.widths, self.use_strand)?;
         write_row_meta(self.granges, writer, meta_reader)?;
-        Ok(())
+        writeln!(writer)    
     }
 
 }
@@ -101,7 +98,6 @@ fn write_header<W: Write>(writer: &mut W, widths: &[usize], strand: bool) -> io:
             "seqnames", "from", "to",
             width0=widths[0], width1=widths[1], width2=widths[2])?;
     }
-
     Ok(())
 }
 
@@ -127,6 +123,5 @@ fn write_row<W: Write>(granges: &GRanges, writer: &mut W, i: usize, widths: &[us
             granges.seqnames[i], granges.ranges[i].from, granges.ranges[i].to,
             width0=widths[0], width1=widths[1], width2=widths[2])?;
     }
-
     Ok(())
 }
