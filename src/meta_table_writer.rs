@@ -40,7 +40,7 @@ impl<'a> MetaTableWriter<'a> {
             self.widths[j] = self.meta.meta_name[j].len()+1;
         }
         for i in 0..self.meta.num_rows() {
-            meta_update_max_widths(self.meta, i, &mut self.widths, self.use_scientific)?;
+            update_max_widths(self.meta, i, &mut self.widths, self.use_scientific)?;
         }
         Ok(())
     }
@@ -59,7 +59,7 @@ impl<'a> MetaTableWriter<'a> {
             writeln!(writer)?;
         }
         for j in 0..self.meta.num_cols() {
-            print_meta_cell(self.meta, writer, i, j, &self.widths, self.use_scientific)?;
+            write_cell(self.meta, writer, i, j, &self.widths, self.use_scientific)?;
         }
         Ok(())
     }    
@@ -68,12 +68,12 @@ impl<'a> MetaTableWriter<'a> {
 
 /* -------------------------------------------------------------------------- */
 
-fn meta_update_max_widths(meta: &Meta, i: usize, widths: &mut [usize], use_scientific: bool) -> io::Result<()> {
+fn update_max_widths(meta: &Meta, i: usize, widths: &mut [usize], use_scientific: bool) -> io::Result<()> {
     for j in 0..meta.num_cols() {
         let mut tmp_buffer = Vec::new();
         {
             let mut tmp_writer = BufWriter::new(&mut tmp_buffer);
-            print_meta_cell(meta, &mut tmp_writer, i, j, widths, use_scientific)?;
+            write_cell(meta, &mut tmp_writer, i, j, widths, use_scientific)?;
             tmp_writer.flush()?;
         }
         let width = tmp_buffer.len();
@@ -84,7 +84,7 @@ fn meta_update_max_widths(meta: &Meta, i: usize, widths: &mut [usize], use_scien
     Ok(())
 }
 
-fn print_meta_cell_slice<W: Write>(data: &MetaData, writer: &mut W, i: usize, j: usize, widths: &[usize], use_scientific: bool) -> io::Result<()> {
+fn write_cell_slice<W: Write>(data: &MetaData, writer: &mut W, i: usize, j: usize, widths: &[usize], use_scientific: bool) -> io::Result<()> {
     let mut tmp_buffer = Vec::new();
     {
         let mut tmp_writer = io::Cursor::new(&mut tmp_buffer);
@@ -123,7 +123,7 @@ fn print_meta_cell_slice<W: Write>(data: &MetaData, writer: &mut W, i: usize, j:
     write!(writer, " {:width$}", String::from_utf8(tmp_buffer).unwrap(), width = widths[j] - 1)
 }
 
-fn print_meta_cell<W: Write>(meta: &Meta, writer: &mut W, i: usize, j: usize, widths: &[usize], use_scientific: bool) -> io::Result<()> {
+fn write_cell<W: Write>(meta: &Meta, writer: &mut W, i: usize, j: usize, widths: &[usize], use_scientific: bool) -> io::Result<()> {
     match &meta.meta_data[j] {
         MetaData::StringArray(v) => {
             write!(writer, " {:width$}", v[i], width = widths[j] - 1)
@@ -142,6 +142,6 @@ fn print_meta_cell<W: Write>(meta: &Meta, writer: &mut W, i: usize, j: usize, wi
             let s = format!("[{},{})", v[i].from, v[i].to);
             write!(writer, " {:width$}", s, width = widths[j] - 1)
         }
-        _ => print_meta_cell_slice(&meta.meta_data[j], writer, i, j, widths, use_scientific),
+        _ => write_cell_slice(&meta.meta_data[j], writer, i, j, widths, use_scientific),
     }
 }
