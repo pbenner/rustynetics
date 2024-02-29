@@ -28,9 +28,7 @@ use crate::meta::MetaData;
 
 impl Meta {
 
-    fn print_pretty(&self, n: usize, use_scientific: bool) -> io::Result<Vec<u8>> {
-
-        let mut buffer = Vec::new();
+    fn print_pretty<W: Write>(&self, writer: &mut W, n: usize, use_scientific: bool) -> io::Result<()> {
 
         let mut widths = vec![0; self.num_cols()];
         for j in 0..self.num_cols() {
@@ -52,15 +50,22 @@ impl Meta {
             }
         }
 
-        print_header(self, &mut buffer, &widths)?;
-        print_all   (self, &mut buffer, &widths, n, use_scientific)?;
+        print_header(self, writer, &widths)?;
+        print_all   (self, writer, &widths, n, use_scientific)?;
 
-        Ok(buffer)
+        Ok(())
     }
 
     pub fn format_pretty(&self, n: usize, use_scientific: bool) -> Result<String, Error> {
-        let r = self.print_pretty(n, use_scientific)?;
-        let s = match String::from_utf8(r) {
+        let mut buffer = Vec::new();
+        {
+            let mut writer = BufWriter::new(&mut buffer);
+
+            self.print_pretty(&mut writer, n, use_scientific)?;
+
+            writer.flush().unwrap();
+        }
+        let s = match String::from_utf8(buffer) {
             Ok (v) => v,
             Err(_) => panic!("internal error")
         };

@@ -27,7 +27,7 @@ use crate::error::Error;
 
 impl GRanges {
 
-    fn print_pretty(&self, writer: &mut dyn Write, n: usize) -> io::Result<()> {
+    fn print_pretty<W: Write>(&self, writer: &mut W, n: usize) -> io::Result<()> {
         let meta_str = format!("{}", self.meta);
         let mut meta_reader = BufReader::new(meta_str.as_bytes());
 
