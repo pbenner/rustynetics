@@ -37,8 +37,19 @@ impl Meta {
             widths[j] = self.meta_name[j].len();
         }
 
-        for i in 0..self.num_rows() {
-            update_max_widths(self, i, &mut widths, use_scientific)?;
+        if self.num_rows() <= n + 1 {
+            for i in 0..self.num_rows() {
+                update_max_widths(self, i, &mut widths, use_scientific)?;
+            }
+        } else {
+            // Print first n/2 rows
+            for i in 0..n / 2 {
+                update_max_widths(self, i, &mut widths, use_scientific)?;
+            }
+            // Print last n/2 rows
+            for i in self.num_rows() - n / 2..self.num_rows() {
+                update_max_widths(self, i, &mut widths, use_scientific)?;
+            }
         }
 
         print_header(self, &mut buffer, &widths)?;
