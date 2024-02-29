@@ -81,7 +81,7 @@ fn update_max_widths(granges: &GRanges, i: usize, widths: &mut [usize; 5]) {
     update_max_width(widths, 4, granges.strand  [i]     .to_string());
 }
 
-fn write_meta_row(granges: &GRanges, writer: &mut dyn Write, reader: &mut dyn BufRead) -> io::Result<()> {
+fn write_meta_row<W: Write>(granges: &GRanges, writer: &mut W, reader: &mut dyn BufRead) -> io::Result<()> {
     if granges.meta.num_cols() > 0 {
         write!(writer, " |")?;
         let mut line = String::new();
@@ -91,7 +91,7 @@ fn write_meta_row(granges: &GRanges, writer: &mut dyn Write, reader: &mut dyn Bu
     Ok(())
 }
 
-fn write_header(granges: &GRanges, writer: &mut dyn Write, meta_reader: &mut dyn BufRead, widths: &[usize]) -> io::Result<()> {
+fn write_header<W: Write>(granges: &GRanges, writer: &mut W, meta_reader: &mut dyn BufRead, widths: &[usize]) -> io::Result<()> {
     write!(writer,
         "{:width0$} {:width1$} {:width2$} {:width3$}",
         "", "seqnames", "ranges", "strand",
@@ -100,7 +100,7 @@ fn write_header(granges: &GRanges, writer: &mut dyn Write, meta_reader: &mut dyn
     Ok(())
 }
 
-fn write_row(granges: &GRanges, writer: &mut dyn Write, meta_reader: &mut dyn BufRead, widths: &[usize], i: usize) -> io::Result<()> {
+fn write_row<W: Write>(granges: &GRanges, writer: &mut W, meta_reader: &mut dyn BufRead, widths: &[usize], i: usize) -> io::Result<()> {
     writeln!(writer)?;
     write!(writer,
         "{:width0$} {:width1$} [{:width2$}, {:width3$}) {:width4$}",
@@ -110,7 +110,7 @@ fn write_row(granges: &GRanges, writer: &mut dyn Write, meta_reader: &mut dyn Bu
     Ok(())
 }
 
-fn write_all(granges: &GRanges, writer: &mut dyn Write, meta_reader: &mut dyn BufRead, widths_header : &[usize], widths_row: &[usize], n: usize) -> io::Result<()> {
+fn write_all<W: Write>(granges: &GRanges, writer: &mut W, meta_reader: &mut dyn BufRead, widths_header : &[usize], widths_row: &[usize], n: usize) -> io::Result<()> {
     if granges.num_rows() <= n + 1 {
         for i in 0..granges.num_rows() {
             write_row(granges, writer, meta_reader, &widths_row, i)?;
