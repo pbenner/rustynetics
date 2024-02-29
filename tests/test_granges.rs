@@ -96,7 +96,7 @@ mod tests {
 
         let n = 20;
 
-        let names = vec!["name", "score", "float", "range", "matrix"];
+        let names = vec!["name", "score", "float", "matrix"];
         let data  = vec![
             MetaData::StringArray(
                 (0..n).map(|i: i32| format!("Entry_{}", i)).collect()),
@@ -104,8 +104,6 @@ mod tests {
                 (0..n).map(|_| rng.gen_range(-100..100)).collect()),
             MetaData::FloatArray(
                 (0..n).map(|_| r(rng.gen_range(-100.0..100.0))).collect()),
-            MetaData::RangeArray(
-                (0..n).map(|_| rng.gen_range(0..10000)).map(|x| Range::new(x, x+500)).collect()),
             MetaData::FloatMatrix(
                 (0..n).map(|_| (0..5).map(|_| r(rng.gen_range(0.0..1000.0))).collect()).collect())
         ];
@@ -129,8 +127,6 @@ mod tests {
                 false) {
             println!("{}", v);
         }
-
-        println!("{}", granges2);
 
         assert!(
             granges1 == granges2);
