@@ -129,6 +129,9 @@ mod tests {
         }
 
         assert!(
+            remove_file("tests/test_granges.table.tmp").is_ok());
+
+            assert!(
             granges1 == granges2);
 
     }
