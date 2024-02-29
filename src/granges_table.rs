@@ -25,6 +25,7 @@ use flate2::write::GzEncoder;
 
 use crate::range::Range;
 use crate::granges::GRanges;
+use crate::meta_table_reader::MetaTableReader;
 
 /* -------------------------------------------------------------------------- */
 
@@ -74,6 +75,8 @@ impl GRanges {
     }
 
     fn read_table(&mut self, reader: &mut dyn BufRead, names: &[&str], types: &[&str]) -> io::Result<()> {
+        let mut meta_reader = MetaTableReader::new(names, types);
+
         let mut buf_reader = BufReader::new(reader);
         let mut line = String::new();
 
@@ -82,7 +85,11 @@ impl GRanges {
         let mut col_to      = -1;
         let mut col_strand  = -1;
 
+        // Read first line as header
         buf_reader.read_line(&mut line)?;
+        // Parse meta header
+        meta_reader.read_header(&line);
+        // Parse granges header
         let fields: Vec<&str> = line.trim().split_whitespace().collect();
         for (i, field) in fields.iter().enumerate() {
             match *field {
@@ -135,11 +142,12 @@ impl GRanges {
             } else {
                 self.strand.push('*');
             }
+            meta_reader.read_line(&line, line_counter);
+
             line_counter += 1;
 
             line.clear();
         }
-        self.meta.read_table(buf_reader, names, types)?;
         Ok(())
     }
 
