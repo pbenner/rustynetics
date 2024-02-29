@@ -50,15 +50,6 @@ impl Meta {
         Ok(())
     }
 
-    pub fn print_table(&self, args: &[&dyn Any]) -> String {
-        let mut buffer = Vec::new();
-        {
-            let mut writer = io::Cursor::new(&mut buffer);
-            self.write_table(&mut writer, args).unwrap();
-        }
-        String::from_utf8(buffer).unwrap()
-    }
-
     pub fn read_table<R: Read>(&mut self, reader: R, names: &[&str], types: &[&str]) -> io::Result<()> {
 
         let mut mreader = MetaTableReader::new(names, types);
@@ -88,6 +79,15 @@ impl Meta {
         mreader.push(self);
 
         Ok(())
+    }
+
+    pub fn print_table(&self, args: &[&dyn Any]) -> String {
+        let mut buffer = Vec::new();
+        {
+            let mut writer = io::Cursor::new(&mut buffer);
+            self.write_table(&mut writer, args).unwrap();
+        }
+        String::from_utf8(buffer).unwrap()
     }
 }
 
