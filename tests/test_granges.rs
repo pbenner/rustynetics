@@ -90,6 +90,8 @@ mod tests {
     #[test]
     fn test_granges_table() {
 
+        let r = |x: f64| (x * 100.0).round() / 100.0;
+
         let mut rng = thread_rng();
 
         let n = 20;
@@ -101,11 +103,11 @@ mod tests {
             MetaData::IntArray(
                 (0..n).map(|_| rng.gen_range(-100..100)).collect()),
             MetaData::FloatArray(
-                (0..n).map(|_| rng.gen_range(-100.0..100.0)).collect()),
+                (0..n).map(|_| r(rng.gen_range(-100.0..100.0))).collect()),
             MetaData::RangeArray(
                 (0..n).map(|_| rng.gen_range(0..10000)).map(|x| Range::new(x, x+500)).collect()),
             MetaData::FloatMatrix(
-                (0..n).map(|_| (0..5).map(|_| rng.gen_range(0.0..1000.0)).collect()).collect())
+                (0..n).map(|_| (0..5).map(|_| r(rng.gen_range(0.0..1000.0))).collect()).collect())
         ];
 
         let mut granges1 = GRanges::new_empty();
@@ -116,9 +118,10 @@ mod tests {
 
         granges1.meta = Meta::new(names, data).unwrap();
 
-        // Export to new file and import again
+        // Export to new file
         assert!(
             granges1.export_table("tests/test_granges.table.tmp", false, &[]).is_ok());
+        // Import table again
         if let Err(v) = granges2.import_table(
                 "tests/test_granges.table.tmp",
                 &["name", "score", "float", "matrix"],
@@ -126,10 +129,12 @@ mod tests {
                 false) {
             println!("{}", v);
         }
-        //assert!(
-        //    granges2.import_table("tests/test_granges.table.tmp", &["name"], &["string"], false).is_ok());
 
         println!("{}", granges2);
+
+        assert!(
+            granges1 == granges2);
+
     }
 
 }
