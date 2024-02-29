@@ -15,7 +15,7 @@
  */
 
 use std::any::Any;
-use std::io::{self, BufRead, BufReader, Write};
+use std::io::{self, BufRead, BufReader, Seek, Write};
 use std::fs::File;
 use std::str::FromStr;
 
@@ -73,7 +73,7 @@ impl GRanges {
         Ok(())
     }
 
-    pub fn read_table(&mut self, reader: &mut dyn BufRead, names: &[&str], types: &[&str]) -> io::Result<()> {
+    fn read_table(&mut self, reader: &mut dyn BufRead, names: &[&str], types: &[&str]) -> io::Result<()> {
         let mut buf_reader = BufReader::new(reader);
         let mut line = String::new();
 

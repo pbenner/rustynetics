@@ -166,9 +166,49 @@ impl Meta {
         if names.len() != types.len() {
             panic!("invalid arguments");
         }
+        let mut meta_reader = MetaTableReader::new(names, types);
 
+        // Parse header
+        let mut line = String::new();
+        reader.read_line(&mut line)?;
+
+        meta_reader.read_header(&line);
+
+        let mut i = 2;
+        loop {
+            line.clear();
+            if reader.read_line(&mut line)? == 0 {
+                break;
+            }
+            if line.is_empty() {
+                continue;
+            }
+            meta_reader.read_line(&line, i);
+
+            i += 1;
+        }
+
+        meta_reader.push(self);
+
+        Ok(())
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+
+struct MetaTableReader<'a> {
+    idx_map  : std::collections::HashMap<&'a str, i32>,
+    meta_map : std::collections::HashMap<&'a str, MetaData>
+}
+
+/* -------------------------------------------------------------------------- */
+
+impl<'a> MetaTableReader<'a> {
+
+    pub fn new(names: &[&'a str], types: &[&'a str]) -> Self {
         let mut idx_map  = std::collections::HashMap::new();
         let mut meta_map = std::collections::HashMap::new();
+
         for i in 0..names.len() {
             idx_map.insert(names[i], -1);
             match types[i] {
@@ -182,41 +222,51 @@ impl Meta {
             };
         }
 
-        let mut line = String::new();
-        reader.read_line(&mut line)?;
-        let fields: Vec<&str> = line.split_whitespace().collect();
-        if fields.len() < 4 {
-            return Err(io::Error::new(io::ErrorKind::InvalidData, "invalid table"));
+        MetaTableReader{
+            idx_map : idx_map,
+            meta_map: meta_map,
         }
+    }
+
+    pub fn read_header(&mut self, line: &String) {
+
+        let fields: Vec<&str> = line.split_whitespace().collect();
+
         for (i, field) in fields.iter().enumerate() {
-            if let Some(idx) = idx_map.get_mut(*field) {
+            if let Some(idx) = self.idx_map.get_mut(*field) {
                 *idx = i as i32;
             }
         }
+    }
 
-        let mut i = 2;
-        loop {
-            line.clear();
-            if reader.read_line(&mut line)? == 0 {
-                break;
-            }
-            if line.is_empty() {
+    pub fn read_line(&mut self, line: &String, i: i32) -> io::Result<()> {
+
+        let fields: Vec<&str> = line.split_whitespace().collect();
+        for (name, idx) in &self.idx_map {
+            if *idx == -1 {
                 continue;
             }
-            let fields: Vec<&str> = line.split_whitespace().collect();
-            for (name, idx) in &idx_map {
-                if *idx == -1 {
-                    continue;
+            if *idx >= fields.len() as i32 {
+                return Err(io::Error::new(io::ErrorKind::InvalidData, "invalid table"));
+            }
+            match self.meta_map.get_mut(name).unwrap() {
+                MetaData::StringArray(v) => {
+                    v.push(fields[*idx as usize].to_string());
                 }
-                if *idx >= fields.len() as i32 {
-                    return Err(io::Error::new(io::ErrorKind::InvalidData, "invalid table"));
+                MetaData::IntArray(v) => {
+                    let value = i64::from_str(fields[*idx as usize]).map_err(|e| {
+                        io::Error::new(
+                            io::ErrorKind::InvalidData,
+                            format!("parsing meta information failed at line `{}`: {}", i, e),
+                        )
+                    })?;
+                    v.push(value);
                 }
-                match meta_map.get_mut(name).unwrap() {
-                    MetaData::StringArray(v) => {
-                        v.push(fields[*idx as usize].to_string());
-                    }
-                    MetaData::IntArray(v) => {
-                        let value = i64::from_str(fields[*idx as usize]).map_err(|e| {
+                MetaData::FloatArray(v) => {
+                    if fields[*idx as usize] == "NA" || fields[*idx as usize] == "NaN" {
+                        v.push(f64::NAN);
+                    } else {
+                        let value = f64::from_str(fields[*idx as usize]).map_err(|e| {
                             io::Error::new(
                                 io::ErrorKind::InvalidData,
                                 format!("parsing meta information failed at line `{}`: {}", i, e),
@@ -224,81 +274,68 @@ impl Meta {
                         })?;
                         v.push(value);
                     }
-                    MetaData::FloatArray(v) => {
-                        if fields[*idx as usize] == "NA" || fields[*idx as usize] == "NaN" {
-                            v.push(f64::NAN);
-                        } else {
-                            let value = f64::from_str(fields[*idx as usize]).map_err(|e| {
+                }
+                MetaData::IntMatrix(v) => {
+                    let data: Vec<&str> = fields[*idx as usize].split(',').collect();
+                    if data.len() == 1 && data[0] == "nil" {
+                        v.push(Vec::<i64>::new());
+                    } else {
+                        let mut entry = Vec::with_capacity(data.len());
+                        for d in data {
+                            let value = i64::from_str(d).map_err(|e| {
                                 io::Error::new(
                                     io::ErrorKind::InvalidData,
                                     format!("parsing meta information failed at line `{}`: {}", i, e),
                                 )
                             })?;
-                            v.push(value);
+                            entry.push(value);
                         }
+                        v.push(entry);
                     }
-                    MetaData::IntMatrix(v) => {
-                        let data: Vec<&str> = fields[*idx as usize].split(',').collect();
-                        if data.len() == 1 && data[0] == "nil" {
-                            v.push(Vec::<i64>::new());
-                        } else {
-                            let mut entry = Vec::with_capacity(data.len());
-                            for d in data {
-                                let value = i64::from_str(d).map_err(|e| {
-                                    io::Error::new(
-                                        io::ErrorKind::InvalidData,
-                                        format!("parsing meta information failed at line `{}`: {}", i, e),
-                                    )
-                                })?;
-                                entry.push(value);
-                            }
-                            v.push(entry);
-                        }
-                    }
-                    MetaData::FloatMatrix(v) => {
-                        let data: Vec<&str> = fields[*idx as usize].split(',').collect();
-                        if data.len() == 1 && data[0] == "nil" {
-                            v.push(Vec::<f64>::new());
-                        } else {
-                            let mut entry = Vec::with_capacity(data.len());
-                            for d in data {
-                                let value = f64::from_str(d).map_err(|e| {
-                                    io::Error::new(
-                                        io::ErrorKind::InvalidData,
-                                        format!("parsing meta information failed at line `{}`: {}", i, e),
-                                    )
-                                })?;
-                                entry.push(value);
-                            }
-                            v.push(entry);
-                        }
-                    }
-                    MetaData::StringMatrix(v) => {
-                        let data: Vec<&str> = fields[*idx as usize].split(',').collect();
-                        if data.len() == 1 && data[0] == "nil" {
-                            v.push(Vec::<String>::new());
-                        } else {
-                            let mut entry = Vec::with_capacity(data.len());
-                            for d in data {
-                                entry.push(d.to_string());
-                            }
-                            v.push(entry);
-                        }
-                    }
-                    _ => unreachable!(),
                 }
+                MetaData::FloatMatrix(v) => {
+                    let data: Vec<&str> = fields[*idx as usize].split(',').collect();
+                    if data.len() == 1 && data[0] == "nil" {
+                        v.push(Vec::<f64>::new());
+                    } else {
+                        let mut entry = Vec::with_capacity(data.len());
+                        for d in data {
+                            let value = f64::from_str(d).map_err(|e| {
+                                io::Error::new(
+                                    io::ErrorKind::InvalidData,
+                                    format!("parsing meta information failed at line `{}`: {}", i, e),
+                                )
+                            })?;
+                            entry.push(value);
+                        }
+                        v.push(entry);
+                    }
+                }
+                MetaData::StringMatrix(v) => {
+                    let data: Vec<&str> = fields[*idx as usize].split(',').collect();
+                    if data.len() == 1 && data[0] == "nil" {
+                        v.push(Vec::<String>::new());
+                    } else {
+                        let mut entry = Vec::with_capacity(data.len());
+                        for d in data {
+                            entry.push(d.to_string());
+                        }
+                        v.push(entry);
+                    }
+                }
+                _ => unreachable!(),
             }
-            i += 1;
         }
+        Ok(())
+    }
 
-        for (name, idx) in idx_map {
-            if idx != -1 {
-                if let Err(_) = self.add_meta(&name, meta_map.remove(&name).unwrap()) {
+    pub fn push(&mut self, meta: &mut Meta) {
+        for (name, idx) in &self.idx_map {
+            if *idx != -1 {
+                if let Err(_) = meta.add_meta(&name, self.meta_map.remove(name).unwrap()) {
                     panic!("internal error")
                 }
             }
         }
-
-        Ok(())
     }
 }
