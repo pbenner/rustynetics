@@ -63,7 +63,7 @@ impl GRanges {
         Ok(())
     }
 
-    pub fn export_table(&self, filename: String, header: bool, strand: bool, compress: bool, args: &[&dyn Any]) -> io::Result<()> {
+    pub fn export_table(&self, filename: &str, header: bool, strand: bool, compress: bool, args: &[&dyn Any]) -> io::Result<()> {
         let file = File::create(filename)?;
         let mut writer: Box<dyn Write> = if compress {
             Box::new(GzEncoder::new(file, Compression::default()))
@@ -98,6 +98,7 @@ impl GRanges {
                 _ => (),
             }
         }
+        line.clear();
 
         if col_seqname == -1 {
             return Err(io::Error::new(io::ErrorKind::InvalidData, "is missing a seqnames column"));
@@ -145,7 +146,7 @@ impl GRanges {
         Ok(())
     }
 
-    pub fn import_table(&mut self, filename: String, names: &[&str], types: &[&str], compress: bool) -> io::Result<()> {
+    pub fn import_table(&mut self, filename: &str, names: &[&str], types: &[&str], compress: bool) -> io::Result<()> {
         let file = File::open(filename)?;
         let mut reader: Box<dyn BufRead> = if compress {
             Box::new(BufReader::new(GzDecoder::new(file)))
