@@ -31,6 +31,10 @@ pub struct MetaTableReader<'a> {
 impl<'a> MetaTableReader<'a> {
 
     pub fn new(names: &[&'a str], types: &[&'a str]) -> Self {
+        if names.len() != types.len() {
+            panic!("invalid arguments");
+        }
+
         let mut idx_map  = std::collections::HashMap::new();
         let mut meta_map = std::collections::HashMap::new();
 
@@ -53,7 +57,7 @@ impl<'a> MetaTableReader<'a> {
         }
     }
 
-    pub fn read_header(&mut self, line: &String) {
+    pub fn read_header(&mut self, line: &String) -> io::Result<()> {
 
         let fields: Vec<&str> = line.split_whitespace().collect();
 
@@ -62,6 +66,7 @@ impl<'a> MetaTableReader<'a> {
                 *idx = i as i32;
             }
         }
+        Ok(())
     }
 
     pub fn read_line(&mut self, line: &String, i: i32) -> io::Result<()> {

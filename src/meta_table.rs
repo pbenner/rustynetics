@@ -138,7 +138,6 @@ impl Meta {
         for j in 0..self.num_cols() {
             widths[j] = self.meta_name[j].len()+1;
         }
-        (0..self.num_cols()).map(|j| widths[j] = self.meta_name[j].len());
 
         for i in 0..self.num_rows() {
             self.meta_update_max_widths(i, &mut widths, use_scientific)?;
@@ -161,34 +160,32 @@ impl Meta {
     }
 
     pub fn read_table<R: Read>(&mut self, reader: R, names: &[&str], types: &[&str]) -> io::Result<()> {
-        let mut reader = BufReader::new(reader);
 
-        if names.len() != types.len() {
-            panic!("invalid arguments");
-        }
-        let mut meta_reader = MetaTableReader::new(names, types);
+        let mut mreader = MetaTableReader::new(names, types);
+
+        let mut buf_reader = BufReader::new(reader);
 
         // Parse header
         let mut line = String::new();
-        reader.read_line(&mut line)?;
+        buf_reader.read_line(&mut line)?;
+        mreader.read_header(&line)?;
 
-        meta_reader.read_header(&line);
+        line.clear();
 
-        let mut i = 2;
-        loop {
-            line.clear();
-            if reader.read_line(&mut line)? == 0 {
-                break;
-            }
+        let mut line_counter = 0;
+
+        while buf_reader.read_line(&mut line)? > 0 {
+ 
             if line.is_empty() {
                 continue;
             }
-            meta_reader.read_line(&line, i);
+            mreader.read_line(&line, line_counter)?;
 
-            i += 1;
+            line.clear();
+
+            line_counter += 1;
         }
-
-        meta_reader.push(self);
+        mreader.push(self);
 
         Ok(())
     }

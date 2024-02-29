@@ -28,6 +28,7 @@ mod granges_find_overlaps;
 mod granges_bed;
 mod granges_pretty;
 mod granges_table;
+mod granges_table_reader;
 mod meta_pretty;
 mod meta_table;
 mod meta_table_reader;

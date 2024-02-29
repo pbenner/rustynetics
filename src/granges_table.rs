@@ -17,14 +17,13 @@
 use std::any::Any;
 use std::io::{self, BufRead, BufReader, Write};
 use std::fs::File;
-use std::str::FromStr;
 
 use flate2::Compression;
 use flate2::read::GzDecoder;
 use flate2::write::GzEncoder;
 
-use crate::range::Range;
 use crate::granges::GRanges;
+use crate::granges_table_reader::GRangesTableReader;
 use crate::meta_table_reader::MetaTableReader;
 
 /* -------------------------------------------------------------------------- */
@@ -33,19 +32,19 @@ impl GRanges {
 
     pub fn write_table(&self, writer: &mut dyn Write, strand: bool, args: &[&dyn Any]) -> io::Result<()> {
         let meta_str = self.meta.print_table(args);
-        let mut meta_reader = BufReader::new(meta_str.as_bytes());
+        let mut mreader = BufReader::new(meta_str.as_bytes());
 
         let mut widths = vec![8, 4, 2, 6];
         for i in 0..self.num_rows() {
             update_max_widths(i, &mut widths, self, strand)?;
         }
         print_header(writer, &widths, strand)?;
-        self.meta_print_table_row(writer, &mut meta_reader)?;
+        self.meta_print_table_row(writer, &mut mreader)?;
         writeln!(writer)?;
 
         for i in 0..self.num_rows() {
             print_row(writer, &widths, i, self, strand)?;
-            self.meta_print_table_row(writer, &mut meta_reader)?;
+            self.meta_print_table_row(writer, &mut mreader)?;
             writeln!(writer)?;
         }
         Ok(())
@@ -75,80 +74,35 @@ impl GRanges {
     }
 
     fn read_table(&mut self, reader: &mut dyn BufRead, names: &[&str], types: &[&str]) -> io::Result<()> {
-        let mut meta_reader = MetaTableReader::new(names, types);
+        let mut mreader = MetaTableReader   ::new(names, types);
+        let mut greader = GRangesTableReader::new();
 
         let mut buf_reader = BufReader::new(reader);
         let mut line = String::new();
 
-        let mut col_seqname = -1;
-        let mut col_from    = -1;
-        let mut col_to      = -1;
-        let mut col_strand  = -1;
-
         // Read first line as header
         buf_reader.read_line(&mut line)?;
-        // Parse meta header
-        meta_reader.read_header(&line);
-        // Parse granges header
-        let fields: Vec<&str> = line.trim().split_whitespace().collect();
-        for (i, field) in fields.iter().enumerate() {
-            match *field {
-                "seqnames" => col_seqname = i as i32,
-                "from"     => col_from    = i as i32,
-                "to"       => col_to      = i as i32,
-                "strand"   => col_strand  = i as i32,
-                "start" if col_from == -1 => col_from = i as i32,
-                "end"   if col_to   == -1 => col_to   = i as i32,
-                _ => (),
-            }
-        }
+        greader.read_header(&line)?;
+        mreader.read_header(&line)?;
+
         line.clear();
-
-        if col_seqname == -1 {
-            return Err(io::Error::new(io::ErrorKind::InvalidData, "is missing a seqnames column"));
-        }
-        if col_from == -1 {
-            return Err(io::Error::new(io::ErrorKind::InvalidData, "is missing a from column"));
-        }
-        if col_to == -1 {
-            return Err(io::Error::new(io::ErrorKind::InvalidData, "is missing a to column"));
-        }
-
-        self.seqnames.clear();
-        self.ranges  .clear();
-        self.strand  .clear();
 
         let mut line_counter = 0;
 
         while buf_reader.read_line(&mut line)? > 0 {
-            let fields: Vec<&str> = line.trim().split_whitespace().collect();
-            if fields.len() < col_seqname as usize || fields.len() < col_from as usize || fields.len() < col_to as usize {
-                return Err(io::Error::new(io::ErrorKind::InvalidData, "invalid table"));
+
+            if line.is_empty() {
+                continue;
             }
-
-            let seqname = fields[col_seqname as usize].to_string();
-            let from    = usize::from_str(fields[col_from as usize]).map_err(|_| io::Error::new(io::ErrorKind::InvalidData, format!("parsing `from' column `{}` failed at line `{}`", col_from + 1, line_counter + 1)))?;
-            let to      = usize::from_str(fields[col_to   as usize]).map_err(|_| io::Error::new(io::ErrorKind::InvalidData, format!("parsing `to' column `{}` failed at line `{}`"  , col_to   + 1, line_counter + 1)))?;
-
-            self.seqnames.push(seqname);
-            self.ranges  .push(Range{ from, to });
-
-            if col_strand != -1 {
-                if fields.len() < col_strand as usize {
-                    return Err(io::Error::new(io::ErrorKind::InvalidData, "invalid table"));
-                }
-                let strand = fields[col_strand as usize].chars().next().unwrap();
-                self.strand.push(strand);
-            } else {
-                self.strand.push('*');
-            }
-            meta_reader.read_line(&line, line_counter);
+            greader.read_line(&line, line_counter)?;
+            mreader.read_line(&line, line_counter)?;
 
             line_counter += 1;
 
             line.clear();
         }
-        meta_reader.push(&mut self.meta);
+        greader.push(self);
+        mreader.push(&mut self.meta);
 
         Ok(())
     }
