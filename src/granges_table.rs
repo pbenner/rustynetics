@@ -30,20 +30,17 @@ use crate::granges::GRanges;
 
 impl GRanges {
 
-    pub fn write_table(&self, writer: &mut dyn Write, header: bool, strand: bool, args: &[&dyn Any]) -> io::Result<()> {
-        let meta_str = self.meta.print_table(header, args);
+    pub fn write_table(&self, writer: &mut dyn Write, strand: bool, args: &[&dyn Any]) -> io::Result<()> {
+        let meta_str = self.meta.print_table(args);
         let mut meta_reader = BufReader::new(meta_str.as_bytes());
 
         let mut widths = vec![8, 4, 2, 6];
         for i in 0..self.num_rows() {
             update_max_widths(i, &mut widths, self, strand)?;
         }
-
-        if header {
-            print_header(writer, &widths, strand)?;
-            self.meta_print_table_row(writer, &mut meta_reader)?;
-            writeln!(writer)?;
-        }
+        print_header(writer, &widths, strand)?;
+        self.meta_print_table_row(writer, &mut meta_reader)?;
+        writeln!(writer)?;
 
         for i in 0..self.num_rows() {
             print_row(writer, &widths, i, self, strand)?;
@@ -63,7 +60,7 @@ impl GRanges {
         Ok(())
     }
 
-    pub fn export_table(&self, filename: &str, header: bool, strand: bool, compress: bool, args: &[&dyn Any]) -> io::Result<()> {
+    pub fn export_table(&self, filename: &str, strand: bool, compress: bool, args: &[&dyn Any]) -> io::Result<()> {
         let file = File::create(filename)?;
         let mut writer: Box<dyn Write> = if compress {
             Box::new(GzEncoder::new(file, Compression::default()))
@@ -71,7 +68,7 @@ impl GRanges {
             Box::new(file)
         };
 
-        self.write_table(&mut writer, header, strand, args)?;
+        self.write_table(&mut writer, strand, args)?;
 
         Ok(())
     }

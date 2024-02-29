@@ -126,7 +126,7 @@ impl Meta {
         writeln!(writer)
     }
 
-    pub fn write_table<W: Write>(&self, writer: &mut W, header: bool, args: &[&dyn Any]) -> io::Result<()> {
+    pub fn write_table<W: Write>(&self, writer: &mut W, args: &[&dyn Any]) -> io::Result<()> {
         let mut use_scientific = false;
         for arg in args {
             if let Some(option) = arg.downcast_ref::<OptionPrintScientific>() {
@@ -138,18 +138,12 @@ impl Meta {
         for j in 0..self.num_cols() {
             widths[j] = self.meta_name[j].len()+1;
         }
-
-        if header {
-            (0..self.num_cols()).map(|j| widths[j] = self.meta_name[j].len());
-        }
+        (0..self.num_cols()).map(|j| widths[j] = self.meta_name[j].len());
 
         for i in 0..self.num_rows() {
             self.meta_update_max_widths(i, &mut widths, use_scientific)?;
         }
-
-        if header {
-            self.print_meta_header(writer, &widths)?;
-        }
+        self.print_meta_header(writer, &widths)?;
 
         for i in 0..self.num_rows() {
             self.print_meta_row(writer, &widths, i, use_scientific)?;
@@ -157,11 +151,11 @@ impl Meta {
         Ok(())
     }
 
-    pub fn print_table(&self, header: bool, args: &[&dyn Any]) -> String {
+    pub fn print_table(&self, args: &[&dyn Any]) -> String {
         let mut buffer = Vec::new();
         {
             let mut writer = io::Cursor::new(&mut buffer);
-            self.write_table(&mut writer, header, args).unwrap();
+            self.write_table(&mut writer, args).unwrap();
         }
         String::from_utf8(buffer).unwrap()
     }
