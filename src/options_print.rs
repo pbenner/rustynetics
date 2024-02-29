@@ -1,4 +1,3 @@
-
 /* Copyright (C) 2024 Philipp Benner
  *
  * This program is free software: you can redistribute it and/or modify
@@ -16,23 +15,13 @@
  */
 
 /* -------------------------------------------------------------------------- */
+ 
+#[derive(Debug)]
+pub struct OptionPrintScientific {
+    pub value: bool,
+}
 
-pub mod alphabet;
-pub mod genome;
-pub mod granges;
-pub mod meta;
-pub mod range;
-pub mod error;
-pub mod options_print;
-
-mod granges_find_overlaps;
-mod granges_bed;
-mod granges_pretty;
-mod granges_table;
-mod granges_table_reader;
-mod granges_table_writer;
-mod meta_pretty;
-mod meta_table;
-mod meta_table_reader;
-mod meta_table_writer;
-mod utility;
+#[derive(Debug)]
+pub struct OptionPrintStrand {
+    pub value: bool,
+}

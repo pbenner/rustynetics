@@ -20,13 +20,7 @@ use std::io::{self, BufRead, BufReader, Read, Write};
 use crate::meta::Meta;
 use crate::meta_table_reader::MetaTableReader;
 use crate::meta_table_writer::MetaTableWriter;
-
-/* -------------------------------------------------------------------------- */
-
-#[derive(Debug)]
-pub struct OptionPrintScientific {
-    pub value: bool,
-}
+use crate::options_print::OptionPrintScientific;
 
 /* -------------------------------------------------------------------------- */
 
