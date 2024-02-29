@@ -15,7 +15,7 @@
  */
 
 use std::any::Any;
-use std::io::{self, BufRead, BufReader, Seek, Write};
+use std::io::{self, BufRead, BufReader, Write};
 use std::fs::File;
 use std::str::FromStr;
 
@@ -148,6 +148,8 @@ impl GRanges {
 
             line.clear();
         }
+        meta_reader.push(&mut self.meta);
+
         Ok(())
     }
 
