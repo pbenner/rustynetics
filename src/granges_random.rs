@@ -106,11 +106,11 @@ impl GRanges {
         GRanges::new(seqnames, from, to, strand)
     }
 
-    pub fn random_permutation(r: GRanges) -> GRanges {
+    pub fn random_permutation(&self) -> GRanges {
         let mut rng = rand::thread_rng();
-        let mut idx: Vec<usize> = (0..r.num_rows()).collect();
+        let mut idx: Vec<usize> = (0..self.num_rows()).collect();
         idx.shuffle(&mut rng);
-        r.subset(&idx)
+        self.subset(&idx)
     }
 }
 
