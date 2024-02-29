@@ -125,6 +125,7 @@ impl<'a> MetaTableReader<'a> {
                 }
                 MetaData::FloatMatrix(v) => {
                     let data: Vec<&str> = fields[*idx as usize].split(',').collect();
+                    println!("data: {:?}", data);
                     if data.len() == 1 && data[0] == "nil" {
                         v.push(Vec::<f64>::new());
                     } else {

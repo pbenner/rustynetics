@@ -87,7 +87,8 @@ impl Meta {
                 write!(writer, " {:width$}", v[i], width = widths[j] - 1)
             }
             MetaData::RangeArray(v) => {
-                write!(writer, " {:width$}", v[i], width = widths[j] - 1)
+                let s = format!("[{},{})", v[i].from, v[i].to);
+                write!(writer, " {:width$}", s, width = widths[j] - 1)
             }
             _ => self.print_meta_cell_slice(writer, widths, i, j, &self.meta_data[j], use_scientific),
         }

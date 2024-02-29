@@ -97,7 +97,7 @@ mod tests {
         let names = vec!["name", "score", "float", "range", "matrix"];
         let data  = vec![
             MetaData::StringArray(
-                (0..n).map(|i: i32| format!("Entry {}", i)).collect()),
+                (0..n).map(|i: i32| format!("Entry_{}", i)).collect()),
             MetaData::IntArray(
                 (0..n).map(|_| rng.gen_range(-100..100)).collect()),
             MetaData::FloatArray(
@@ -119,7 +119,11 @@ mod tests {
         // Export to new file and import again
         assert!(
             granges1.export_table("tests/test_granges.table.tmp", true, false, &[]).is_ok());
-        if let Err(v) = granges2.import_table("tests/test_granges.table.tmp", &["name"], &["String"], false) {
+        if let Err(v) = granges2.import_table(
+                "tests/test_granges.table.tmp",
+                &["name", "score", "float", "matrix"],
+                &["String", "Int", "Float", "Vec<Float>"],
+                false) {
             println!("{}", v);
         }
         //assert!(

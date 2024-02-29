@@ -36,7 +36,7 @@ mod tests {
         let names = vec!["name", "score", "float", "range", "matrix"];
         let data  = vec![
             MetaData::StringArray(
-                (0..n).map(|i: i32| format!("Entry {}", i)).collect()),
+                (0..n).map(|i: i32| format!("Entry_{}", i)).collect()),
             MetaData::IntArray(
                 (0..n).map(|_| rng.gen_range(-100..100)).collect()),
             MetaData::FloatArray(
