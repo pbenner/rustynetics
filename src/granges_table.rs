@@ -36,14 +36,14 @@ impl GRanges {
 
         let mut widths = vec![8, 4, 2, 6];
         for i in 0..self.num_rows() {
-            update_max_widths(i, &mut widths, self, strand)?;
+            update_max_widths(self, i, &mut widths, strand)?;
         }
-        print_header(writer, &widths, strand)?;
+        write_header(writer, &widths, strand)?;
         self.meta_print_table_row(writer, &mut mreader)?;
         writeln!(writer)?;
 
         for i in 0..self.num_rows() {
-            print_row(writer, &widths, i, self, strand)?;
+            write_row(self, writer, &widths, i, strand)?;
             self.meta_print_table_row(writer, &mut mreader)?;
             writeln!(writer)?;
         }
@@ -121,33 +121,31 @@ impl GRanges {
     }
 }
 
-fn update_max_widths(i: usize, widths: &mut [usize], granges: &GRanges, strand: bool) -> io::Result<()> {
+/* -------------------------------------------------------------------------- */
+
+fn update_max_widths(granges: &GRanges, i: usize, widths: &mut [usize], strand: bool) -> io::Result<()> {
     let seqname_width = granges.seqnames[i].len();
     if seqname_width > widths[0] {
         widths[0] = seqname_width;
     }
-
     let from_width = granges.ranges[i].from.to_string().len();
     if from_width > widths[1] {
         widths[1] = from_width;
     }
-
     let to_width = granges.ranges[i].to.to_string().len();
     if to_width > widths[2] {
         widths[2] = to_width;
     }
-
     if strand {
         let strand_width = granges.strand[i].to_string().len();
         if strand_width > widths[3] {
             widths[3] = strand_width;
         }
     }
-
     Ok(())
 }
 
-fn print_header(writer: &mut dyn Write, widths: &[usize], strand: bool) -> io::Result<()> {
+fn write_header(writer: &mut dyn Write, widths: &[usize], strand: bool) -> io::Result<()> {
     if strand {
         write!(writer,
             "{:width0$} {:width1$} {:width2$} {:width3$}",
@@ -163,7 +161,7 @@ fn print_header(writer: &mut dyn Write, widths: &[usize], strand: bool) -> io::R
     Ok(())
 }
 
-fn print_row(writer: &mut dyn Write, widths: &[usize], i: usize, granges: &GRanges, strand: bool) -> io::Result<()> {
+fn write_row(granges: &GRanges, writer: &mut dyn Write, widths: &[usize], i: usize, strand: bool) -> io::Result<()> {
     if strand {
         write!(writer,
             "{:width0$} {:width1$} {:width2$} {:width3$}",
