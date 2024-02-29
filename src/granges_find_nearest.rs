@@ -35,11 +35,11 @@ struct EndPoint {
 /* -------------------------------------------------------------------------- */
 
 impl EndPoint {
-    fn new(position: i64, index: usize, is_query: bool) -> Self {
+    fn new(position: i64, index: usize, is_query: bool, end: Option<Rc<EndPoint>>) -> Self {
         EndPoint {
             position,
             start: None,
-            end  : None,
+            end  : end,
             index,
             is_query,
         }
@@ -225,9 +225,8 @@ fn find_nearest(query: &GRanges, subject: &GRanges, k: usize) -> FindNearestHits
     let mut rmap: HashMap<String, EndPointList> = HashMap::new();
 
     for i in 0..n {
-        let start = Rc::new(EndPoint::new(query.ranges[i].from as i64, i, true));
-        let end   = Rc::new(EndPoint::new(query.ranges[i].to   as i64, i, true));
-        start.end = Some(Rc::clone(&end));
+        let end   = Rc::new(EndPoint::new(query.ranges[i].to   as i64, i, true, None));
+        let start = Rc::new(EndPoint::new(query.ranges[i].from as i64, i, true, Some(Rc::clone(&end))));
 
         let entry = rmap.entry(query.seqnames[i].clone()).or_insert(EndPointList::new());
         entry.push(start);
@@ -235,9 +234,8 @@ fn find_nearest(query: &GRanges, subject: &GRanges, k: usize) -> FindNearestHits
     }
 
     for i in 0..m {
-        let start = Rc::new(EndPoint::new(subject.ranges[i].from as i64, i, false));
-        let end   = Rc::new(EndPoint::new(subject.ranges[i].to   as i64, i, false));
-        start.end = Some(Rc::clone(&end));
+        let end   = Rc::new(EndPoint::new(subject.ranges[i].to   as i64, i, false, None));
+        let start = Rc::new(EndPoint::new(subject.ranges[i].from as i64, i, false, Some(Rc::clone(&end))));
 
         let entry = rmap.entry(subject.seqnames[i].clone()).or_insert(EndPointList::new());
         entry.push(start);
