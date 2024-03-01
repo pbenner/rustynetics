@@ -133,7 +133,6 @@ impl std::ops::DerefMut for EndPointList {
         &mut self.0
     }
 }
-    
 
 impl PartialEq for EndPointList {
     fn eq(&self, other: &Self) -> bool {
