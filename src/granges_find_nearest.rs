@@ -106,14 +106,14 @@ impl GRanges {
 
         for i in 0..m {
             let start = Rc::new(EndPoint {
-                position: query.ranges[i].from,
+                position: subject.ranges[i].from,
                 start   : None,
                 end     : None,
                 src_idx : i,
                 is_query: false,
             });
             let end = Rc::new(EndPoint {
-                position: query.ranges[i].to - 1,
+                position: subject.ranges[i].to - 1,
                 start   : Some(Rc::clone(&start)),
                 end     : None,
                 src_idx : i,
