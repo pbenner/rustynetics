@@ -99,19 +99,19 @@ impl fmt::Debug for EndPoint {
 pub struct EndPointList(pub Vec<Rc<EndPoint>>);
 
 impl EndPointList {
-pub fn new() -> Self {
-        EndPointList(Vec::new())
+    pub fn new() -> Self {
+            EndPointList(Vec::new())
+        }
+
+    pub fn append(&mut self, endpoint: Rc<EndPoint>) {
+        self.0.push(endpoint);
     }
 
-pub fn append(&mut self, endpoint: Rc<EndPoint>) {
-    self.0.push(endpoint);
-}
-
-pub fn remove(&mut self, endpoint: &Rc<EndPoint>) {
-    if let Some(index) = self.0.iter().position(|e| **e == **endpoint) {
-        self.0.remove(index);
+    pub fn remove(&mut self, endpoint: &Rc<EndPoint>) {
+        if let Some(index) = self.0.iter().position(|e| **e == **endpoint) {
+            self.0.remove(index);
+        }
     }
-}
 }
 
 impl PartialEq for EndPointList {
