@@ -127,6 +127,7 @@ impl FindNearestHits {
 
 fn distance(r1: &EndPoint, r2: &EndPoint) -> (i64, i64) {
     let mut sign = -1;
+
     let (r1, r2) = if r1.position > r2.position {
         sign = 1;
         (r2, r1)
@@ -249,10 +250,10 @@ impl GRanges {
 
             for i in 0..entry.len() {
                 let r = &entry[i];
+                // loop over query start regions
                 if r.is_query && r.end.is_some() {
                     let mut i1 = i as i64 - 1;
                     let mut i2 = i as i64 + 1;
-
                     // find k nearest neighbors
                     for _ in 0..k {
 
@@ -299,7 +300,7 @@ impl GRanges {
                         if ir != -1 {
                             query_hits  .push(entry[i  as usize].index as i32);
                             subject_hits.push(entry[ir as usize].index as i32);
-                            distances.push(dr);
+                            distances   .push(dr);
                         }
                     }
                 }
