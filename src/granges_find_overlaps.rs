@@ -72,11 +72,11 @@ pub fn find_overlaps(query: &GRanges, subject: &GRanges) -> (Vec<usize>, Vec<usi
     }
 
     for (_, entry) in rmap.iter_mut() {
-        entry.0.sort();
+        entry.sort();
     }
 
     for (_, mut entry) in rmap.into_iter() {
-        find_overlaps_entry(&mut query_hits, &mut subject_hits, &mut entry);
+        EndPointList::find_overlaps_entry(&mut query_hits, &mut subject_hits, &mut entry);
     }
 
     (query_hits, subject_hits)
@@ -106,10 +106,10 @@ mod tests {
 
         s.remove(&r5);
 
-        assert!(Rc::clone(&r1) == s.0[0]);
-        assert!(Rc::clone(&r3) == s.0[1]);
-        assert!(Rc::clone(&r3) == s.0[2]);
-        assert!(Rc::clone(&r4) == s.0[2]);
+        assert!(Rc::clone(&r1) == s[0]);
+        assert!(Rc::clone(&r3) == s[1]);
+        assert!(Rc::clone(&r3) == s[2]);
+        assert!(Rc::clone(&r4) == s[2]);
 
     }
 

@@ -24,16 +24,16 @@ use crate::granges_find_endpoint::{EndPoint, EndPointList};
 
 #[derive(Debug)]
 pub struct FindNearestHits {
-    query_hits  : Vec<i32>,
-    subject_hits: Vec<i32>,
-    distances   : Vec<i64>,
+    pub query_hits  : Vec<usize>,
+    pub subject_hits: Vec<usize>,
+    pub distances   : Vec<i64>,
 }
 
 /* -------------------------------------------------------------------------- */
 
 impl FindNearestHits {
 
-    fn new(query_hits: Vec<i32>, subject_hits: Vec<i32>, distances: Vec<i64>) -> Self {
+    fn new(query_hits: Vec<usize>, subject_hits: Vec<usize>, distances: Vec<i64>) -> Self {
         FindNearestHits {
             query_hits,
             subject_hits,
@@ -45,7 +45,7 @@ impl FindNearestHits {
 
 /* -------------------------------------------------------------------------- */
 
-fn distance(r1: &EndPoint, r2: &EndPoint) -> (usize, i8) {
+fn distance(r1: &EndPoint, r2: &EndPoint) -> (i64, i64) {
     let mut sign = -1;
 
     let (r1, r2) = if r1.position > r2.position {
@@ -59,8 +59,8 @@ fn distance(r1: &EndPoint, r2: &EndPoint) -> (usize, i8) {
         return (0, sign);
     }
 
-    let d1 = r2.position - r1.start.as_ref().unwrap().position;
-    let d2 = r2.position - r1.end  .as_ref().unwrap().position;
+    let d1 = r2.position as i64 - r1.start.as_ref().unwrap().position as i64;
+    let d2 = r2.position as i64 - r1.end  .as_ref().unwrap().position as i64;
 
     if d1 < d2 {
         (d1, sign)
@@ -183,8 +183,8 @@ impl GRanges {
                             }
                         }
                         if ir != -1 {
-                            query_hits  .push(entry[i  as usize].index as i32);
-                            subject_hits.push(entry[ir as usize].index as i32);
+                            query_hits  .push(entry[i  as usize].src_idx);
+                            subject_hits.push(entry[ir as usize].src_idx);
                             distances   .push(dr);
                         }
                     }
@@ -209,20 +209,20 @@ mod tests {
     #[test]
     fn test_nearest() {
 
-        let mut rQuery = GRanges::new(
+        let r_query = GRanges::new(
             vec!["chr4", "chr4"],
             vec![600, 850],
             vec![950, 950],
             vec![]
         );
-        let mut rSubjects = GRanges::new(
+        let r_subjects = GRanges::new(
             vec!["chr4", "chr4", "chr4", "chr4"],
             vec![100, 200, 300, 400],
             vec![900, 300, 700, 600],
             vec![]
         );
 
-        let r = GRanges::find_nearest(&rQuery, &rSubjects, 2);
+        let r = GRanges::find_nearest(&r_query, &r_subjects, 2);
 
         println!("{:?}", r.query_hits);
         println!("{:?}", r.subject_hits);
