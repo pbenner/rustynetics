@@ -95,7 +95,7 @@ impl GRanges {
                 Some(v) => v,
                 None    => return GRanges::new_empty()
             };
-            seqnames.push(genome.seqnames[j].clone());
+            seqnames.push(genome.seqnames[j].as_str());
             from    .push(position);
             to      .push(position + wsize);
             if use_strand {

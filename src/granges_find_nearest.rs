@@ -312,3 +312,20 @@ impl GRanges {
     }
 
 }
+
+/* -------------------------------------------------------------------------- */
+
+#[cfg(test)]
+mod tests {
+
+    use crate::range::Range;
+    use crate::granges::GRanges;
+
+    #[test]
+    fn test_nearest() {
+
+        let mut granges1 = GRanges::new_empty();
+        let mut granges2 = GRanges::new_empty();
+
+    }
+}
