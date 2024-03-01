@@ -257,45 +257,53 @@ impl GRanges {
                     let mut i1 = i as i64 - 1;
                     let mut i2 = i as i64 + 1;
 
-                    for _ in 0..entry.len() {
-                        if i1 >= 0 && !entry[i1 as usize].is_query && entry[i1 as usize].end.is_some() {
+                    // find k nearest neighbors
+                    for j in 0..k {
+
+                        if i1 < 0 && (i2 as usize) >= entry.len() {
                             break;
                         }
-                        i1 -= 1;
-                    }
 
-                    for _ in 0..entry.len() {
-                        if i2 < entry.len() && !entry[i2].is_query && entry[i2].start.is_some() && entry[i2].position > r.end.as_ref().unwrap().position {
-                            break;
+                        for _ in 0..entry.len() {
+                            if i1 >= 0 && !entry[i1 as usize].is_query && entry[i1 as usize].end.is_some() {
+                                break;
+                            }
+                            i1 -= 1;
                         }
-                        i2 += 1;
-                    }
-                    let ir = -1;
-                    let dr = -1;
 
-                    if i1 >= 0 && i2 < entry.len() as i64 {
-                        let (d1, s1) = distance(r, &entry[i1 as usize]);
-                        let (d2, s2) = distance(r, &entry[i2 as usize]);
-
-                        if d1 <= d2 {
-                            dr = d1*s1; ir = i1; i1 -= 1;
-                        } else {
-                            dr = d2*s2; ir = i2; i2 += 1;
+                        for _ in 0..entry.len() {
+                            if (i2 as usize) < entry.len() && !entry[i2 as usize].is_query && entry[i2 as usize].start.is_some() && entry[i2 as usize].position > r.end.as_ref().unwrap().position {
+                                break;
+                            }
+                            i2 += 1;
                         }
-                    } else {
-                        if i1 >= 0 {
+                        let mut ir = -1;
+                        let mut dr = -1;
+
+                        if i1 >= 0 && i2 < entry.len() as i64 {
                             let (d1, s1) = distance(r, &entry[i1 as usize]);
-                            dr = d1*s1; ir = i1; i1 -= 1;
+                            let (d2, s2) = distance(r, &entry[i2 as usize]);
+
+                            if d1 <= d2 {
+                                dr = d1*s1; ir = i1; i1 -= 1;
+                            } else {
+                                dr = d2*s2; ir = i2; i2 += 1;
+                            }
+                        } else {
+                            if i1 >= 0 {
+                                let (d1, s1) = distance(r, &entry[i1 as usize]);
+                                dr = d1*s1; ir = i1; i1 -= 1;
+                            }
+                            if (i2 as usize) < entry.len() {
+                                let (d2, s2) = distance(r, &entry[i2 as usize]);
+                                dr = d2*s2; ir = i2; i2 += 1;
+                            }
                         }
-                        if i2 < entry.len() {
-                            let (d2, s2) = distance(r, &entry[i2]);
-                            dr = d2*s2; ir = i2; i2 += 1;
+                        if ir != -1 {
+                            query_hits.push(entry[i  as usize].index as i32);
+                            subject_hits.push(entry[ir as usize].index as i32);
+                            distances.push(dr);
                         }
-                    }
-                    if ir != -1 {
-                          query_hits.push(entry[i ].index as i32);
-                        subject_hits.push(entry[ir].index as i32);
-                           distances.push(dr);
                     }
                 }
             }
