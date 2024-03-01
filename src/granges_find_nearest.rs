@@ -60,8 +60,8 @@ fn distance(r1: &EndPoint, r2: &EndPoint) -> (i64, i64) {
         return (0, sign);
     }
 
-    let d1 = r2.position as i64 - r1.start.as_ref().unwrap().borrow().position as i64;
-    let d2 = r2.position as i64 - r1.end  .as_ref().unwrap().borrow().position as i64;
+    let d1 = r2.get_start() as i64 - r1.get_end  () as i64;
+    let d2 = r2.get_end  () as i64 - r1.get_start() as i64;
 
     if d1 < d2 {
         (d1, sign)
@@ -93,7 +93,7 @@ impl GRanges {
                 is_query: true,
             }));
             let end = Rc::new(RefCell::new(EndPoint {
-                position: query.ranges[i].to - 1,
+                position: query.ranges[i].to,
                 start   : None,
                 end     : None,
                 src_idx : i,
@@ -116,7 +116,7 @@ impl GRanges {
                 is_query: false,
             }));
             let end = Rc::new(RefCell::new(EndPoint {
-                position: subject.ranges[i].to - 1,
+                position: subject.ranges[i].to,
                 start   : None,
                 end     : None,
                 src_idx : i,
@@ -145,21 +145,26 @@ impl GRanges {
                     let mut i1 = i as i64 - 1;
                     let mut i2 = i as i64 + 1;
                     // find k nearest neighbors
-                    println!("indices: {} {}", i1, i2);
                     for _ in 0..k {
                         if i1 < 0 && (i2 as usize) >= entry.len() {
                             break;
                         }
                         // find next subject end to the left
                         for _ in 0..entry.len() {
-                            if i1 >= 0 && !entry[i1 as usize].borrow().is_query && entry[i1 as usize].borrow().end.is_some() {
+                            if !(i1 >= 0) {
+                                break;
+                            }
+                            if !entry[i1 as usize].borrow().is_query && entry[i1 as usize].borrow().end.is_none() {
                                 break;
                             }
                             i1 -= 1;
                         }
                         // find next subject start to the right (and drop overlaps)
                         for _ in 0..entry.len() {
-                            if (i2 as usize) < entry.len() && !entry[i2 as usize].borrow().is_query && entry[i2 as usize].borrow().start.is_some() && entry[i2 as usize].borrow().position > r.borrow().end.as_ref().unwrap().borrow().position {
+                            if !((i2 as usize) < entry.len()) {
+                                break;
+                            }
+                            if !entry[i2 as usize].borrow().is_query && entry[i2 as usize].borrow().start.is_none() && entry[i2 as usize].borrow().position > r.borrow().get_end() {
                                 break;
                             }
                             i2 += 1;
@@ -188,7 +193,6 @@ impl GRanges {
                             }
                         }
                         if ir != -1 {
-                            println!("appending: {} {}", i, ir);
                             query_hits  .push(entry[i  as usize].borrow().src_idx);
                             subject_hits.push(entry[ir as usize].borrow().src_idx);
                             distances   .push(dr);

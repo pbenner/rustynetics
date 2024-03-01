@@ -90,12 +90,12 @@ impl fmt::Debug for EndPoint {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "<{},{}>", self.get_start(), self.get_end()
+            "[position: {}, src_idx: {}, is_query: {}]", self.position, self.src_idx, self.is_query
         )
     }
 }
  
- /* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
  
 #[derive(Debug)]
 pub struct EndPointList(Vec<Link>);
