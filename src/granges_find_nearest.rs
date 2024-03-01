@@ -318,14 +318,29 @@ impl GRanges {
 #[cfg(test)]
 mod tests {
 
-    use crate::range::Range;
     use crate::granges::GRanges;
 
     #[test]
     fn test_nearest() {
 
-        let mut granges1 = GRanges::new_empty();
-        let mut granges2 = GRanges::new_empty();
+        let mut rQuery = GRanges::new(
+            vec!["chr4", "chr4"],
+            vec![600, 850],
+            vec![950, 950],
+            vec![]
+        );
+        let mut rSubjects = GRanges::new(
+            vec!["chr4", "chr4", "chr4", "chr4"],
+            vec![100, 200, 300, 400],
+            vec![900, 300, 700, 600],
+            vec![]
+        );
+
+        let r = GRanges::find_nearest(&rQuery, &rSubjects, 2);
+
+        println!("{:?}", r.query_hits);
+        println!("{:?}", r.subject_hits);
+        println!("{:?}", r.distances);
 
     }
 }
