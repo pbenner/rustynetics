@@ -16,10 +16,7 @@
 
 use std::fmt;
 use std::cmp::Ordering;
-use std::collections::HashMap;
 use std::rc::Rc;
-
-use crate::granges::GRanges;
  
 /* -------------------------------------------------------------------------- */
  
@@ -96,14 +93,14 @@ impl fmt::Debug for EndPoint {
  /* -------------------------------------------------------------------------- */
  
 #[derive(Debug)]
-pub struct EndPointList(pub Vec<Rc<EndPoint>>);
+pub struct EndPointList(Vec<Rc<EndPoint>>);
 
 impl EndPointList {
     pub fn new() -> Self {
             EndPointList(Vec::new())
         }
 
-    pub fn append(&mut self, endpoint: Rc<EndPoint>) {
+    pub fn push(&mut self, endpoint: Rc<EndPoint>) {
         self.0.push(endpoint);
     }
 
@@ -112,7 +109,26 @@ impl EndPointList {
             self.0.remove(index);
         }
     }
+
+    pub fn sort(&mut self) {
+        self.0.sort();
+    }
 }
+
+impl std::ops::Deref for EndPointList {
+    type Target = Vec<Rc<EndPoint>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl std::ops::DerefMut for EndPointList {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+    
 
 impl PartialEq for EndPointList {
     fn eq(&self, other: &Self) -> bool {
@@ -132,4 +148,43 @@ impl Ord for EndPointList {
     fn cmp(&self, other: &Self) -> Ordering {
         self.0.cmp(&other.0)
     }
+}
+
+/* -------------------------------------------------------------------------- */
+
+impl EndPointList {
+
+    pub fn find_overlaps_entry(
+        query_hits  : &mut Vec<usize>,
+        subject_hits: &mut Vec<usize>,
+        entry       : &mut EndPointList,
+    ) {
+        let mut query_list   = EndPointList::new();
+        let mut subject_list = EndPointList::new();
+
+        for endpoint in &entry.0 {
+            if endpoint.is_query {
+                if endpoint.is_start() {
+                    query_list.push(endpoint.clone());
+                    for subject_endpoint in &subject_list.0 {
+                        query_hits  .push(endpoint.src_idx);
+                        subject_hits.push(subject_endpoint.src_idx);
+                    }
+                } else {
+                    query_list.remove(endpoint.start.as_ref().unwrap());
+                }
+            } else {
+                if endpoint.is_start() {
+                    subject_list.push(endpoint.clone());
+                    for query_endpoint in &query_list.0 {
+                        query_hits  .push(query_endpoint.src_idx);
+                        subject_hits.push(endpoint.src_idx);
+                    }
+                } else {
+                    subject_list.remove(endpoint.start.as_ref().unwrap());
+                }
+            }
+        }
+    }
+
 }

@@ -14,91 +14,11 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
  
-use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::rc::Rc;
 
 use crate::granges::GRanges;
-
-/* -------------------------------------------------------------------------- */
-
-#[derive(Debug, Clone)]
-struct EndPoint {
-    position: i64,
-    start   : Option<Rc<EndPoint>>,
-    end     : Option<Rc<EndPoint>>,
-    index   : usize,
-    is_query: bool,
-}
-
-/* -------------------------------------------------------------------------- */
-
-impl EndPoint {
-    fn new(position: i64, index: usize, is_query: bool, end: Option<Rc<EndPoint>>) -> Self {
-        EndPoint {
-            position,
-            start: None,
-            end  : end,
-            index,
-            is_query,
-        }
-    }
-}
-
-/* -------------------------------------------------------------------------- */
-
-#[derive(Debug)]
-struct EndPointList(Vec<Rc<EndPoint>>);
-
-/* -------------------------------------------------------------------------- */
-
-impl EndPointList {
-    fn new() -> Self {
-        EndPointList(Vec::new())
-    }
-
-    fn push(&mut self, endpoint: Rc<EndPoint>) {
-        self.0.push(endpoint);
-    }
-
-    fn sort(&mut self) {
-        self.0.sort();
-    }
-}
-
-impl std::ops::Deref for EndPointList {
-    type Target = Vec<Rc<EndPoint>>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl std::ops::DerefMut for EndPointList {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
-impl std::cmp::PartialEq for EndPoint {
-    fn eq(&self, other: &Self) -> bool {
-        self.position == other.position
-    }
-}
-
-impl std::cmp::Eq for EndPoint {}
-
-impl std::cmp::PartialOrd for EndPoint {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl std::cmp::Ord for EndPoint {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.position.cmp(&other.position)
-    }
-}
+use crate::granges_find_endpoint::{EndPoint, EndPointList};
 
 /* -------------------------------------------------------------------------- */
 
@@ -125,7 +45,7 @@ impl FindNearestHits {
 
 /* -------------------------------------------------------------------------- */
 
-fn distance(r1: &EndPoint, r2: &EndPoint) -> (i64, i64) {
+fn distance(r1: &EndPoint, r2: &EndPoint) -> (usize, i8) {
     let mut sign = -1;
 
     let (r1, r2) = if r1.position > r2.position {
@@ -151,66 +71,6 @@ fn distance(r1: &EndPoint, r2: &EndPoint) -> (i64, i64) {
 
 /* -------------------------------------------------------------------------- */
 
-fn find_overlaps_entry(
-    query_hits: &mut Vec<i32>,
-    subject_hits: &mut Vec<i32>,
-    entry: &mut EndPointList,
-) {
-    let mut q: Vec<i32> = Vec::new();
-    let mut s: Vec<i32> = Vec::new();
-
-    for i in 0..entry.len() {
-        let r = &entry[i];
-        if r.is_query && r.end.is_some() {
-            let mut i1 = i as i32 - 1;
-            let mut i2 = i + 1;
-
-            for _ in 0..entry.len() {
-                if i1 >= 0 && !entry[i1 as usize].is_query && entry[i1 as usize].end.is_some() {
-                    break;
-                }
-                i1 -= 1;
-            }
-
-            for _ in 0..entry.len() {
-                if i2 < entry.len() && !entry[i2].is_query && entry[i2].start.is_some() && entry[i2].position > r.end.as_ref().unwrap().position {
-                    break;
-                }
-                i2 += 1;
-            }
-
-            if i1 >= 0 && i2 < entry.len() {
-                let (d1, s1) = distance(r, &entry[i1 as usize]);
-                let (d2, s2) = distance(r, &entry[i2]);
-
-                if d1 <= d2 {
-                    q.push(r.index as i32);
-                    s.push(entry[i1 as usize].index as i32);
-                } else {
-                    q.push(r.index as i32);
-                    s.push(entry[i2].index as i32);
-                }
-            } else {
-                if i1 >= 0 {
-                    let (d1, s1) = distance(r, &entry[i1 as usize]);
-                    q.push(r.index as i32);
-                    s.push(entry[i1 as usize].index as i32);
-                }
-                if i2 < entry.len() {
-                    let (d2, s2) = distance(r, &entry[i2]);
-                    q.push(r.index as i32);
-                    s.push(entry[i2].index as i32);
-                }
-            }
-        }
-    }
-
-    query_hits.extend(q);
-    subject_hits.extend(s);
-}
-
-/* -------------------------------------------------------------------------- */
-
 impl GRanges {
 
     pub fn find_nearest(query: &GRanges, subject: &GRanges, k: usize) -> FindNearestHits {
@@ -224,8 +84,20 @@ impl GRanges {
         let mut rmap: HashMap<String, EndPointList> = HashMap::new();
 
         for i in 0..n {
-            let end   = Rc::new(EndPoint::new(query.ranges[i].to   as i64, i, true, None));
-            let start = Rc::new(EndPoint::new(query.ranges[i].from as i64, i, true, Some(Rc::clone(&end))));
+            let start = Rc::new(EndPoint {
+                position: query.ranges[i].from,
+                start   : None,
+                end     : None,
+                src_idx : i,
+                is_query: true,
+            });
+            let end = Rc::new(EndPoint {
+                position: query.ranges[i].to - 1,
+                start   : Some(Rc::clone(&start)),
+                end     : None,
+                src_idx : i,
+                is_query: true,
+            });
 
             let entry = rmap.entry(query.seqnames[i].clone()).or_insert(EndPointList::new());
             entry.push(start);
@@ -233,10 +105,23 @@ impl GRanges {
         }
 
         for i in 0..m {
-            let end   = Rc::new(EndPoint::new(subject.ranges[i].to   as i64, i, false, None));
-            let start = Rc::new(EndPoint::new(subject.ranges[i].from as i64, i, false, Some(Rc::clone(&end))));
+            let start = Rc::new(EndPoint {
+                position: query.ranges[i].from,
+                start   : None,
+                end     : None,
+                src_idx : i,
+                is_query: false,
+            });
+            let end = Rc::new(EndPoint {
+                position: query.ranges[i].to - 1,
+                start   : Some(Rc::clone(&start)),
+                end     : None,
+                src_idx : i,
+                is_query: false,
+            });
 
             let entry = rmap.entry(subject.seqnames[i].clone()).or_insert(EndPointList::new());
+
             entry.push(start);
             entry.push(end);
         }
@@ -246,7 +131,7 @@ impl GRanges {
         }
 
         for (_, mut entry) in rmap.iter_mut() {
-            find_overlaps_entry(&mut query_hits, &mut subject_hits, &mut entry);
+            EndPointList::find_overlaps_entry(&mut query_hits, &mut subject_hits, &mut entry);
 
             for i in 0..entry.len() {
                 let r = &entry[i];

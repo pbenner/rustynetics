@@ -14,48 +14,11 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-use std::fmt;
-use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::rc::Rc;
 
 use crate::granges::GRanges;
 use crate::granges_find_endpoint::{EndPoint, EndPointList};
-
-/* -------------------------------------------------------------------------- */
-
-fn find_overlaps_entry(
-    query_hits  : &mut Vec<usize>,
-    subject_hits: &mut Vec<usize>,
-    entry       : &mut EndPointList,
-) {
-    let mut query_list   = EndPointList::new();
-    let mut subject_list = EndPointList::new();
-
-    for endpoint in &entry.0 {
-        if endpoint.is_query {
-            if endpoint.is_start() {
-                query_list.append(endpoint.clone());
-                for subject_endpoint in &subject_list.0 {
-                    query_hits  .push(endpoint.src_idx);
-                    subject_hits.push(subject_endpoint.src_idx);
-                }
-            } else {
-                query_list.remove(endpoint.start.as_ref().unwrap());
-            }
-        } else {
-            if endpoint.is_start() {
-                subject_list.append(endpoint.clone());
-                for query_endpoint in &query_list.0 {
-                    query_hits  .push(query_endpoint.src_idx);
-                    subject_hits.push(endpoint.src_idx);
-                }
-            } else {
-                subject_list.remove(endpoint.start.as_ref().unwrap());
-            }
-        }
-    }
-}
 
 /* -------------------------------------------------------------------------- */
 
@@ -84,8 +47,8 @@ pub fn find_overlaps(query: &GRanges, subject: &GRanges) -> (Vec<usize>, Vec<usi
             is_query: true,
         });
         let entry = rmap.entry(query.seqnames[i].clone()).or_insert_with(EndPointList::new);
-        entry.append(start);
-        entry.append(end);
+        entry.push(start);
+        entry.push(end);
     }
 
     for i in 0..m {
@@ -104,8 +67,8 @@ pub fn find_overlaps(query: &GRanges, subject: &GRanges) -> (Vec<usize>, Vec<usi
             is_query: false,
         });
         let entry = rmap.entry(subject.seqnames[i].clone()).or_insert_with(EndPointList::new);
-        entry.append(start);
-        entry.append(end);
+        entry.push(start);
+        entry.push(end);
     }
 
     for (_, entry) in rmap.iter_mut() {
@@ -136,10 +99,10 @@ mod tests {
 
         let mut s = EndPointList::new();
 
-        s.append(Rc::clone(&r1));
-        s.append(Rc::clone(&r2));
-        s.append(Rc::clone(&r3));
-        s.append(Rc::clone(&r4));
+        s.push(Rc::clone(&r1));
+        s.push(Rc::clone(&r2));
+        s.push(Rc::clone(&r3));
+        s.push(Rc::clone(&r4));
 
         s.remove(&r5);
 
