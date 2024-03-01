@@ -104,27 +104,23 @@ impl std::cmp::Ord for EndPoint {
 
 #[derive(Debug)]
 pub struct FindNearestHits {
-    query_hits: Vec<i32>,
+    query_hits  : Vec<i32>,
     subject_hits: Vec<i32>,
-    distances: Vec<i32>,
+    distances   : Vec<i64>,
 }
 
 /* -------------------------------------------------------------------------- */
 
 impl FindNearestHits {
-    fn new() -> Self {
+
+    fn new(query_hits: Vec<i32>, subject_hits: Vec<i32>, distances: Vec<i64>) -> Self {
         FindNearestHits {
-            query_hits  : Vec::new(),
-            subject_hits: Vec::new(),
-            distances   : Vec::new(),
+            query_hits,
+            subject_hits,
+            distances,
         }
     }
 
-    fn push(&mut self, query_hit: i32, subject_hit: i32, distance: i32) {
-        self.query_hits.push(query_hit);
-        self.subject_hits.push(subject_hit);
-        self.distances.push(distance);
-    }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -301,7 +297,7 @@ impl GRanges {
                             }
                         }
                         if ir != -1 {
-                            query_hits.push(entry[i  as usize].index as i32);
+                            query_hits  .push(entry[i  as usize].index as i32);
                             subject_hits.push(entry[ir as usize].index as i32);
                             distances.push(dr);
                         }
@@ -310,10 +306,7 @@ impl GRanges {
             }
         }
 
-        let mut find_nearest_hits = FindNearestHits::new();
-        for i in 0..query_hits.len() {
-            find_nearest_hits.push(query_hits[i], subject_hits[i], 0);
-        }
+        let find_nearest_hits = FindNearestHits::new(query_hits, subject_hits, distances);
 
         find_nearest_hits
     }
