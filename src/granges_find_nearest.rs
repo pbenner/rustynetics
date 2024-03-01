@@ -258,25 +258,26 @@ impl GRanges {
                     let mut i2 = i as i64 + 1;
 
                     // find k nearest neighbors
-                    for j in 0..k {
+                    for _ in 0..k {
 
                         if i1 < 0 && (i2 as usize) >= entry.len() {
                             break;
                         }
-
+                        // find next subject end to the left
                         for _ in 0..entry.len() {
                             if i1 >= 0 && !entry[i1 as usize].is_query && entry[i1 as usize].end.is_some() {
                                 break;
                             }
                             i1 -= 1;
                         }
-
+                        // find next subject start to the right (and drop overlaps)
                         for _ in 0..entry.len() {
                             if (i2 as usize) < entry.len() && !entry[i2 as usize].is_query && entry[i2 as usize].start.is_some() && entry[i2 as usize].position > r.end.as_ref().unwrap().position {
                                 break;
                             }
                             i2 += 1;
                         }
+                        // are there two elements to compare?
                         let mut ir = -1;
                         let mut dr = -1;
 
