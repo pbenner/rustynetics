@@ -16,6 +16,7 @@
  
 use std::collections::HashMap;
 use std::rc::Rc;
+use std::cell::RefCell;
 
 use crate::granges::GRanges;
 use crate::granges_find_endpoint::{EndPoint, EndPointList};
@@ -55,12 +56,12 @@ fn distance(r1: &EndPoint, r2: &EndPoint) -> (i64, i64) {
         (r1, r2)
     };
 
-    if r1.start.is_none() || r2.position <= r1.start.as_ref().unwrap().position {
+    if r1.start.is_none() || r2.position <= r1.start.as_ref().unwrap().borrow().position {
         return (0, sign);
     }
 
-    let d1 = r2.position as i64 - r1.start.as_ref().unwrap().position as i64;
-    let d2 = r2.position as i64 - r1.end  .as_ref().unwrap().position as i64;
+    let d1 = r2.position as i64 - r1.start.as_ref().unwrap().borrow().position as i64;
+    let d2 = r2.position as i64 - r1.end  .as_ref().unwrap().borrow().position as i64;
 
     if d1 < d2 {
         (d1, sign)
@@ -84,20 +85,22 @@ impl GRanges {
         let mut rmap: HashMap<String, EndPointList> = HashMap::new();
 
         for i in 0..n {
-            let start = Rc::new(EndPoint {
+            let start = Rc::new(RefCell::new(EndPoint {
                 position: query.ranges[i].from,
                 start   : None,
                 end     : None,
                 src_idx : i,
                 is_query: true,
-            });
-            let end = Rc::new(EndPoint {
+            }));
+            let end = Rc::new(RefCell::new(EndPoint {
                 position: query.ranges[i].to - 1,
-                start   : Some(Rc::clone(&start)),
+                start   : None,
                 end     : None,
                 src_idx : i,
                 is_query: true,
-            });
+            }));
+            start.borrow_mut().end   = Some(Rc::clone(&end  ));
+            end  .borrow_mut().start = Some(Rc::clone(&start));
 
             let entry = rmap.entry(query.seqnames[i].clone()).or_insert(EndPointList::new());
             entry.push(start);
@@ -105,20 +108,22 @@ impl GRanges {
         }
 
         for i in 0..m {
-            let start = Rc::new(EndPoint {
+            let start = Rc::new(RefCell::new(EndPoint {
                 position: subject.ranges[i].from,
                 start   : None,
                 end     : None,
                 src_idx : i,
                 is_query: false,
-            });
-            let end = Rc::new(EndPoint {
+            }));
+            let end = Rc::new(RefCell::new(EndPoint {
                 position: subject.ranges[i].to - 1,
-                start   : Some(Rc::clone(&start)),
+                start   : None,
                 end     : None,
                 src_idx : i,
                 is_query: false,
-            });
+            }));
+            start.borrow_mut().end   = Some(Rc::clone(&end  ));
+            end  .borrow_mut().start = Some(Rc::clone(&start));
 
             let entry = rmap.entry(subject.seqnames[i].clone()).or_insert(EndPointList::new());
 
@@ -136,25 +141,25 @@ impl GRanges {
             for i in 0..entry.len() {
                 let r = &entry[i];
                 // loop over query start regions
-                if r.is_query && r.end.is_some() {
+                if r.borrow().is_query && r.borrow().end.is_some() {
                     let mut i1 = i as i64 - 1;
                     let mut i2 = i as i64 + 1;
                     // find k nearest neighbors
+                    println!("indices: {} {}", i1, i2);
                     for _ in 0..k {
-
                         if i1 < 0 && (i2 as usize) >= entry.len() {
                             break;
                         }
                         // find next subject end to the left
                         for _ in 0..entry.len() {
-                            if i1 >= 0 && !entry[i1 as usize].is_query && entry[i1 as usize].end.is_some() {
+                            if i1 >= 0 && !entry[i1 as usize].borrow().is_query && entry[i1 as usize].borrow().end.is_some() {
                                 break;
                             }
                             i1 -= 1;
                         }
                         // find next subject start to the right (and drop overlaps)
                         for _ in 0..entry.len() {
-                            if (i2 as usize) < entry.len() && !entry[i2 as usize].is_query && entry[i2 as usize].start.is_some() && entry[i2 as usize].position > r.end.as_ref().unwrap().position {
+                            if (i2 as usize) < entry.len() && !entry[i2 as usize].borrow().is_query && entry[i2 as usize].borrow().start.is_some() && entry[i2 as usize].borrow().position > r.borrow().end.as_ref().unwrap().borrow().position {
                                 break;
                             }
                             i2 += 1;
@@ -164,8 +169,8 @@ impl GRanges {
                         let mut dr = -1;
 
                         if i1 >= 0 && i2 < entry.len() as i64 {
-                            let (d1, s1) = distance(r, &entry[i1 as usize]);
-                            let (d2, s2) = distance(r, &entry[i2 as usize]);
+                            let (d1, s1) = distance(&r.borrow(), &entry[i1 as usize].borrow());
+                            let (d2, s2) = distance(&r.borrow(), &entry[i2 as usize].borrow());
 
                             if d1 <= d2 {
                                 dr = d1*s1; ir = i1; i1 -= 1;
@@ -174,17 +179,18 @@ impl GRanges {
                             }
                         } else {
                             if i1 >= 0 {
-                                let (d1, s1) = distance(r, &entry[i1 as usize]);
+                                let (d1, s1) = distance(&r.borrow(), &entry[i1 as usize].borrow());
                                 dr = d1*s1; ir = i1; i1 -= 1;
                             }
                             if (i2 as usize) < entry.len() {
-                                let (d2, s2) = distance(r, &entry[i2 as usize]);
+                                let (d2, s2) = distance(&r.borrow(), &entry[i2 as usize].borrow());
                                 dr = d2*s2; ir = i2; i2 += 1;
                             }
                         }
                         if ir != -1 {
-                            query_hits  .push(entry[i  as usize].src_idx);
-                            subject_hits.push(entry[ir as usize].src_idx);
+                            println!("appending: {} {}", i, ir);
+                            query_hits  .push(entry[i  as usize].borrow().src_idx);
+                            subject_hits.push(entry[ir as usize].borrow().src_idx);
                             distances   .push(dr);
                         }
                     }

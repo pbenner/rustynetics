@@ -17,14 +17,19 @@
 use std::fmt;
 use std::cmp::Ordering;
 use std::rc::Rc;
- 
+use std::cell::RefCell;
+
+/* -------------------------------------------------------------------------- */
+
+type Link = Rc<RefCell<EndPoint>>;
+
 /* -------------------------------------------------------------------------- */
  
  #[derive(Clone)]
 pub struct EndPoint {
     pub position: usize,
-    pub start   : Option<Rc<EndPoint>>,
-    pub end     : Option<Rc<EndPoint>>,
+    pub start   : Option<Link>,
+    pub end     : Option<Link>,
     pub src_idx : usize,
     pub is_query: bool,
 }
@@ -40,7 +45,7 @@ impl EndPoint {
 
     pub fn get_start(&self) -> usize {
         if let Some(start) = &self.start {
-            start.position
+            start.borrow().position
         } else {
             self.position
         }
@@ -48,7 +53,7 @@ impl EndPoint {
 
     pub fn get_end(&self) -> usize {
         if let Some(end) = &self.end {
-            end.position
+            end.borrow().position
         } else {
             self.position
         }
@@ -93,18 +98,18 @@ impl fmt::Debug for EndPoint {
  /* -------------------------------------------------------------------------- */
  
 #[derive(Debug)]
-pub struct EndPointList(Vec<Rc<EndPoint>>);
+pub struct EndPointList(Vec<Link>);
 
 impl EndPointList {
     pub fn new() -> Self {
             EndPointList(Vec::new())
         }
 
-    pub fn push(&mut self, endpoint: Rc<EndPoint>) {
+    pub fn push(&mut self, endpoint: Link) {
         self.0.push(endpoint);
     }
 
-    pub fn remove(&mut self, endpoint: &Rc<EndPoint>) {
+    pub fn remove(&mut self, endpoint: &Link) {
         if let Some(index) = self.0.iter().position(|e| **e == **endpoint) {
             self.0.remove(index);
         }
@@ -116,7 +121,7 @@ impl EndPointList {
 }
 
 impl std::ops::Deref for EndPointList {
-    type Target = Vec<Rc<EndPoint>>;
+    type Target = Vec<Link>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -163,25 +168,25 @@ impl EndPointList {
         let mut subject_list = EndPointList::new();
 
         for endpoint in &entry.0 {
-            if endpoint.is_query {
-                if endpoint.is_start() {
+            if endpoint.borrow().is_query {
+                if endpoint.borrow().is_start() {
                     query_list.push(endpoint.clone());
                     for subject_endpoint in &subject_list.0 {
-                        query_hits  .push(endpoint.src_idx);
-                        subject_hits.push(subject_endpoint.src_idx);
+                        query_hits  .push(        endpoint.borrow().src_idx);
+                        subject_hits.push(subject_endpoint.borrow().src_idx);
                     }
                 } else {
-                    query_list.remove(endpoint.start.as_ref().unwrap());
+                    query_list.remove(endpoint.borrow().start.as_ref().unwrap());
                 }
             } else {
-                if endpoint.is_start() {
+                if endpoint.borrow().is_start() {
                     subject_list.push(endpoint.clone());
                     for query_endpoint in &query_list.0 {
-                        query_hits  .push(query_endpoint.src_idx);
-                        subject_hits.push(endpoint.src_idx);
+                        query_hits  .push(query_endpoint.borrow().src_idx);
+                        subject_hits.push(      endpoint.borrow().src_idx);
                     }
                 } else {
-                    subject_list.remove(endpoint.start.as_ref().unwrap());
+                    subject_list.remove(endpoint.borrow().start.as_ref().unwrap());
                 }
             }
         }
