@@ -20,128 +20,16 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use crate::granges::GRanges;
-
-/* -------------------------------------------------------------------------- */
-
-#[derive(Clone)]
-struct EndPoint {
-    position: usize,
-    start   : Option<Rc<EndPoint>>,
-    end     : Option<Rc<EndPoint>>,
-    src_idx : usize,
-    is_query: bool,
-}
-
-impl EndPoint {
-    fn is_start(&self) -> bool {
-        self.start.is_none()
-    }
-
-    fn is_end(&self) -> bool {
-        self.end.is_none()
-    }
-
-    fn get_start(&self) -> usize {
-        if let Some(start) = &self.start {
-            start.position
-        } else {
-            self.position
-        }
-    }
-
-    fn get_end(&self) -> usize {
-        if let Some(end) = &self.end {
-            end.position
-        } else {
-            self.position
-        }
-    }
-}
-
-impl PartialEq for EndPoint {
-    fn eq(&self, other: &Self) -> bool {
-        self.position == other.position
-    }
-}
-
-impl Eq for EndPoint {}
-
-impl PartialOrd for EndPoint {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for EndPoint {
-    fn cmp(&self, other: &Self) -> Ordering {
-        if self.position != other.position {
-            self.position.cmp(&other.position)
-        } else if self.is_start() && other.is_end() {
-            Ordering::Less
-        } else {
-            Ordering::Greater
-        }
-    }
-}
-
-impl fmt::Debug for EndPoint {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "<{},{}>", self.get_start(), self.get_end()
-        )
-    }
-}
-
-/* -------------------------------------------------------------------------- */
-
-#[derive(Debug)]
-struct EndPointList(Vec<Rc<EndPoint>>);
-
-impl EndPointList {
-    fn new() -> Self {
-        EndPointList(Vec::new())
-    }
-
-    fn append(&mut self, endpoint: Rc<EndPoint>) {
-        self.0.push(endpoint);
-    }
-
-    fn remove(&mut self, endpoint: &Rc<EndPoint>) {
-        if let Some(index) = self.0.iter().position(|e| **e == **endpoint) {
-            self.0.remove(index);
-        }
-    }
-}
-
-impl PartialEq for EndPointList {
-    fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0
-    }
-}
-
-impl Eq for EndPointList {}
-
-impl PartialOrd for EndPointList {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for EndPointList {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.0.cmp(&other.0)
-    }
-}
+use crate::granges_find_endpoint::{EndPoint, EndPointList};
 
 /* -------------------------------------------------------------------------- */
 
 fn find_overlaps_entry(
-    query_hits: &mut Vec<usize>,
+    query_hits  : &mut Vec<usize>,
     subject_hits: &mut Vec<usize>,
-    entry: &mut EndPointList,
+    entry       : &mut EndPointList,
 ) {
-    let mut query_list = EndPointList::new();
+    let mut query_list   = EndPointList::new();
     let mut subject_list = EndPointList::new();
 
     for endpoint in &entry.0 {

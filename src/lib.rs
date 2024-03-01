@@ -25,6 +25,7 @@ pub mod range;
 pub mod error;
 pub mod options_print;
 
+mod granges_find_endpoint;
 mod granges_find_nearest;
 mod granges_find_overlaps;
 mod granges_bed;
