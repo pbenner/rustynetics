@@ -138,6 +138,10 @@ impl GRanges {
         for (_, mut entry) in rmap.iter_mut() {
             EndPointList::find_overlaps_entry(&mut query_hits, &mut subject_hits, &mut entry);
 
+            for i in 0..query_hits.len() {
+                distances.push(0);
+            }
+
             for i in 0..entry.len() {
                 let r = &entry[i];
                 // loop over query start regions
