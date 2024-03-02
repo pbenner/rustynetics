@@ -14,6 +14,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
  
+use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::cell::RefCell;
@@ -42,6 +43,68 @@ impl FindNearestHits {
         }
     }
 
+    fn len(&self) -> usize {
+        self.query_hits.len()
+    }
+
+    fn sort(&mut self) {
+        let mut r : Vec<FindNearestHitsItem> = (0..self.len()).map(
+            |i| FindNearestHitsItem{
+                query_hit  : self.  query_hits[i],
+                subject_hit: self.subject_hits[i],
+                distance   : self.   distances[i]}
+            ).collect();
+
+        r.sort();
+
+        for i in 0..self.len() {
+            self.  query_hits[i] = r[i].query_hit;
+            self.subject_hits[i] = r[i].subject_hit;
+            self.   distances[i] = r[i].distance;
+        }
+    }
+
+}
+
+/* -------------------------------------------------------------------------- */
+
+#[derive(Debug)]
+pub struct FindNearestHitsItem {
+    pub query_hit  : usize,
+    pub subject_hit: usize,
+    pub distance   : i64,
+}
+
+/* -------------------------------------------------------------------------- */
+
+impl PartialEq for FindNearestHitsItem {
+    fn eq(&self, other: &Self) -> bool {
+        self.query_hit   == other.query_hit   &&
+        self.subject_hit == other.subject_hit &&
+        self.distance    == other.distance
+    }
+}
+
+impl Eq for FindNearestHitsItem {}
+
+impl PartialOrd for FindNearestHitsItem {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for FindNearestHitsItem {
+    fn cmp(&self, other: &Self) -> Ordering {
+        if self.query_hit == other.query_hit {
+            if self.distance == other.distance {
+                self.subject_hit.cmp(&other.subject_hit)
+            } else {
+                self.distance.cmp(&other.distance)
+            }
+        } else {
+            self.query_hit.cmp(&other.query_hit)
+        }
+    }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -138,7 +201,7 @@ impl GRanges {
         for (_, mut entry) in rmap.iter_mut() {
             EndPointList::find_overlaps_entry(&mut query_hits, &mut subject_hits, &mut entry);
 
-            for i in 0..query_hits.len() {
+            for _ in 0..query_hits.len() {
                 distances.push(0);
             }
 
@@ -206,8 +269,9 @@ impl GRanges {
             }
         }
 
-        let find_nearest_hits = FindNearestHits::new(query_hits, subject_hits, distances);
+        let mut find_nearest_hits = FindNearestHits::new(query_hits, subject_hits, distances);
 
+        find_nearest_hits.sort();
         find_nearest_hits
     }
 
@@ -236,11 +300,21 @@ mod tests {
             vec![]
         );
 
+        let rq = vec![0, 0, 0,   0, 1,   1,   1];
+        let rs = vec![0, 2, 3,   1, 0,   2,   3];
+        let rd = vec![0, 0, 0, 300, 0, 150, 250];
+
         let r = GRanges::find_nearest(&r_query, &r_subjects, 2);
 
-        println!("{:?}", r.query_hits);
-        println!("{:?}", r.subject_hits);
-        println!("{:?}", r.distances);
+        assert!(r.query_hits  .len() == rq.len());
+        assert!(r.subject_hits.len() == rs.len());
+        assert!(r.distances   .len() == rd.len());
+
+        for i in 0..rd.len() {
+            assert!(rq[i] == r.query_hits  [i]);
+            assert!(rs[i] == r.subject_hits[i]);
+            assert!(rd[i] == r.distances   [i]);
+        }
 
     }
 }
