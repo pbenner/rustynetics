@@ -35,6 +35,17 @@ pub struct EndPoint {
 }
  
 impl EndPoint {
+
+    pub fn new(position: usize, src_idx: usize, is_query: bool) -> Link {
+        Rc::new(RefCell::new(EndPoint {
+            position: position,
+            start   : None,
+            end     : None,
+            src_idx : src_idx,
+            is_query: is_query,
+        }))
+    }
+
     pub fn is_start(&self) -> bool {
         self.start.is_none()
     }

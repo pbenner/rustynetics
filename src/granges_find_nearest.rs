@@ -17,7 +17,6 @@
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::rc::Rc;
-use std::cell::RefCell;
 
 use crate::granges::GRanges;
 use crate::granges_find_endpoint::{EndPoint, EndPointList};
@@ -148,20 +147,9 @@ impl GRanges {
         let mut rmap: HashMap<String, EndPointList> = HashMap::new();
 
         for i in 0..n {
-            let start = Rc::new(RefCell::new(EndPoint {
-                position: query.ranges[i].from,
-                start   : None,
-                end     : None,
-                src_idx : i,
-                is_query: true,
-            }));
-            let end = Rc::new(RefCell::new(EndPoint {
-                position: query.ranges[i].to,
-                start   : None,
-                end     : None,
-                src_idx : i,
-                is_query: true,
-            }));
+            let start = EndPoint::new(query.ranges[i].from, i, true);
+            let end   = EndPoint::new(query.ranges[i].to  , i, true);
+
             start.borrow_mut().end   = Some(Rc::clone(&end  ));
             end  .borrow_mut().start = Some(Rc::clone(&start));
 
@@ -171,25 +159,13 @@ impl GRanges {
         }
 
         for i in 0..m {
-            let start = Rc::new(RefCell::new(EndPoint {
-                position: subject.ranges[i].from,
-                start   : None,
-                end     : None,
-                src_idx : i,
-                is_query: false,
-            }));
-            let end = Rc::new(RefCell::new(EndPoint {
-                position: subject.ranges[i].to,
-                start   : None,
-                end     : None,
-                src_idx : i,
-                is_query: false,
-            }));
+            let start = EndPoint::new(subject.ranges[i].from, i, false);
+            let end   = EndPoint::new(subject.ranges[i].to  , i, false);
+
             start.borrow_mut().end   = Some(Rc::clone(&end  ));
             end  .borrow_mut().start = Some(Rc::clone(&start));
 
             let entry = rmap.entry(subject.seqnames[i].clone()).or_insert(EndPointList::new());
-
             entry.push(start);
             entry.push(end);
         }
