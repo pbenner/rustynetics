@@ -16,7 +16,6 @@
  
 use std::cmp::Ordering;
 use std::collections::HashMap;
-use std::rc::Rc;
 
 use crate::granges::GRanges;
 use crate::granges_find_endpoint::{EndPoint, EndPointList};
@@ -124,8 +123,8 @@ impl GRanges {
             let start = EndPoint::new(query.ranges[i].from, i, true);
             let end   = EndPoint::new(query.ranges[i].to  , i, true);
 
-            start.borrow_mut().end   = Some(Rc::clone(&end  ));
-            end  .borrow_mut().start = Some(Rc::clone(&start));
+            start.borrow_mut().end   = Some(end  .clone());
+            end  .borrow_mut().start = Some(start.clone());
 
             let entry = rmap.entry(query.seqnames[i].clone()).or_insert(EndPointList::new());
             entry.push(start);
@@ -136,8 +135,8 @@ impl GRanges {
             let start = EndPoint::new(subject.ranges[i].from, i, false);
             let end   = EndPoint::new(subject.ranges[i].to  , i, false);
 
-            start.borrow_mut().end   = Some(Rc::clone(&end  ));
-            end  .borrow_mut().start = Some(Rc::clone(&start));
+            start.borrow_mut().end   = Some(end  .clone());
+            end  .borrow_mut().start = Some(start.clone());
 
             let entry = rmap.entry(subject.seqnames[i].clone()).or_insert(EndPointList::new());
             entry.push(start);

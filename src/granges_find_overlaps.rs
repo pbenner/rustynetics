@@ -15,7 +15,6 @@
  */
 
 use std::collections::HashMap;
-use std::rc::Rc;
 
 use crate::granges::GRanges;
 use crate::granges_find_endpoint::{EndPoint, EndPointList};
@@ -35,7 +34,7 @@ pub fn find_overlaps(query: &GRanges, subject: &GRanges) -> (Vec<usize>, Vec<usi
         let start = EndPoint::new(query.ranges[i].from, i, true);
         let end   = EndPoint::new(query.ranges[i].to-1, i, true);
 
-        end.borrow_mut().start = Some(Rc::clone(&start));
+        end.borrow_mut().start = Some(start.clone());
 
         let entry = rmap.entry(query.seqnames[i].clone()).or_insert_with(EndPointList::new);
         entry.push(start);
@@ -46,7 +45,7 @@ pub fn find_overlaps(query: &GRanges, subject: &GRanges) -> (Vec<usize>, Vec<usi
         let start = EndPoint::new(subject.ranges[i].from, i, false);
         let end   = EndPoint::new(subject.ranges[i].to-1, i, false);
 
-        end.borrow_mut().start = Some(Rc::clone(&start));
+        end.borrow_mut().start = Some(start.clone());
 
         let entry = rmap.entry(subject.seqnames[i].clone()).or_insert_with(EndPointList::new);
         entry.push(start);
@@ -77,21 +76,21 @@ mod tests {
         let r2 = EndPoint::new(200, 1, true);
         let r3 = EndPoint::new(300, 1, true);
         let r4 = EndPoint::new(300, 1, true);
-        let r5 = Rc::clone(&r2);
+        let r5 = r2.clone();
 
         let mut s = EndPointList::new();
 
-        s.push(Rc::clone(&r1));
-        s.push(Rc::clone(&r2));
-        s.push(Rc::clone(&r3));
-        s.push(Rc::clone(&r4));
+        s.push(r1.clone());
+        s.push(r2.clone());
+        s.push(r3.clone());
+        s.push(r4.clone());
 
         s.remove(&r5);
 
-        assert!(Rc::clone(&r1) == s[0]);
-        assert!(Rc::clone(&r3) == s[1]);
-        assert!(Rc::clone(&r3) == s[2]);
-        assert!(Rc::clone(&r4) == s[2]);
+        assert!(r1.clone() == s[0]);
+        assert!(r3.clone() == s[1]);
+        assert!(r3.clone() == s[2]);
+        assert!(r4.clone() == s[2]);
 
     }
 

@@ -18,10 +18,51 @@ use std::fmt;
 use std::cmp::Ordering;
 use std::rc::Rc;
 use std::cell::RefCell;
+use std::clone::Clone;
 
 /* -------------------------------------------------------------------------- */
 
-type Link = Rc<RefCell<EndPoint>>;
+#[derive(Debug)]
+pub struct Link(Rc<RefCell<EndPoint>>);
+
+impl Clone for Link {
+    fn clone(&self) -> Self {
+        Link(Rc::clone(self))
+    }
+}
+
+impl std::ops::Deref for Link {
+    type Target = Rc<RefCell<EndPoint>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl std::ops::DerefMut for Link {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl PartialEq for Link {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
+    }
+}
+impl Eq for Link {}
+
+impl PartialOrd for Link {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.0.partial_cmp(&other.0)
+    }
+}
+
+impl Ord for Link {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.0.cmp(&other.0)
+    }
+}
 
 /* -------------------------------------------------------------------------- */
  
@@ -37,13 +78,13 @@ pub struct EndPoint {
 impl EndPoint {
 
     pub fn new(position: usize, src_idx: usize, is_query: bool) -> Link {
-        Rc::new(RefCell::new(EndPoint {
+        Link(Rc::new(RefCell::new(EndPoint {
             position: position,
             start   : None,
             end     : None,
             src_idx : src_idx,
             is_query: is_query,
-        }))
+        })))
     }
 
     pub fn is_start(&self) -> bool {
