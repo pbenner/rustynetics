@@ -157,7 +157,7 @@ impl GRanges {
             for i in 0..entry.len() {
                 let r = &entry[i];
                 // loop over query start regions
-                if r.borrow().is_query && r.borrow().end.is_some() {
+                if r.borrow().is_query && !r.borrow().is_end() {
                     let mut i1 = i as i64 - 1;
                     let mut i2 = i as i64 + 1;
                     // find k nearest neighbors
@@ -170,7 +170,7 @@ impl GRanges {
                             if !(i1 >= 0) {
                                 break;
                             }
-                            if !entry[i1 as usize].borrow().is_query && entry[i1 as usize].borrow().end.is_none() {
+                            if !entry[i1 as usize].borrow().is_query && entry[i1 as usize].borrow().is_end() {
                                 break;
                             }
                             i1 -= 1;
@@ -180,7 +180,7 @@ impl GRanges {
                             if !((i2 as usize) < entry.len()) {
                                 break;
                             }
-                            if !entry[i2 as usize].borrow().is_query && entry[i2 as usize].borrow().start.is_none() && entry[i2 as usize].borrow().position > r.borrow().get_end() {
+                            if !entry[i2 as usize].borrow().is_query && entry[i2 as usize].borrow().is_start() && entry[i2 as usize].borrow().position > r.borrow().get_end() {
                                 break;
                             }
                             i2 += 1;
