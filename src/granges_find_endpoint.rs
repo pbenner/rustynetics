@@ -69,6 +69,30 @@ impl EndPoint {
             self.position
         }
     }
+
+    pub fn distance(r1: &EndPoint, r2: &EndPoint) -> (i64, i64) {
+        let mut sign = -1;
+
+        let (r1, r2) = if r1.position > r2.position {
+            sign = 1;
+            (r2, r1)
+        } else {
+            (r1, r2)
+        };
+
+        if r1.start.is_none() || r2.position <= r1.start.as_ref().unwrap().borrow().position {
+            return (0, sign);
+        }
+
+        let d1 = r2.get_start() as i64 - r1.get_end  () as i64;
+        let d2 = r2.get_end  () as i64 - r1.get_start() as i64;
+
+        if d1 < d2 {
+            (d1, sign)
+        } else {
+            (d2, sign)
+        }
+    }
 }
 
 impl PartialEq for EndPoint {

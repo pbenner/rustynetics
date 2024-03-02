@@ -108,32 +108,6 @@ impl Ord for FindNearestHitsItem {
 
 /* -------------------------------------------------------------------------- */
 
-fn distance(r1: &EndPoint, r2: &EndPoint) -> (i64, i64) {
-    let mut sign = -1;
-
-    let (r1, r2) = if r1.position > r2.position {
-        sign = 1;
-        (r2, r1)
-    } else {
-        (r1, r2)
-    };
-
-    if r1.start.is_none() || r2.position <= r1.start.as_ref().unwrap().borrow().position {
-        return (0, sign);
-    }
-
-    let d1 = r2.get_start() as i64 - r1.get_end  () as i64;
-    let d2 = r2.get_end  () as i64 - r1.get_start() as i64;
-
-    if d1 < d2 {
-        (d1, sign)
-    } else {
-        (d2, sign)
-    }
-}
-
-/* -------------------------------------------------------------------------- */
-
 impl GRanges {
 
     pub fn find_nearest(query: &GRanges, subject: &GRanges, k: usize) -> FindNearestHits {
@@ -217,8 +191,8 @@ impl GRanges {
                         let mut dr = -1;
 
                         if i1 >= 0 && i2 < entry.len() as i64 {
-                            let (d1, s1) = distance(&r.borrow(), &entry[i1 as usize].borrow());
-                            let (d2, s2) = distance(&r.borrow(), &entry[i2 as usize].borrow());
+                            let (d1, s1) = EndPoint::distance(&r.borrow(), &entry[i1 as usize].borrow());
+                            let (d2, s2) = EndPoint::distance(&r.borrow(), &entry[i2 as usize].borrow());
 
                             if d1 <= d2 {
                                 dr = d1*s1; ir = i1; i1 -= 1;
@@ -227,11 +201,11 @@ impl GRanges {
                             }
                         } else {
                             if i1 >= 0 {
-                                let (d1, s1) = distance(&r.borrow(), &entry[i1 as usize].borrow());
+                                let (d1, s1) = EndPoint::distance(&r.borrow(), &entry[i1 as usize].borrow());
                                 dr = d1*s1; ir = i1; i1 -= 1;
                             }
                             if (i2 as usize) < entry.len() {
-                                let (d2, s2) = distance(&r.borrow(), &entry[i2 as usize].borrow());
+                                let (d2, s2) = EndPoint::distance(&r.borrow(), &entry[i2 as usize].borrow());
                                 dr = d2*s2; ir = i2; i2 += 1;
                             }
                         }
