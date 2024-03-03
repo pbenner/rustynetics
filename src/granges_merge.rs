@@ -88,3 +88,34 @@ impl GRanges {
         r
     }
 }
+
+/* -------------------------------------------------------------------------- */
+
+#[cfg(test)]
+mod tests {
+
+    use crate::granges::GRanges;
+
+    #[test]
+    fn test_merge() {
+
+        let seqnames = vec!["chr1", "chr1", "chr1", "chr2", "chr2"];
+        let from     = vec![ 6, 10, 24,  6, 10];
+        let to       = vec![21, 31, 81, 21, 31];
+        let strand   = vec![];
+
+        let granges  = GRanges::new(seqnames, from, to, strand);
+
+        let r = GRanges::merge(&[granges]);
+
+        assert!(r.num_rows() == 2);
+
+        assert!(r.ranges[0].from == 6);
+        assert!(r.ranges[0].to   == 81);
+
+        assert!(r.ranges[1].from == 6);
+        assert!(r.ranges[1].to   == 31);
+
+    }
+
+}

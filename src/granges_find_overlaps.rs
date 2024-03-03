@@ -63,6 +63,8 @@ pub fn find_overlaps(query: &GRanges, subject: &GRanges) -> (Vec<usize>, Vec<usi
     (query_hits, subject_hits)
 }
 
+/* -------------------------------------------------------------------------- */
+
 #[cfg(test)]
 mod tests {
 
