@@ -31,6 +31,7 @@ mod granges_find_overlaps;
 mod granges_bed;
 mod granges_pretty;
 mod granges_random;
+mod granges_merge;
 mod granges_table;
 mod granges_table_reader;
 mod granges_table_writer;
