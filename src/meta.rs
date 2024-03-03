@@ -108,6 +108,13 @@ impl MetaData {
         }
     }
 
+    pub fn get_range(&self) -> Option<&Vec<Range>> {
+        match self {
+            MetaData::RangeArray(v) => Some(v),
+            _ => None
+        }
+    }
+
     pub fn get_float_mut(&mut self) -> Option<&mut Vec<f64>> {
         match self {
             MetaData::FloatArray(v) => Some(v),
@@ -128,6 +135,14 @@ impl MetaData {
             _ => None
         }
     }
+
+    pub fn get_range_mut(&mut self) -> Option<&mut Vec<Range>> {
+        match self {
+            MetaData::RangeArray(v) => Some(v),
+            _ => None
+        }
+    }
+
 }
 
 /* -------------------------------------------------------------------------- */
@@ -269,6 +284,11 @@ impl Meta {
         r.get_str()
     }
 
+    pub fn get_column_range(&self, name: &str) -> Option<&Vec<Range>> {
+        let r = self.get_column(name)?;
+        r.get_range()
+    }
+
     pub fn get_column_mut(&mut self, name: &str) -> Option<&mut MetaData> {
         self.meta_name.iter().position(|x| x == name).map(move |index| &mut self.meta_data[index])
     }
@@ -286,6 +306,11 @@ impl Meta {
     pub fn get_column_str_mut(&mut self, name: &str) -> Option<&mut Vec<String>> {
         let r = self.get_column_mut(name)?;
         r.get_str_mut()
+    }
+
+    pub fn get_column_range_mut(&mut self, name: &str) -> Option<&mut Vec<Range>> {
+        let r = self.get_column_mut(name)?;
+        r.get_range_mut()
     }
 
     pub fn slice(&self, ifrom : usize, ito : usize) -> Meta {

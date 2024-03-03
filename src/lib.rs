@@ -18,6 +18,7 @@
 /* -------------------------------------------------------------------------- */
 
 pub mod alphabet;
+pub mod genes;
 pub mod genome;
 pub mod granges;
 pub mod granges_row;
