@@ -24,38 +24,33 @@ use crate::error::Error;
 
 /* -------------------------------------------------------------------------- */
 
-#[derive(Debug)]
-struct Genes<'a> {
+#[derive(Clone, Debug)]
+pub struct Genes {
     granges: GRanges,
-    names  : &'a Vec<String>,
-    cds    : &'a Vec<Range>,
     index  : HashMap<String, usize>,
 }
 
 /* -------------------------------------------------------------------------- */
 
-impl<'a> Genes<'a> {
-    fn new(granges: GRanges) -> Genes<'a> {
+impl Genes {
+    pub fn new_impl(granges: GRanges) -> Genes {
         let names = granges.meta.get_column_str  ("names").unwrap();
-        let cds   = granges.meta.get_column_range("cds"  ).unwrap();
-
         let mut index = HashMap::new();
         for i in 0..granges.num_rows() {
             // check if strand is valid
             if granges.strand[i] != '+' && granges.strand[i] != '-' {
-                panic!("NewGenes(): Invalid strand!");
+                panic!("invalid strand");
             }
             index.insert(names[i].clone(), i);
         }
-        Genes {
+        let genes = Genes {
             granges,
-            names,
-            cds,
             index,
-        }
+        };
+        genes
     }
 
-    fn new_genes(
+    pub fn new(
         names   : Vec<&str>,
         seqnames: Vec<&str>,
         tx_from : Vec<usize>,
@@ -63,7 +58,7 @@ impl<'a> Genes<'a> {
         cds_from: Vec<usize>,
         cds_to  : Vec<usize>,
         strand  : Vec<char>,
-    ) -> Genes<'a> {
+    ) -> Genes {
         assert!(names.len() == seqnames.len());
         assert!(names.len() == tx_from .len());
         assert!(names.len() == tx_to   .len());
@@ -81,56 +76,60 @@ impl<'a> Genes<'a> {
             tx_to,
             strand,
         );
-        granges.meta.add_meta("names", MetaData::StringArray(names.iter().map(|&x| x.into()).collect()));
-        granges.meta.add_meta("cds"  , MetaData:: RangeArray(cds  .clone()));
-        Genes::new(granges)
+        granges.meta.add_meta("names", MetaData::StringArray(names.iter().map(|&x| x.into()).collect())).unwrap();
+        granges.meta.add_meta("cds"  , MetaData::RangeArray(cds)).unwrap();
+        Genes::new_impl(granges)
     }
 
-    fn clone(&self) -> Genes {
-        Genes::new(self.granges.clone())
+    pub fn names(&self) -> &Vec<String> {
+        self.granges.meta.get_column_str("names").unwrap()
     }
 
-    fn remove(&self, indices: &[usize]) -> Genes {
+    pub fn cds(&self) -> &Vec<Range> {
+        self.granges.meta.get_column_range("cds").unwrap()
+    }
+
+    pub fn remove(&self, indices: &[usize]) -> Genes {
         let r = self.granges.remove(indices);
-        Genes::new(r)
+        Genes::new_impl(r)
     }
 
-    fn remove_overlaps_with(&self, subject: &Genes) -> Genes {
+    pub fn remove_overlaps_with(&self, subject: &Genes) -> Genes {
         let r = self.granges.remove_overlaps_with(&subject.granges);
-        Genes::new(r)
+        Genes::new_impl(r)
     }
 
-    fn keep_overlaps_with(&self, subject: &Genes) -> Genes {
+    pub fn keep_overlaps_with(&self, subject: &Genes) -> Genes {
         let r = self.granges.keep_overlaps_with(&subject.granges);
-        Genes::new(r)
+        Genes::new_impl(r)
     }
 
-    fn subset(&self, indices: &[usize]) -> Genes {
+    pub fn subset(&self, indices: &[usize]) -> Genes {
         let r = self.granges.subset(indices);
-        Genes::new(r)
+        Genes::new_impl(r)
     }
 
-    fn slice(&self, ifrom: usize, ito: usize) -> Genes {
+    pub fn slice(&self, ifrom: usize, ito: usize) -> Genes {
         let r = self.granges.slice(ifrom, ito);
-        Genes::new(r)
+        Genes::new_impl(r)
     }
 
-    fn intersection(&self, subject: &Genes) -> Genes {
+    pub fn intersection(&self, subject: &Genes) -> Genes {
         let r = self.granges.intersection(&subject.granges);
-        Genes::new(r)
+        Genes::new_impl(r)
     }
 
-    fn sort(&self, name: &str, reverse: bool) -> Result<Genes, Error> {
+    pub fn sort(&self, name: &str, reverse: bool) -> Result<Genes, Error> {
         let r = self.granges.sort(name, reverse)?;
-        Ok(Genes::new(r))
+        Ok(Genes::new_impl(r))
     }
 
-    fn filter_genome(&self, genome: &Genome) -> Genes {
+    pub fn filter_genome(&self, genome: &Genome) -> Genes {
         let r = self.granges.filter_genome(genome);
-        Genes::new(r)
+        Genes::new_impl(r)
     }
 
-    fn find_gene(&self, name: &str) -> Option<usize> {
+    pub fn find_gene(&self, name: &str) -> Option<usize> {
         self.index.get(name).cloned()
     }
 
