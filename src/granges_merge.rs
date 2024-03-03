@@ -34,24 +34,29 @@ impl GRanges {
             // next item must be a start position
             assert!(entry[i].is_start());
 
-            let r_from = entry[i].get_position();
-            let r_to   = entry[i].get_position() + 1;
+            let     r_from = entry[i].get_position();
+            let mut r_to   = entry[i].get_position() + 1;
 
+            // k: number open intervals
             let mut k = 1;
             while k > 0 {
+                // go to next item
                 i += 1;
                 if entry[i].is_start() {
+                    // start of an interval
                     k += 1;
-                    to[i] = entry[i].get_position();
+                    r_to = entry[i].get_position();
                 } else {
+                    // end of an interval
                     k -= 1;
-                    to[i] = entry[i].get_position() + 1;
+                    r_to = entry[i].get_position() + 1;
                 }
             }
-
             seqnames.push(seqname);
             from    .push(r_from);
             to      .push(r_to);
+            // go to next item
+            i += 1;
         }
         r.append(&GRanges::new(seqnames, from, to, vec![])).unwrap()
     }
@@ -65,7 +70,7 @@ impl GRanges {
             for i in 0..g.num_rows() {
 
                 let start = EndPoint::new(g.ranges[i].from, i, true);
-                let end   = EndPoint::new(g.ranges[i].to  , i, true);
+                let end   = EndPoint::new(g.ranges[i].to-1, i, true);
     
                 end.borrow_mut().start = Some(start.clone());
     

@@ -37,14 +37,13 @@ impl fmt::Debug for EndPointNode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "[position: {}, src_idx: {}, is_query: {}]", self.position, self.src_idx, self.is_query
+            "[position: {}, is_start: {}, is_end: {}, src_idx: {}, is_query: {}]", self.position, self.start.is_none(), self.end.is_none(), self.src_idx, self.is_query
         )
     }
 }
 
 /* -------------------------------------------------------------------------- */
 
-#[derive(Debug)]
 pub struct EndPoint(Rc<RefCell<EndPointNode>>);
 
 impl EndPoint {
@@ -165,7 +164,15 @@ impl std::ops::DerefMut for EndPoint {
         &mut self.0
     }
 }
- 
+
+impl fmt::Debug for EndPoint {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{:?}", self.0.borrow()
+        )
+    }
+}
 /* -------------------------------------------------------------------------- */
  
 #[derive(Debug)]
