@@ -33,7 +33,7 @@ pub struct Genes {
 /* -------------------------------------------------------------------------- */
 
 impl Genes {
-    pub fn new_impl(granges: GRanges) -> Genes {
+    fn new_impl(granges: GRanges) -> Genes {
         let names = granges.meta.get_column_str  ("names").unwrap();
         let mut index = HashMap::new();
         for i in 0..granges.num_rows() {
