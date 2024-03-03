@@ -1,4 +1,3 @@
-
 /* Copyright (C) 2024 Philipp Benner
  *
  * This program is free software: you can redistribute it and/or modify
@@ -17,28 +16,32 @@
 
 /* -------------------------------------------------------------------------- */
 
-pub mod alphabet;
-pub mod genome;
-pub mod granges;
-pub mod granges_row;
-pub mod meta;
-pub mod range;
-pub mod error;
-pub mod options_print;
+use std::fmt;
 
-mod granges_find_endpoint;
-mod granges_find_nearest;
-mod granges_find_overlaps;
-mod granges_bed;
-mod granges_pretty;
-mod granges_random;
-mod granges_merge;
-mod granges_sort;
-mod granges_table;
-mod granges_table_reader;
-mod granges_table_writer;
-mod meta_pretty;
-mod meta_table;
-mod meta_table_reader;
-mod meta_table_writer;
-mod utility;
+use crate::granges::GRanges;
+
+/* -------------------------------------------------------------------------- */
+
+pub struct GRangesRow<'a> {
+    granges: &'a GRanges,
+    row    : usize,
+}
+
+impl<'a> GRangesRow<'a> {
+    pub fn new(granges: &'a GRanges, row: usize) -> Self {
+        GRangesRow { granges, row }
+    }
+}
+
+impl<'a> fmt::Display for GRangesRow<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "GRangesRow(seqname={}, range=({}, {}), strand={})",
+            self.granges.seqnames[self.row],
+            self.granges.ranges  [self.row].from,
+            self.granges.ranges  [self.row].to,
+            self.granges.strand  [self.row] as char
+        )
+    }
+}
