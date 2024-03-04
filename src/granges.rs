@@ -179,10 +179,10 @@ impl GRanges {
     }
 
     pub fn subset(&self, indices: &[usize]) -> Self {
-        let seqnames = indices.iter().map(|&i| self.seqnames[i]     ).collect();
-        let from     = indices.iter().map(|&i| self.ranges  [i].from).collect();
-        let to       = indices.iter().map(|&i| self.ranges  [i].to  ).collect();
-        let strand   = indices.iter().map(|&i| self.strand  [i]     ).collect();
+        let seqnames = indices.iter().map(|&i| self.seqnames[i].clone()).collect();
+        let from     = indices.iter().map(|&i| self.ranges  [i].from   ).collect();
+        let to       = indices.iter().map(|&i| self.ranges  [i].to     ).collect();
+        let strand   = indices.iter().map(|&i| self.strand  [i]        ).collect();
         let result   = GRanges::new(seqnames, from, to, strand);
         let meta     = self.meta.subset(indices);
         GRanges {
@@ -196,10 +196,10 @@ impl GRanges {
     pub fn slice(&self, ifrom: usize, ito: usize) -> Self {
         let ifrom = ifrom.min(self.num_rows());
         let ito   = ito  .min(self.num_rows());
-        let seqnames = (ifrom..ito).map(|i| self.seqnames[i]   ).collect();
-        let from     = (ifrom..ito).map(|i| self.ranges[i].from).collect();
-        let to       = (ifrom..ito).map(|i| self.ranges[i].to  ).collect();
-        let strand   = (ifrom..ito).map(|i| self.strand[i]     ).collect();
+        let seqnames = (ifrom..ito).map(|i| self.seqnames[i].clone()).collect();
+        let from     = (ifrom..ito).map(|i| self.ranges  [i].from   ).collect();
+        let to       = (ifrom..ito).map(|i| self.ranges  [i].to     ).collect();
+        let strand   = (ifrom..ito).map(|i| self.strand  [i]        ).collect();
         let result   = GRanges::new(seqnames, from, to, strand);
         let meta     = self.meta.slice(ifrom, ito);
         GRanges {
@@ -224,7 +224,7 @@ impl GRanges {
             let i_s = subject_hits[i];
             let gr  = self.ranges[i_q].intersection(&s.ranges[i_s]);
 
-            seqnames.push(self.seqnames[i_q]);
+            seqnames.push(self.seqnames[i_q].clone());
             strand  .push(self.strand  [i_q]);
             from    .push(gr.from);
             to      .push(gr.to  );

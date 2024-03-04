@@ -52,7 +52,7 @@ impl GRanges {
                     r_to = entry[i].get_position() + 1;
                 }
             }
-            seqnames.push(seqname);
+            seqnames.push(seqname.clone());
             from    .push(r_from);
             to      .push(r_to);
             // go to next item
@@ -88,7 +88,7 @@ impl GRanges {
         }
 
         for seqname in seqnames {
-            r = GRanges::merge_impl(&r, seqname, &rmap[&seqname]);
+            r = GRanges::merge_impl(&r, seqname.clone(), &rmap[&seqname]);
         }
         r
     }
