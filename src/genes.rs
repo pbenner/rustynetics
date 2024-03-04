@@ -51,8 +51,8 @@ impl Genes {
     }
 
     pub fn new(
-        names   : Vec<&str>,
-        seqnames: Vec<&str>,
+        names   : Vec<String>,
+        seqnames: Vec<String>,
         tx_from : Vec<usize>,
         tx_to   : Vec<usize>,
         cds_from: Vec<usize>,

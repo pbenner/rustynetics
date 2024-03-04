@@ -64,7 +64,7 @@ pub struct GRanges {
 }
 
 impl GRanges {
-    pub fn new(seqnames: Vec<&str>, from: Vec<usize>, to: Vec<usize>, strand: Vec<char>) -> Self {
+    pub fn new(seqnames: Vec<String>, from: Vec<usize>, to: Vec<usize>, strand: Vec<char>) -> Self {
         let n = seqnames.len();
         if from.len() != n || to.len() != n || (strand.len() != 0 && strand.len() != n) {
             panic!("NewGRanges(): invalid arguments!");
@@ -80,7 +80,7 @@ impl GRanges {
             .map(|(&f, &t)| Range::new(f, t))
             .collect();
         GRanges {
-            seqnames: seqnames.iter().map(|&x| x.into()).collect(),
+            seqnames,
             ranges,
             strand,
             meta: Meta::new_empty(),
@@ -88,11 +88,11 @@ impl GRanges {
     }
 
     pub fn new_empty() -> Self {
-        let seqnames = vec![""; 0];
+        let seqnames = vec!["".to_string(); 0];
         let ranges   = vec![Range::new(0, 0); 0];
         let strand   = vec!['*'; 0];
         GRanges {
-            seqnames: seqnames.iter().map(|&x| x.into()).collect(),
+            seqnames,
             ranges,
             strand,
             meta: Meta::new_empty(),
@@ -179,10 +179,10 @@ impl GRanges {
     }
 
     pub fn subset(&self, indices: &[usize]) -> Self {
-        let seqnames = indices.iter().map(|&i| self.seqnames[i].as_str()).collect();
-        let from     = indices.iter().map(|&i| self.ranges  [i].from    ).collect();
-        let to       = indices.iter().map(|&i| self.ranges  [i].to      ).collect();
-        let strand   = indices.iter().map(|&i| self.strand  [i]         ).collect();
+        let seqnames = indices.iter().map(|&i| self.seqnames[i]     ).collect();
+        let from     = indices.iter().map(|&i| self.ranges  [i].from).collect();
+        let to       = indices.iter().map(|&i| self.ranges  [i].to  ).collect();
+        let strand   = indices.iter().map(|&i| self.strand  [i]     ).collect();
         let result   = GRanges::new(seqnames, from, to, strand);
         let meta     = self.meta.subset(indices);
         GRanges {
@@ -196,14 +196,12 @@ impl GRanges {
     pub fn slice(&self, ifrom: usize, ito: usize) -> Self {
         let ifrom = ifrom.min(self.num_rows());
         let ito   = ito  .min(self.num_rows());
-        let seqnames = (ifrom..ito)
-            .map(|i| self.seqnames[i].as_str())
-            .collect();
-        let from   = (ifrom..ito).map(|i| self.ranges[i].from).collect();
-        let to     = (ifrom..ito).map(|i| self.ranges[i].to  ).collect();
-        let strand = (ifrom..ito).map(|i| self.strand[i]     ).collect();
-        let result = GRanges::new(seqnames, from, to, strand);
-        let meta   = self.meta.slice(ifrom, ito);
+        let seqnames = (ifrom..ito).map(|i| self.seqnames[i]   ).collect();
+        let from     = (ifrom..ito).map(|i| self.ranges[i].from).collect();
+        let to       = (ifrom..ito).map(|i| self.ranges[i].to  ).collect();
+        let strand   = (ifrom..ito).map(|i| self.strand[i]     ).collect();
+        let result   = GRanges::new(seqnames, from, to, strand);
+        let meta     = self.meta.slice(ifrom, ito);
         GRanges {
             seqnames: result.seqnames,
             ranges: result.ranges,
@@ -226,7 +224,7 @@ impl GRanges {
             let i_s = subject_hits[i];
             let gr  = self.ranges[i_q].intersection(&s.ranges[i_s]);
 
-            seqnames.push(self.seqnames[i_q].as_str());
+            seqnames.push(self.seqnames[i_q]);
             strand  .push(self.strand  [i_q]);
             from    .push(gr.from);
             to      .push(gr.to  );

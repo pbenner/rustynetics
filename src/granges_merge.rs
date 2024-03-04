@@ -23,7 +23,7 @@ use crate::granges_find_endpoint::{EndPoint, EndPointList};
 
 impl GRanges {
 
-    fn merge_impl(r: &GRanges, seqname: &str, entry: &EndPointList) -> GRanges {
+    fn merge_impl(r: &GRanges, seqname: String, entry: &EndPointList) -> GRanges {
 
         let mut seqnames = vec![];
         let mut from     = vec![];
@@ -88,7 +88,7 @@ impl GRanges {
         }
 
         for seqname in seqnames {
-            r = GRanges::merge_impl(&r, &seqname, &rmap[&seqname]);
+            r = GRanges::merge_impl(&r, seqname, &rmap[&seqname]);
         }
         r
     }
@@ -104,7 +104,7 @@ mod tests {
     #[test]
     fn test_merge() {
 
-        let seqnames = vec!["chr1", "chr1", "chr1", "chr2", "chr2"];
+        let seqnames = vec!["chr1", "chr1", "chr1", "chr2", "chr2"].iter().map(|&x| x.into()).collect();
         let from     = vec![ 6, 10, 24,  6, 10];
         let to       = vec![21, 31, 81, 21, 31];
         let strand   = vec![];

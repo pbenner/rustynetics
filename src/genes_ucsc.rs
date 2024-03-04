@@ -52,8 +52,8 @@ impl Genes {
             if fields.len() != 7 {
                 return Err("file must have seven columns".into());
             }
-            names   .push(fields[0]);
-            seqnames.push(fields[1]);
+            names   .push(String::from(fields[0]));
+            seqnames.push(String::from(fields[1]));
             tx_from .push(fields[2].parse()?);
             tx_to   .push(fields[3].parse()?);
             cds_from.push(fields[4].parse()?);
@@ -72,8 +72,8 @@ impl Genes {
         let mut cds_to   = vec![];
         let mut strand   = vec![];
 
-        let url      = format!("genome@tcp(genome-mysql.cse.ucsc.edu:3306)/{}", genome).as_str();
-        let pool     = Pool::new(url)?;
+        let url      = format!("genome@tcp(genome-mysql.cse.ucsc.edu:3306)/{}", genome);
+        let pool     = Pool::new(url.as_str())?;
         let mut conn = pool.get_conn()?;
         let query    = format!("SELECT name, chrom, strand, txStart, txEnd, cdsStart, cdsEnd FROM {}", table);
 
@@ -84,8 +84,8 @@ impl Genes {
             for row in result_set {
                 let r: (String, String, String, i32, i32, i32, i32) = from_row(row.unwrap());
 
-                names   .push(r.0.clone().as_str());
-                seqnames.push(r.1.clone().as_str());
+                names   .push(r.0.clone());
+                seqnames.push(r.1.clone());
                 strand  .push(r.2.chars().next().unwrap());
                 tx_from .push(r.3 as usize);
                 tx_to   .push(r.4 as usize);

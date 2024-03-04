@@ -237,13 +237,13 @@ mod tests {
     fn test_nearest() {
 
         let r_query = GRanges::new(
-            vec!["chr4", "chr4"],
+            vec!["chr4", "chr4"].iter().map(|&x| x.into()).collect(),
             vec![600, 850],
             vec![950, 950],
             vec![]
         );
         let r_subjects = GRanges::new(
-            vec!["chr4", "chr4", "chr4", "chr4"],
+            vec!["chr4", "chr4", "chr4", "chr4"].iter().map(|&x| x.into()).collect(),
             vec![100, 200, 300, 400],
             vec![900, 300, 700, 600],
             vec![]
