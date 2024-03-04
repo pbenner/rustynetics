@@ -26,7 +26,7 @@ use crate::error::Error;
 
 #[derive(Clone, Debug)]
 pub struct Genes {
-    granges: GRanges,
+    pub granges: GRanges,
     index  : HashMap<String, usize>,
 }
 

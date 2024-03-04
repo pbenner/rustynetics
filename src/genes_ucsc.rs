@@ -27,7 +27,7 @@ use crate::genes::Genes;
 
 impl Genes {
 
-    fn read_ucsc_genes(filename: &str) -> Result<Genes, Box<dyn std::error::Error>> {
+    pub fn read_ucsc_genes(filename: &str) -> Result<Genes, Box<dyn std::error::Error>> {
         let mut names    = vec![];
         let mut seqnames = vec![];
         let mut tx_from  = vec![];
@@ -63,7 +63,7 @@ impl Genes {
         Ok(Genes::new(names, seqnames, tx_from, tx_to, cds_from, cds_to, strand))
     }
 
-    fn import_genes_from_ucsc(genome: &str, table: &str) -> Result<Genes, Box<dyn std::error::Error>> {
+    pub fn import_genes_from_ucsc(genome: &str, table: &str) -> Result<Genes, Box<dyn std::error::Error>> {
         let mut names    = vec![];
         let mut seqnames = vec![];
         let mut tx_from  = vec![];
@@ -72,7 +72,7 @@ impl Genes {
         let mut cds_to   = vec![];
         let mut strand   = vec![];
 
-        let url      = format!("genome@tcp(genome-mysql.cse.ucsc.edu:3306)/{}", genome);
+        let url      = format!("mysql://genome@genome-mysql.cse.ucsc.edu:3306/{}", genome);
         let pool     = Pool::new(url.as_str())?;
         let mut conn = pool.get_conn()?;
         let query    = format!("SELECT name, chrom, strand, txStart, txEnd, cdsStart, cdsEnd FROM {}", table);
@@ -95,6 +95,24 @@ impl Genes {
         }
 
         Ok(Genes::new(names, seqnames, tx_from, tx_to, cds_from, cds_to, strand))
+    }
+
+}
+
+/* -------------------------------------------------------------------------- */
+
+#[cfg(test)]
+mod tests {
+
+    use crate::genes::Genes;
+
+    #[test]
+    fn test_genes_uscs() {
+
+        let genes = Genes::import_genes_from_ucsc("hg19", "ensGene").unwrap();
+
+        println!("{}", genes.granges);
+
     }
 
 }
