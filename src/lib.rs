@@ -19,6 +19,7 @@
 
 pub mod alphabet;
 pub mod genes;
+pub mod genes_ucsc;
 pub mod genome;
 pub mod granges;
 pub mod granges_row;
