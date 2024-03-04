@@ -18,6 +18,7 @@ use std::fs::File;
 use std::io::{BufRead, BufReader};
 use flate2::read::GzDecoder;
 use mysql::prelude::*;
+use mysql::from_row;
 use mysql::Pool;
 
 use crate::genes::Genes;
@@ -27,13 +28,13 @@ use crate::genes::Genes;
 impl Genes {
 
     fn read_ucsc_genes(filename: &str) -> Result<Genes, Box<dyn std::error::Error>> {
-        let names    = vec![];
-        let seqnames = vec![];
-        let tx_from  = vec![];
-        let tx_to    = vec![];
-        let cds_from = vec![];
-        let cds_to   = vec![];
-        let strand   = vec![];
+        let mut names    = vec![];
+        let mut seqnames = vec![];
+        let mut tx_from  = vec![];
+        let mut tx_to    = vec![];
+        let mut cds_from = vec![];
+        let mut cds_to   = vec![];
+        let mut strand   = vec![];
 
         let file = File::open(filename)?;
         let reader: Box<dyn BufRead> = if filename.ends_with(".gz") {
@@ -42,8 +43,8 @@ impl Genes {
             Box::new(BufReader::new(file))
         };
 
-        for line in reader.lines() {
-            let line = line?;
+        for line_ in reader.lines() {
+            let line = line_?;
             let fields: Vec<&str> = line.split_whitespace().collect();
             if fields.is_empty() {
                 continue;
@@ -63,28 +64,35 @@ impl Genes {
     }
 
     fn import_genes_from_ucsc(genome: &str, table: &str) -> Result<Genes, Box<dyn std::error::Error>> {
-        let names    = vec![];
-        let seqnames = vec![];
-        let tx_from  = vec![];
-        let tx_to    = vec![];
-        let cds_from = vec![];
-        let cds_to   = vec![];
-        let strand   = vec![];
+        let mut names    = vec![];
+        let mut seqnames = vec![];
+        let mut tx_from  = vec![];
+        let mut tx_to    = vec![];
+        let mut cds_from = vec![];
+        let mut cds_to   = vec![];
+        let mut strand   = vec![];
 
         let url      = format!("genome@tcp(genome-mysql.cse.ucsc.edu:3306)/{}", genome).as_str();
         let pool     = Pool::new(url)?;
         let mut conn = pool.get_conn()?;
         let query    = format!("SELECT name, chrom, strand, txStart, txEnd, cdsStart, cdsEnd FROM {}", table);
 
-        conn.query_map(query, |(name_, seqname_, strand_, tx_from_, tx_to_, cds_from_, cds_to_)| {
-            names   .push(name_    );
-            seqnames.push(seqname_ );
-            strand  .push(strand_  );
-            tx_from .push(tx_from_ );
-            tx_to   .push(tx_to_   );
-            cds_from.push(cds_from_);
-            cds_to  .push(cds_to_  );
-        })?;
+        let mut result = conn.query_iter(query)?;
+
+        while let Some(result_set) = result.iter() {
+
+            for row in result_set {
+                let r: (String, String, String, i32, i32, i32, i32) = from_row(row.unwrap());
+
+                names   .push(r.0.clone().as_str());
+                seqnames.push(r.1.clone().as_str());
+                strand  .push(r.2.chars().next().unwrap());
+                tx_from .push(r.3 as usize);
+                tx_to   .push(r.4 as usize);
+                cds_from.push(r.5 as usize);
+                cds_to  .push(r.6 as usize);
+            }
+        }
 
         Ok(Genes::new(names, seqnames, tx_from, tx_to, cds_from, cds_to, strand))
     }
