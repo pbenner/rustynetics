@@ -18,7 +18,7 @@ use std::fs::File;
 use std::io::{BufRead, BufReader};
 use flate2::read::GzDecoder;
 use mysql::prelude::*;
-use mysql::{Pool, PooledConn};
+use mysql::Pool;
 
 use crate::genes::Genes;
 
@@ -42,7 +42,6 @@ impl Genes {
             Box::new(BufReader::new(file))
         };
 
-        let mut genes = Vec::new();
         for line in reader.lines() {
             let line = line?;
             let fields: Vec<&str> = line.split_whitespace().collect();
@@ -52,8 +51,8 @@ impl Genes {
             if fields.len() != 7 {
                 return Err("file must have seven columns".into());
             }
-            names   .push(fields[0].to_string());
-            seqnames.push(fields[1].to_string());
+            names   .push(fields[0]);
+            seqnames.push(fields[1]);
             tx_from .push(fields[2].parse()?);
             tx_to   .push(fields[3].parse()?);
             cds_from.push(fields[4].parse()?);
@@ -72,19 +71,19 @@ impl Genes {
         let cds_to   = vec![];
         let strand   = vec![];
 
-        let url      = format!("genome@tcp(genome-mysql.cse.ucsc.edu:3306)/{}", genome);
+        let url      = format!("genome@tcp(genome-mysql.cse.ucsc.edu:3306)/{}", genome).as_str();
         let pool     = Pool::new(url)?;
         let mut conn = pool.get_conn()?;
         let query    = format!("SELECT name, chrom, strand, txStart, txEnd, cdsStart, cdsEnd FROM {}", table);
 
         conn.query_map(query, |(name_, seqname_, strand_, tx_from_, tx_to_, cds_from_, cds_to_)| {
-            names   .push(name_);
-            seqnames.push(seqname_);
-            strand  .push(strand_);
-            tx_from .push(tx_from_);
-            tx_to   .push(tx_to_);
+            names   .push(name_    );
+            seqnames.push(seqname_ );
+            strand  .push(strand_  );
+            tx_from .push(tx_from_ );
+            tx_to   .push(tx_to_   );
             cds_from.push(cds_from_);
-            cds_to  .push(cds_to_);
+            cds_to  .push(cds_to_  );
         })?;
 
         Ok(Genes::new(names, seqnames, tx_from, tx_to, cds_from, cds_to, strand))
