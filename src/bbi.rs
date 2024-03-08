@@ -307,7 +307,7 @@ struct BbiRawBlockDecoder<'a> {
 /* -------------------------------------------------------------------------- */
 
 impl<'a> BbiRawBlockDecoder<'a> {
-    fn new(buffer: &'a [u8], order: byteorder::LittleEndian) -> Result<BbiRawBlockDecoder<'a>, std::io::Error> {
+    fn new<E: ByteOrder>(buffer: &'a [u8]) -> Result<BbiRawBlockDecoder<'a>, std::io::Error> {
         if buffer.len() < 24 {
             return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "block length is shorter than 24 bytes"));
         }
@@ -323,9 +323,8 @@ impl<'a> BbiRawBlockDecoder<'a> {
                 item_count: 0,
             },
             buffer,
-            order,
         };
-        decoder.header.read_buffer(buffer, order);
+        decoder.header.read_buffer::<E>(buffer);
         match decoder.header.kind {
             BbiTypeBedGraph => {
                 if buffer.len() % 12 != 0 {
@@ -355,37 +354,37 @@ impl<'a> BbiRawBlockDecoder<'a> {
         record.record.from                   = (self.header.start + (i as u32 / 4) * self.header.step) as i32;
         record.record.to                     = record.record.from + self.header.span as i32;
         record.record.statistics.valid       = 1.0;
-        record.record.statistics.sum         = f32::from_bits(self.order.read_u32(&self.buffer[i..i + 4]).unwrap()) as f64;
+        record.record.statistics.sum         = f32::from_bits(E::read_u32(&self.buffer[i..i + 4])) as f64;
         record.record.statistics.sum_squares = record.record.statistics.sum * record.record.statistics.sum;
         record.record.statistics.min         = record.record.statistics.sum;
         record.record.statistics.max         = record.record.statistics.sum;
         record
     }
 
-    fn read_variable(&self, i: usize) -> BbiBlockDecoderType {
+    fn read_variable<E: ByteOrder>(&self, i: usize) -> BbiBlockDecoderType {
         let mut record = BbiBlockDecoderType {
             record: BbiSummaryRecord::new(),
         };
         record.record.chrom_id               = self.header.chrom_id as i32;
-        record.record.from                   = self.order.read_u32(&self.buffer[i..i + 4]).unwrap() as i32;
+        record.record.from                   = E::read_u32(&self.buffer[i..i + 4]) as i32;
         record.record.to                     = record.record.from + self.header.span as i32;
         record.record.statistics.valid       = 1.0;
-        record.record.statistics.sum         = f32::from_bits(self.order.read_u32(&self.buffer[i + 4..i + 8]).unwrap()) as f64;
+        record.record.statistics.sum         = f32::from_bits(E::read_u32(&self.buffer[i + 4..i + 8])) as f64;
         record.record.statistics.sum_squares = record.record.statistics.sum * record.record.statistics.sum;
         record.record.statistics.min         = record.record.statistics.sum;
         record.record.statistics.max         = record.record.statistics.sum;
         record
     }
 
-    fn read_bed_graph(&self, i: usize) -> BbiBlockDecoderType {
+    fn read_bed_graph<E: ByteOrder>(&self, i: usize) -> BbiBlockDecoderType {
         let mut record = BbiBlockDecoderType {
             record: BbiSummaryRecord::new(),
         };
         record.record.chrom_id = self.header.chrom_id as i32;
-        record.record.from = self.order.read_u32(&self.buffer[i..i + 4]).unwrap() as i32;
-        record.record.to = self.order.read_u32(&self.buffer[i + 4..i + 8]).unwrap() as i32;
+        record.record.from                   = E::read_u32(&self.buffer[i..i + 4    ]) as i32;
+        record.record.to                     = E::read_u32(&self.buffer[i + 4..i + 8]) as i32;
         record.record.statistics.valid       = 1.0;
-        record.record.statistics.sum         = f32::from_bits(self.order.read_u32(&self.buffer[i + 8..i + 12]).unwrap()) as f64;
+        record.record.statistics.sum         = f32::from_bits(E::read_u32(&self.buffer[i + 8..i + 12])) as f64;
         record.record.statistics.sum_squares = record.record.statistics.sum * record.record.statistics.sum;
         record.record.statistics.min         = record.record.statistics.sum;
         record.record.statistics.max         = record.record.statistics.sum;
@@ -417,21 +416,21 @@ impl<'a> BbiBlockDecoderIterator for BbiRawBlockDecoderIterator<'a> {
         self.i < self.decoder.buffer.len()
     }
 
-    fn next(&mut self) {
+    fn next<E: ByteOrder>(&mut self) {
         if self.i >= self.decoder.buffer.len() {
             return;
         }
         match self.decoder.header.kind {
             BbiTypeBedGraph => {
-                self.record = self.decoder.read_bed_graph(self.i);
+                self.record = self.decoder.read_bed_graph::<E>(self.i);
                 self.i += 12;
             }
             BbiTypeVariable => {
-                self.record = self.decoder.read_variable(self.i);
+                self.record = self.decoder.read_variable::<E>(self.i);
                 self.i += 8;
             }
             BbiTypeFixed => {
-                self.record = self.decoder.read_fixed(self.i);
+                self.record = self.decoder.read_fixed::<E>(self.i);
                 self.i += 4;
             }
             _ => panic!("Unsupported block type"),
