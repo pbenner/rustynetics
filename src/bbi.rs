@@ -22,7 +22,6 @@ use std::f32;
 use std::f64;
 
 use byteorder::{ByteOrder, ReadBytesExt, WriteBytesExt, BigEndian, LittleEndian};
-//use byteordered::{ByteOrdered, Endianness};
 
 use flate2::Compression;
 use flate2::write::ZlibEncoder;
@@ -30,13 +29,13 @@ use flate2::read::ZlibDecoder;
 
 /* -------------------------------------------------------------------------- */
 
-const CIRTREE_MAGIC: u32 = 0x78ca8c91;
-const IDX_MAGIC: u32 = 0x2468ace0;
+const CIRTREE_MAGIC   : u32   = 0x78ca8c91;
+const IDX_MAGIC       : u32   = 0x2468ace0;
 const BbiMaxZoomLevels: usize = 10;
-const BbiResIncrement: u32 = 4;
-const BbiTypeFixed: u8 = 3;
-const BbiTypeVariable: u8 = 2;
-const BbiTypeBedGraph: u8 = 1;
+const BbiResIncrement : u32   = 4;
+const BbiTypeFixed    : u8    = 3;
+const BbiTypeVariable : u8    = 2;
+const BbiTypeBedGraph : u8    = 1;
 
 /* -------------------------------------------------------------------------- */
 
@@ -75,13 +74,13 @@ fn compress_slice(data: &[u8]) -> Result<Vec<u8>, std::io::Error> {
 
 #[derive(Debug)]
 struct BbiZoomRecord {
-    chrom_id: u32,
-    start: u32,
-    end: u32,
-    valid: u32,
-    min: f32,
-    max: f32,
-    sum: f32,
+    chrom_id   : u32,
+    start      : u32,
+    end        : u32,
+    valid      : u32,
+    min        : f32,
+    max        : f32,
+    sum        : f32,
     sum_squares: f32,
 }
 
@@ -132,10 +131,10 @@ impl BbiZoomRecord {
 
 #[derive(Debug)]
 struct BbiSummaryStatistics {
-    valid: f64,
-    min: f64,
-    max: f64,
-    sum: f64,
+    valid      : f64,
+    min        : f64,
+    max        : f64,
+    sum        : f64,
     sum_squares: f64,
 }
 
@@ -174,9 +173,9 @@ impl BbiSummaryStatistics {
 
 #[derive(Debug)]
 struct BbiSummaryRecord {
-    chrom_id: i32,
-    from: i32,
-    to: i32,
+    chrom_id  : i32,
+    from      : i32,
+    to        : i32,
     statistics: BbiSummaryStatistics,
 }
 
@@ -229,13 +228,13 @@ impl BbiSummaryRecord {
 
 #[derive(Debug)]
 struct BbiDataHeader {
-    chrom_id: u32,
-    start: u32,
-    end: u32,
-    step: u32,
-    span: u32,
-    data_type: u8,
-    reserved: u8,
+    chrom_id  : u32,
+    start     : u32,
+    end       : u32,
+    step      : u32,
+    span      : u32,
+    data_type : u8,
+    reserved  : u8,
     item_count: u16,
 }
 
