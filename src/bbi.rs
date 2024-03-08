@@ -18,12 +18,11 @@ use std::io::{Read, Seek, Write};
 use std::io::Cursor;
 use std::io::SeekFrom;
 
-use std::mem;
 use std::f32;
 use std::f64;
 
-use byteorder::{ReadBytesExt, WriteBytesExt, BigEndian, LittleEndian};
-use byteordered::{ByteOrdered, Endianness};
+use byteorder::{ByteOrder, ReadBytesExt, WriteBytesExt, BigEndian, LittleEndian};
+//use byteordered::{ByteOrdered, Endianness};
 
 use flate2::Compression;
 use flate2::write::ZlibEncoder;
@@ -104,27 +103,27 @@ impl BbiZoomRecord {
         self.sum_squares += (x * x) as f32;
     }
 
-    fn read<T: Read + Seek>(&mut self, reader: &mut T, order: byteorder::LittleEndian) -> Result<(), std::io::Error> {
-        self.chrom_id    = reader.read_u32::<LittleEndian>()?;
-        self.start       = reader.read_u32::<LittleEndian>()?;
-        self.end         = reader.read_u32::<LittleEndian>()?;
-        self.valid       = reader.read_u32::<LittleEndian>()?;
-        self.min         = reader.read_f32::<LittleEndian>()?;
-        self.max         = reader.read_f32::<LittleEndian>()?;
-        self.sum         = reader.read_f32::<LittleEndian>()?;
-        self.sum_squares = reader.read_f32::<LittleEndian>()?;
+    fn read<E: ByteOrder, T: Read + Seek>(&mut self, reader: &mut T) -> Result<(), std::io::Error> {
+        self.chrom_id    = reader.read_u32::<E>()?;
+        self.start       = reader.read_u32::<E>()?;
+        self.end         = reader.read_u32::<E>()?;
+        self.valid       = reader.read_u32::<E>()?;
+        self.min         = reader.read_f32::<E>()?;
+        self.max         = reader.read_f32::<E>()?;
+        self.sum         = reader.read_f32::<E>()?;
+        self.sum_squares = reader.read_f32::<E>()?;
         Ok(())
     }
 
-    fn write<T: Write + Seek>(&self, writer: &mut T, order: byteorder::LittleEndian) -> Result<(), std::io::Error> {
-        writer.write_u32::<LittleEndian>(self.chrom_id)?;
-        writer.write_u32::<LittleEndian>(self.start)?;
-        writer.write_u32::<LittleEndian>(self.end)?;
-        writer.write_u32::<LittleEndian>(self.valid)?;
-        writer.write_f32::<LittleEndian>(self.min)?;
-        writer.write_f32::<LittleEndian>(self.max)?;
-        writer.write_f32::<LittleEndian>(self.sum)?;
-        writer.write_f32::<LittleEndian>(self.sum_squares)?;
+    fn write<E: ByteOrder, T: Write + Seek>(&self, writer: &mut T) -> Result<(), std::io::Error> {
+        writer.write_u32::<E>(self.chrom_id)?;
+        writer.write_u32::<E>(self.start)?;
+        writer.write_u32::<E>(self.end)?;
+        writer.write_u32::<E>(self.valid)?;
+        writer.write_f32::<E>(self.min)?;
+        writer.write_f32::<E>(self.max)?;
+        writer.write_f32::<E>(self.sum)?;
+        writer.write_f32::<E>(self.sum_squares)?;
         Ok(())
     }
 }
@@ -243,63 +242,37 @@ struct BbiDataHeader {
 /* -------------------------------------------------------------------------- */
 
 impl BbiDataHeader {
-    fn read_buffer(&mut self, buffer: &[u8], order: byteorder::Endian) {
+    fn read_buffer<E: ByteOrder>(&mut self, buffer: &[u8]) {
         let mut cursor = Cursor::new(buffer);
-        match order {
-            byteorder::BigEndian => {
-                self.chrom_id = cursor.read_u32::<BigEndian>().unwrap();
-                self.start = cursor.read_u32::<BigEndian>().unwrap();
-                self.end = cursor.read_u32::<BigEndian>().unwrap();
-                self.step = cursor.read_u32::<BigEndian>().unwrap();
-                self.span = cursor.read_u32::<BigEndian>().unwrap();
-                self.data_type = cursor.read_u8().unwrap();
-                self.reserved = cursor.read_u8().unwrap();
-                self.item_count = cursor.read_u16::<BigEndian>().unwrap();
-            }
-            byteorder::LittleEndian => {
-                self.chrom_id = cursor.read_u32::<LittleEndian>().unwrap();
-                self.start = cursor.read_u32::<LittleEndian>().unwrap();
-                self.end = cursor.read_u32::<LittleEndian>().unwrap();
-                self.step = cursor.read_u32::<LittleEndian>().unwrap();
-                self.span = cursor.read_u32::<LittleEndian>().unwrap();
-                self.data_type = cursor.read_u8().unwrap();
-                self.reserved = cursor.read_u8().unwrap();
-                self.item_count = cursor.read_u16::<LittleEndian>().unwrap();
-            }
-        }
+
+        self.chrom_id   = cursor.read_u32::<E>().unwrap();
+        self.start      = cursor.read_u32::<E>().unwrap();
+        self.end        = cursor.read_u32::<E>().unwrap();
+        self.step       = cursor.read_u32::<E>().unwrap();
+        self.span       = cursor.read_u32::<E>().unwrap();
+        self.data_type  = cursor.read_u8().unwrap();
+        self.reserved   = cursor.read_u8().unwrap();
+        self.item_count = cursor.read_u16::<E>().unwrap();
     }
 
-    fn write_buffer(&self, buffer: &mut [u8], order: byteorder::Endian) {
+    fn write_buffer<E: ByteOrder>(&self, buffer: &mut [u8]) {
         let mut cursor = Cursor::new(buffer);
-        match order {
-            byteorder::BigEndian => {
-                cursor.write_u32::<BigEndian>(self.chrom_id).unwrap();
-                cursor.write_u32::<BigEndian>(self.start).unwrap();
-                cursor.write_u32::<BigEndian>(self.end).unwrap();
-                cursor.write_u32::<BigEndian>(self.step).unwrap();
-                cursor.write_u32::<BigEndian>(self.span).unwrap();
-                cursor.write_u8(self.data_type).unwrap();
-                cursor.write_u8(self.reserved).unwrap();
-                cursor.write_u16::<BigEndian>(self.item_count).unwrap();
-            }
-            byteorder::LittleEndian => {
-                cursor.write_u32::<LittleEndian>(self.chrom_id).unwrap();
-                cursor.write_u32::<LittleEndian>(self.start).unwrap();
-                cursor.write_u32::<LittleEndian>(self.end).unwrap();
-                cursor.write_u32::<LittleEndian>(self.step).unwrap();
-                cursor.write_u32::<LittleEndian>(self.span).unwrap();
-                cursor.write_u8(self.data_type).unwrap();
-                cursor.write_u8(self.reserved).unwrap();
-                cursor.write_u16::<LittleEndian>(self.item_count).unwrap();
-            }
-        }
+
+        cursor.write_u32::<E>(self.chrom_id).unwrap();
+        cursor.write_u32::<E>(self.start).unwrap();
+        cursor.write_u32::<E>(self.end).unwrap();
+        cursor.write_u32::<E>(self.step).unwrap();
+        cursor.write_u32::<E>(self.span).unwrap();
+        cursor.write_u8(self.data_type).unwrap();
+        cursor.write_u8(self.reserved).unwrap();
+        cursor.write_u16::<E>(self.item_count).unwrap();
     }
 }
 
 /* -------------------------------------------------------------------------- */
 
 trait BbiBlockDecoder {
-    fn decode(&mut self) -> Option<BbiBlockDecoderIterator>;
+    fn decode(&mut self) -> Option<dyn BbiBlockDecoderIterator>;
 }
 
 trait BbiBlockDecoderIterator {
