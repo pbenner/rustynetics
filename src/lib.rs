@@ -18,6 +18,7 @@
 /* -------------------------------------------------------------------------- */
 
 pub mod alphabet;
+pub mod bbi;
 pub mod genes;
 pub mod genes_ucsc;
 pub mod genome;
