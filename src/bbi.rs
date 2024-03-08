@@ -233,7 +233,7 @@ struct BbiDataHeader {
     end       : u32,
     step      : u32,
     span      : u32,
-    data_type : u8,
+    kind      : u8,
     reserved  : u8,
     item_count: u16,
 }
@@ -249,7 +249,7 @@ impl BbiDataHeader {
         self.end        = cursor.read_u32::<E>().unwrap();
         self.step       = cursor.read_u32::<E>().unwrap();
         self.span       = cursor.read_u32::<E>().unwrap();
-        self.data_type  = cursor.read_u8().unwrap();
+        self.kind       = cursor.read_u8().unwrap();
         self.reserved   = cursor.read_u8().unwrap();
         self.item_count = cursor.read_u16::<E>().unwrap();
     }
@@ -262,7 +262,7 @@ impl BbiDataHeader {
         cursor.write_u32::<E>(self.end).unwrap();
         cursor.write_u32::<E>(self.step).unwrap();
         cursor.write_u32::<E>(self.span).unwrap();
-        cursor.write_u8(self.data_type).unwrap();
+        cursor.write_u8(self.kind).unwrap();
         cursor.write_u8(self.reserved).unwrap();
         cursor.write_u16::<E>(self.item_count).unwrap();
     }
@@ -270,20 +270,34 @@ impl BbiDataHeader {
 
 /* -------------------------------------------------------------------------- */
 
-trait BbiBlockDecoder {
-    fn decode(&mut self) -> Option<dyn BbiBlockDecoderIterator>;
-}
-
 trait BbiBlockDecoderIterator {
-    fn get(&self) -> &BbiBlockDecoderType;
-    fn ok(&self) -> bool;
+    fn get (&self) -> &BbiBlockDecoderType;
+    fn ok  (&self) -> bool;
     fn next(&mut self);
 }
+
+/* -------------------------------------------------------------------------- */
+
+struct BbiRawBlockDecoderIterator<'a> {
+    decoder: &'a BbiRawBlockDecoder<'a>,
+    i: usize,
+    record: BbiBlockDecoderType,
+}
+
+/* -------------------------------------------------------------------------- */
+
+trait BbiBlockDecoder {
+    fn decode(&mut self) -> Option<Box<BbiBlockDecoderIterator>>;
+}
+
+/* -------------------------------------------------------------------------- */
 
 #[derive(Debug)]
 struct BbiBlockDecoderType {
     record: BbiSummaryRecord,
 }
+
+/* -------------------------------------------------------------------------- */
 
 struct BbiRawBlockDecoder<'a> {
     header: BbiDataHeader,
@@ -291,11 +305,7 @@ struct BbiRawBlockDecoder<'a> {
     order: byteorder::LittleEndian,
 }
 
-struct BbiRawBlockDecoderIterator<'a> {
-    decoder: &'a BbiRawBlockDecoder<'a>,
-    i: usize,
-    record: BbiBlockDecoderType,
-}
+/* -------------------------------------------------------------------------- */
 
 impl<'a> BbiRawBlockDecoder<'a> {
     fn new(buffer: &'a [u8], order: byteorder::LittleEndian) -> Result<BbiRawBlockDecoder<'a>, std::io::Error> {
@@ -342,14 +352,14 @@ impl<'a> BbiRawBlockDecoder<'a> {
         let mut record = BbiBlockDecoderType {
             record: BbiSummaryRecord::new(),
         };
-        record.record.chrom_id = self.header.chrom_id as i32;
-        record.record.from = (self.header.start + (i as u32 / 4) * self.header.step) as i32;
-        record.record.to = record.record.from + self.header.span as i32;
-        record.record.statistics.valid = 1.0;
-        record.record.statistics.sum = f32::from_bits(self.order.read_u32(&self.buffer[i..i + 4]).unwrap()) as f64;
+        record.record.chrom_id               = self.header.chrom_id as i32;
+        record.record.from                   = (self.header.start + (i as u32 / 4) * self.header.step) as i32;
+        record.record.to                     = record.record.from + self.header.span as i32;
+        record.record.statistics.valid       = 1.0;
+        record.record.statistics.sum         = f32::from_bits(self.order.read_u32(&self.buffer[i..i + 4]).unwrap()) as f64;
         record.record.statistics.sum_squares = record.record.statistics.sum * record.record.statistics.sum;
-        record.record.statistics.min = record.record.statistics.sum;
-        record.record.statistics.max = record.record.statistics.sum;
+        record.record.statistics.min         = record.record.statistics.sum;
+        record.record.statistics.max         = record.record.statistics.sum;
         record
     }
 
@@ -357,14 +367,14 @@ impl<'a> BbiRawBlockDecoder<'a> {
         let mut record = BbiBlockDecoderType {
             record: BbiSummaryRecord::new(),
         };
-        record.record.chrom_id = self.header.chrom_id as i32;
-        record.record.from = self.order.read_u32(&self.buffer[i..i + 4]).unwrap() as i32;
-        record.record.to = record.record.from + self.header.span as i32;
-        record.record.statistics.valid = 1.0;
-        record.record.statistics.sum = f32::from_bits(self.order.read_u32(&self.buffer[i + 4..i + 8]).unwrap()) as f64;
+        record.record.chrom_id               = self.header.chrom_id as i32;
+        record.record.from                   = self.order.read_u32(&self.buffer[i..i + 4]).unwrap() as i32;
+        record.record.to                     = record.record.from + self.header.span as i32;
+        record.record.statistics.valid       = 1.0;
+        record.record.statistics.sum         = f32::from_bits(self.order.read_u32(&self.buffer[i + 4..i + 8]).unwrap()) as f64;
         record.record.statistics.sum_squares = record.record.statistics.sum * record.record.statistics.sum;
-        record.record.statistics.min = record.record.statistics.sum;
-        record.record.statistics.max = record.record.statistics.sum;
+        record.record.statistics.min         = record.record.statistics.sum;
+        record.record.statistics.max         = record.record.statistics.sum;
         record
     }
 
