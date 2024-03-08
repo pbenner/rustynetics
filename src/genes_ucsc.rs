@@ -98,21 +98,3 @@ impl Genes {
     }
 
 }
-
-/* -------------------------------------------------------------------------- */
-
-#[cfg(test)]
-mod tests {
-
-    use crate::genes::Genes;
-
-    #[test]
-    fn test_genes_uscs() {
-
-        let genes = Genes::import_genes_from_ucsc("hg19", "ensGene").unwrap();
-
-        println!("{}", genes.granges);
-
-    }
-
-}
