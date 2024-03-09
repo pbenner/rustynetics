@@ -287,20 +287,12 @@ impl BbiDataHeader {
 struct BbiRawBlockDecoderIterator<'a> {
     decoder: &'a BbiRawBlockDecoder<'a>,
     i      : usize,
-    record : BbiBlockDecoderType,
 }
 
 /* -------------------------------------------------------------------------- */
 
 trait BbiBlockDecoder {
-    fn decode(&mut self) -> impl Iterator<Item = BbiSummaryRecord>;
-}
-
-/* -------------------------------------------------------------------------- */
-
-#[derive(Debug)]
-struct BbiBlockDecoderType {
-    record: BbiSummaryRecord,
+    fn decode(&mut self) -> impl Iterator<Item = BbiRawBlockDecoderItem>;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -387,43 +379,65 @@ impl<'a> BbiRawBlockDecoder<'a> {
 }
 
 impl<'a> BbiBlockDecoder for BbiRawBlockDecoder<'a> {
-    fn decode(&mut self) -> impl Iterator<Item = BbiSummaryRecord> {
+    fn decode(&mut self) -> impl Iterator<Item = BbiRawBlockDecoderItem> {
         BbiRawBlockDecoderIterator {
             decoder: self,
-            i      : 0,
-            record : BbiBlockDecoderType {
-                record: BbiSummaryRecord::new(),
-            },
-        }
+            i      : 0        }
     }
 }
 
 impl<'a> Iterator for BbiRawBlockDecoderIterator<'a> {
-    type Item = BbiSummaryRecord;
+    type Item = BbiRawBlockDecoderItem<'a>;
 
-    fn next<E: ByteOrder>(&mut self) -> Option<Self::Item>{
-        let mut r;
+    fn next(&mut self) -> Option<Self::Item>{
 
         if self.i >= self.decoder.buffer.len() {
-            r = None;
+            return None;
         }
-        else {
-            match self.decoder.header.kind {
-                BbiTypeBedGraph => {
-                    r = Some(self.decoder.read_bed_graph::<E>(self.i));
-                    self.i += 12;
-                }
-                BbiTypeVariable => {
-                    r = Some(self.decoder.read_variable::<E>(self.i));
-                    self.i += 8;
-                }
-                BbiTypeFixed => {
-                    r = Some(self.decoder.read_fixed::<E>(self.i));
-                    self.i += 4;
-                }
-                _ => panic!("Unsupported block type"),
+        let mut r = BbiRawBlockDecoderItem{
+            decoder: self.decoder,
+            i      : self.i
+        };
+        match self.decoder.header.kind {
+            BbiTypeBedGraph => {
+                self.i += 12;
             }
+            BbiTypeVariable => {
+                self.i += 8;
+            }
+            BbiTypeFixed => {
+                self.i += 4;
+            }
+            _ => panic!("Unsupported block type"),
         }
-        r
+        Some(r)
     }
+}
+
+/* -------------------------------------------------------------------------- */
+
+struct BbiRawBlockDecoderItem<'a> {
+    decoder: &'a BbiRawBlockDecoder<'a>,
+    i      : usize,
+}
+
+impl<'a> BbiRawBlockDecoderItem<'a> {
+
+    fn read<E: ByteOrder>(&self) {
+        let mut r;
+
+        match self.decoder.header.kind {
+            BbiTypeBedGraph => {
+                r = Some(self.decoder.read_bed_graph::<E>(self.i));
+            }
+            BbiTypeVariable => {
+                r = Some(self.decoder.read_variable::<E>(self.i));
+            }
+            BbiTypeFixed => {
+                r = Some(self.decoder.read_fixed::<E>(self.i));
+            }
+            _ => panic!("Unsupported block type"),
+        }
+    }
+
 }
