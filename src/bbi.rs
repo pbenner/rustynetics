@@ -29,13 +29,13 @@ use flate2::read::ZlibDecoder;
 
 /* -------------------------------------------------------------------------- */
 
-const CIRTREE_MAGIC   : u32   = 0x78ca8c91;
-const IDX_MAGIC       : u32   = 0x2468ace0;
-const BbiMaxZoomLevels: usize = 10;
-const BbiResIncrement : u32   = 4;
-const BbiTypeFixed    : u8    = 3;
-const BbiTypeVariable : u8    = 2;
-const BbiTypeBedGraph : u8    = 1;
+const CIRTREE_MAGIC      : u32   = 0x78ca8c91;
+const IDX_MAGIC          : u32   = 0x2468ace0;
+const BBI_MAX_ZOOM_LEVELS: usize = 10;
+const BBI_RES_INCREMENT  : u32   = 4;
+const BBI_TYPE_FIXED     : u8    = 3;
+const BBI_TYPE_VARIABLE  : u8    = 2;
+const BBI_TYPE_BED_GRAPH : u8    = 1;
 
 /* -------------------------------------------------------------------------- */
 
@@ -309,23 +309,23 @@ impl<'a> BbiRawBlockDecoder<'a> {
         if buffer.len() < 24 {
             return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "block length is shorter than 24 bytes"));
         }
-        let mut decoder = BbiRawBlockDecoder {
-            header: BbiDataHeader::new(),
+           let mut decoder = BbiRawBlockDecoder {
+               header: BbiDataHeader::new(),
             buffer,
-        };
+        }; 
         decoder.header.read_buffer::<E>(buffer);
         match decoder.header.kind {
-            BbiTypeBedGraph => {
+            BBI_TYPE_BED_GRAPH => {
                 if buffer.len() % 12 != 0 {
                     return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "bedGraph data block has invalid length"));
                 }
             }
-            BbiTypeVariable => {
+            BBI_TYPE_VARIABLE => {
                 if buffer.len() % 8 != 0 {
                     return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "variable step data block has invalid length"));
                 }
             }
-            BbiTypeFixed => {
+            BBI_TYPE_FIXED => {
                 if buffer.len() % 4 != 0 {
                     return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "fixed step data block has invalid length"));
                 }
@@ -387,25 +387,26 @@ impl<'a> BbiBlockDecoder for BbiRawBlockDecoder<'a> {
 }
 
 impl<'a> Iterator for BbiRawBlockDecoderIterator<'a> {
+
     type Item = BbiRawBlockDecoderItem<'a>;
 
     fn next(&mut self) -> Option<Self::Item>{
 
         if self.i >= self.decoder.buffer.len() {
             return None;
-        }
-        let mut r = BbiRawBlockDecoderItem{
+           }
+           let r = BbiRawBlockDecoderItem{
             decoder: self.decoder,
-            i      : self.i
-        };
+             i      : self.i
+        } ;
         match self.decoder.header.kind {
-            BbiTypeBedGraph => {
+            BBI_TYPE_BED_GRAPH => {
                 self.i += 12;
             }
-            BbiTypeVariable => {
+            BBI_TYPE_VARIABLE => {
                 self.i += 8;
             }
-            BbiTypeFixed => {
+            BBI_TYPE_FIXED => {
                 self.i += 4;
             }
             _ => panic!("Unsupported block type"),
@@ -418,26 +419,26 @@ impl<'a> Iterator for BbiRawBlockDecoderIterator<'a> {
 
 struct BbiRawBlockDecoderItem<'a> {
     decoder: &'a BbiRawBlockDecoder<'a>,
-    i      : usize,
+    i      : usize,   
 }
 
 impl<'a> BbiRawBlockDecoderItem<'a> {
-
-    fn read<E: ByteOrder>(&self) {
-        let mut r;
+ 
+    fn read<E: ByteOrder>(&self) -> BbiSummaryRecord { 
 
         match self.decoder.header.kind {
-            BbiTypeBedGraph => {
-                r = Some(self.decoder.read_bed_graph::<E>(self.i));
+            BBI_TYPE_BED_GRAPH => {
+                self.decoder.read_bed_graph::<E>(self.i)
             }
-            BbiTypeVariable => {
-                r = Some(self.decoder.read_variable::<E>(self.i));
+            BBI_TYPE_VARIABLE => {
+                self.decoder.read_variable::<E>(self.i)
             }
-            BbiTypeFixed => {
-                r = Some(self.decoder.read_fixed::<E>(self.i));
+            BBI_TYPE_FIXED => {
+                self.decoder.read_fixed::<E>(self.i)
             }
             _ => panic!("Unsupported block type"),
         }
+
     }
 
 }
