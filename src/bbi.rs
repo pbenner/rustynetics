@@ -291,6 +291,34 @@ struct BbiRawBlockDecoderIterator<'a> {
 
 /* -------------------------------------------------------------------------- */
 
+struct BbiRawBlockDecoderItem<'a> {
+    header: &'a BbiDataHeader,
+    buffer: &'a [u8],
+    i     : usize
+}
+
+impl<'a> BbiRawBlockDecoderItem<'a> {
+ 
+    fn read<E: ByteOrder>(&self) -> BbiSummaryRecord { 
+
+        match self.header.kind {
+            BBI_TYPE_BED_GRAPH => {
+                BbiRawBlockDecoder::read_bed_graph::<E>(self.header, self.buffer)
+            }
+            BBI_TYPE_VARIABLE => {
+                BbiRawBlockDecoder::read_variable::<E>(self.header, self.buffer)
+            }
+            BBI_TYPE_FIXED => {
+                BbiRawBlockDecoder::read_fixed::<E>(self.header, self.buffer, self.i)
+            }
+            _ => panic!("Unsupported block type"),
+        }
+
+    }
+
+}
+/* -------------------------------------------------------------------------- */
+
 trait BbiBlockDecoder {
     fn decode(&mut self) -> impl Iterator<Item = BbiRawBlockDecoderItem>;
 }
@@ -335,42 +363,42 @@ impl<'a> BbiRawBlockDecoder<'a> {
         Ok(decoder)
     }
 
-    fn read_fixed<E: ByteOrder>(&self, i: usize) -> BbiSummaryRecord {
+    fn read_fixed<E: ByteOrder>(header: &BbiDataHeader, buffer: &[u8], i: usize) -> BbiSummaryRecord {
         let mut record = BbiSummaryRecord::new();
 
-        record.chrom_id               = self.header.chrom_id as i32;
-        record.from                   = (self.header.start + (i as u32 / 4) * self.header.step) as i32;
-        record.to                     = record.from + self.header.span as i32;
+        record.chrom_id               = header.chrom_id as i32;
+        record.from                   = (header.start + (i as u32 / 4) * header.step) as i32;
+        record.to                     = record.from + header.span as i32;
         record.statistics.valid       = 1.0;
-        record.statistics.sum         = f32::from_bits(E::read_u32(&self.buffer[i..i + 4])) as f64;
+        record.statistics.sum         = f32::from_bits(E::read_u32(&buffer[0..4])) as f64;
         record.statistics.sum_squares = record.statistics.sum * record.statistics.sum;
         record.statistics.min         = record.statistics.sum;
         record.statistics.max         = record.statistics.sum;
         record
     }
 
-    fn read_variable<E: ByteOrder>(&self, i: usize) -> BbiSummaryRecord {
+    fn read_variable<E: ByteOrder>(header: &BbiDataHeader, buffer: &[u8]) -> BbiSummaryRecord {
         let mut record = BbiSummaryRecord::new();
 
-        record.chrom_id               = self.header.chrom_id as i32;
-        record.from                   = E::read_u32(&self.buffer[i..i + 4]) as i32;
-        record.to                     = record.from + self.header.span as i32;
+        record.chrom_id               = header.chrom_id as i32;
+        record.from                   = E::read_u32(&buffer[0..4]) as i32;
+        record.to                     = record.from + header.span as i32;
         record.statistics.valid       = 1.0;
-        record.statistics.sum         = f32::from_bits(E::read_u32(&self.buffer[i + 4..i + 8])) as f64;
+        record.statistics.sum         = f32::from_bits(E::read_u32(&buffer[4..8])) as f64;
         record.statistics.sum_squares = record.statistics.sum * record.statistics.sum;
         record.statistics.min         = record.statistics.sum;
         record.statistics.max         = record.statistics.sum;
         record
     }
 
-    fn read_bed_graph<E: ByteOrder>(&self, i: usize) -> BbiSummaryRecord {
+    fn read_bed_graph<E: ByteOrder>(header: &BbiDataHeader, buffer: &[u8]) -> BbiSummaryRecord {
         let mut record = BbiSummaryRecord::new();
 
-        record.chrom_id               = self.header.chrom_id as i32;
-        record.from                   = E::read_u32(&self.buffer[i..i + 4    ]) as i32;
-        record.to                     = E::read_u32(&self.buffer[i + 4..i + 8]) as i32;
+        record.chrom_id               = header.chrom_id as i32;
+        record.from                   = E::read_u32(&buffer[0..4]) as i32;
+        record.to                     = E::read_u32(&buffer[4..8]) as i32;
         record.statistics.valid       = 1.0;
-        record.statistics.sum         = f32::from_bits(E::read_u32(&self.buffer[i + 8..i + 12])) as f64;
+        record.statistics.sum         = f32::from_bits(E::read_u32(&buffer[8..12])) as f64;
         record.statistics.sum_squares = record.statistics.sum * record.statistics.sum;
         record.statistics.min         = record.statistics.sum;
         record.statistics.max         = record.statistics.sum;
@@ -382,7 +410,8 @@ impl<'a> BbiBlockDecoder for BbiRawBlockDecoder<'a> {
     fn decode(&mut self) -> impl Iterator<Item = BbiRawBlockDecoderItem> {
         BbiRawBlockDecoderIterator {
             decoder: self,
-            i      : 0        }
+            i      : 0
+        }
     }
 }
 
@@ -394,51 +423,36 @@ impl<'a> Iterator for BbiRawBlockDecoderIterator<'a> {
 
         if self.i >= self.decoder.buffer.len() {
             return None;
-           }
-           let r = BbiRawBlockDecoderItem{
-            decoder: self.decoder,
-             i      : self.i
-        } ;
+        }
+        let r;
+
         match self.decoder.header.kind {
             BBI_TYPE_BED_GRAPH => {
+                r = BbiRawBlockDecoderItem{
+                    header: &self.decoder.header,
+                    buffer: &self.decoder.buffer[self.i..self.i+12],
+                    i     :  self.i,
+                };
                 self.i += 12;
             }
             BBI_TYPE_VARIABLE => {
+                r = BbiRawBlockDecoderItem{
+                    header: &self.decoder.header,
+                    buffer: &self.decoder.buffer[self.i..self.i+8],
+                    i     :  self.i,
+                };
                 self.i += 8;
             }
             BBI_TYPE_FIXED => {
+                r = BbiRawBlockDecoderItem{
+                    header: &self.decoder.header,
+                    buffer: &self.decoder.buffer[self.i..self.i+4],
+                    i     :  self.i,
+                };
                 self.i += 4;
             }
             _ => panic!("Unsupported block type"),
         }
         Some(r)
     }
-}
-
-/* -------------------------------------------------------------------------- */
-
-struct BbiRawBlockDecoderItem<'a> {
-    decoder: &'a BbiRawBlockDecoder<'a>,
-    i      : usize,   
-}
-
-impl<'a> BbiRawBlockDecoderItem<'a> {
- 
-    fn read<E: ByteOrder>(&self) -> BbiSummaryRecord { 
-
-        match self.decoder.header.kind {
-            BBI_TYPE_BED_GRAPH => {
-                self.decoder.read_bed_graph::<E>(self.i)
-            }
-            BBI_TYPE_VARIABLE => {
-                self.decoder.read_variable::<E>(self.i)
-            }
-            BBI_TYPE_FIXED => {
-                self.decoder.read_fixed::<E>(self.i)
-            }
-            _ => panic!("Unsupported block type"),
-        }
-
-    }
-
 }
