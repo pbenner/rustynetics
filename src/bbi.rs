@@ -454,18 +454,18 @@ impl<'a> BbiRawBlockDecoder<'a> {
 /* -------------------------------------------------------------------------- */
 
 struct BData {
-    key_size: u32,
-    value_size: u32,
+    key_size       : u32,
+    value_size     : u32,
     items_per_block: u32,
-    item_count: u64,
-    keys: Vec<Vec<u8>>,
-    values: Vec<Vec<u8>>,
+    item_count     : u64,
+    keys           : Vec<Vec<u8>>,
+    values         : Vec<Vec<u8>>,
 }
 
 /* -------------------------------------------------------------------------- */
 
 struct BVertex {
-    is_leaf: u8,
+    is_leaf : u8,
     keys    : Vec<Vec<u8>>,
     values  : Vec<Vec<u8>>,
     children: Vec<BVertex>,
