@@ -14,7 +14,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-use std::io::{Read, Seek, Write};
+use std::io::{self, Read, Seek, Write};
 use std::io::Cursor;
 use std::io::SeekFrom;
 
@@ -451,12 +451,155 @@ impl<'a> BbiRawBlockDecoder<'a> {
     }
 }
 
-impl<'a> BbiBlockDecoder for BbiRawBlockDecoder<'a> {
-    fn decode(&mut self) -> impl Iterator<Item = BbiRawBlockDecoderItem> {
-        BbiRawBlockDecoderIterator {
-            decoder: self,
-            i      : 0
+/* -------------------------------------------------------------------------- */
+
+struct BData {
+    key_size: u32,
+    value_size: u32,
+    items_per_block: u32,
+    item_count: u64,
+    keys: Vec<Vec<u8>>,
+    values: Vec<Vec<u8>>,
+}
+
+/* -------------------------------------------------------------------------- */
+
+struct BVertex {
+    is_leaf: u8,
+    keys    : Vec<Vec<u8>>,
+    values  : Vec<Vec<u8>>,
+    children: Vec<BVertex>,
+}
+
+/* -------------------------------------------------------------------------- */
+
+impl BVertex {
+    fn build_tree(&mut self, data: &BData, from: usize, to: usize, level: i32) -> Result<usize, String> {
+        let mut i = 0;
+        if level == 0 {
+            self.is_leaf = 1;
+            while i < data.items_per_block as usize && from + i < to {
+                if data.keys[from + i].len() != data.key_size as usize {
+                    return Err(format!("key number `{}` has invalid size", i));
+                }
+                if data.values[from + i].len() != data.value_size as usize {
+                    return Err(format!("value number `{}` has invalid size", i));
+                }
+                self.keys.push(data.keys[from + i].clone());
+                self.values.push(data.values[from + i].clone());
+                i += 1;
+            }
+        } else {
+            self.is_leaf = 0;
+            while i < data.items_per_block as usize && from + i < to {
+                self.keys.push(data.keys[from + i].clone());
+                let mut child = BVertex {
+                    is_leaf: 0,
+                    keys: Vec::new(),
+                    values: Vec::new(),
+                    children: Vec::new(),
+                };
+                let j = child.build_tree(data, from + i, to, level - 1)?;
+                self.children.push(child);
+                i += j as usize;
+            }
+        }
+        Ok(i)
+    }
+
+    fn write_leaf<E: ByteOrder, W: Write>(&self, writer: &mut W) -> io::Result<()> {
+        let padding = 0u8;
+        let n_vals = self.keys.len() as u16;
+
+        writer.write_u8(self.is_leaf)?;
+        writer.write_u8(padding)?;
+        writer.write_u16::<E>(n_vals)?;
+        for i in 0..self.keys.len() {
+            writer.write_all(&self.keys[i])?;
+            writer.write_all(&self.values[i])?;
+        }
+        Ok(())
+    }
+
+    fn write_index<E: ByteOrder, W: Write + Seek>(&self, writer: &mut W) -> io::Result<()> {
+        let is_leaf = 0u8;
+        let padding = 0u8;
+        let n_vals = self.keys.len() as u16;
+        let mut offsets = Vec::new();
+
+        writer.write_u8(is_leaf)?;
+        writer.write_u8(padding)?;
+        writer.write_u16::<byteorder::LittleEndian>(n_vals)?;
+        for i in 0..self.keys.len() {
+            writer.write_all(&self.keys[i])?;
+            offsets.push(writer.seek(io::SeekFrom::Current(0))?);
+            writer.write_u64::<byteorder::LittleEndian>(0)?;
+        }
+        for i in 0..self.keys.len() {
+            let offset = writer.seek(io::SeekFrom::Current(0))? as u64;
+            writer.seek(io::SeekFrom::Start(offsets[i]))?;
+            writer.write_u64::<E>(offset)?;
+            writer.seek(io::SeekFrom::Start(offset))?;
+            self.children[i].write::<E, W>(writer)?;
+        }
+        Ok(())
+    }
+
+    fn write<E: ByteOrder, W: Write + Seek>(&self, writer: &mut W) -> io::Result<()> {
+        if self.is_leaf != 0 {
+            self.write_leaf::<E, W>(writer)
+        } else {
+            self.write_index::<E, W>(writer)
         }
     }
 }
 
+/* -------------------------------------------------------------------------- */
+
+struct BTree {
+    key_size       : u32,
+    value_size     : u32,
+    items_per_block: u32,
+    item_count     : u64,
+    root           : BVertex,
+}
+
+/* -------------------------------------------------------------------------- */
+
+impl BTree {
+
+    fn new(data: &BData) -> Self {
+        let mut tree = BTree {
+            key_size: data.key_size,
+            value_size: data.value_size,
+            items_per_block: data.items_per_block,
+            item_count: data.item_count,
+            root: BVertex {
+                is_leaf : 0,
+                keys    : Vec::new(),
+                values  : Vec::new(),
+                children: Vec::new(),
+            },
+        };
+        if data.item_count == 1 {
+            tree.root.build_tree(data, 0, data.item_count as usize, 0).unwrap();
+        } else {
+            let d = ((data.item_count as f64).log(data.items_per_block as f64).ceil()) as i32;
+            tree.root.build_tree(data, 0, data.item_count as usize, d - 1).unwrap();
+        }
+        tree
+    }
+
+    fn write<E: ByteOrder, W: Write+Seek>(&self, writer: &mut W) -> io::Result<()> {
+        let magic = CIRTREE_MAGIC;
+
+        writer.write_u32::<E>(magic)?;
+        writer.write_u32::<E>(self.items_per_block)?;
+        writer.write_u32::<E>(self.key_size)?;
+        writer.write_u32::<E>(self.value_size)?;
+        writer.write_u64::<E>(self.item_count)?;
+        writer.write_u64::<E>(0)?;
+        self.root.write::<E, W>(writer)?;
+        Ok(())
+    }
+}
