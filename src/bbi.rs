@@ -141,11 +141,22 @@ struct BbiSummaryStatistics {
 /* -------------------------------------------------------------------------- */
 
 impl BbiSummaryStatistics {
+
+    fn new() -> Self {
+        BbiSummaryStatistics {
+            valid      : 0.0,
+            min        : f64::INFINITY,
+            max        : f64::NEG_INFINITY,
+            sum        : 0.0,
+            sum_squares: 0.0,
+        }
+    }
+
     fn reset(&mut self) {
-        self.valid = 0.0;
-        self.min = f64::INFINITY;
-        self.max = f64::NEG_INFINITY;
-        self.sum = 0.0;
+        self.valid       = 0.0;
+        self.min         = f64::INFINITY;
+        self.max         = f64::NEG_INFINITY;
+        self.sum         = 0.0;
         self.sum_squares = 0.0;
     }
 
@@ -153,10 +164,10 @@ impl BbiSummaryStatistics {
         if x.is_nan() {
             return;
         }
-        self.valid += 1.0;
-        self.min = self.min.min(x);
-        self.max = self.max.max(x);
-        self.sum += x;
+        self.valid       += 1.0;
+        self.min          = self.min.min(x);
+        self.max          = self.max.max(x);
+        self.sum         += x;
         self.sum_squares += x * x;
     }
 
@@ -184,16 +195,10 @@ struct BbiSummaryRecord {
 impl BbiSummaryRecord {
     fn new() -> BbiSummaryRecord {
         BbiSummaryRecord {
-            chrom_id: -1,
-            from: 0,
-            to: 0,
-            statistics: BbiSummaryStatistics {
-                valid: 0.0,
-                min: f64::INFINITY,
-                max: f64::NEG_INFINITY,
-                sum: 0.0,
-                sum_squares: 0.0,
-            },
+            chrom_id  : -1,
+            from      :  0,
+            to        :  0,
+            statistics: BbiSummaryStatistics::new(),
         }
     }
 
