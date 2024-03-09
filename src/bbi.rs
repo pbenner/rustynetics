@@ -284,13 +284,6 @@ impl BbiDataHeader {
 
 /* -------------------------------------------------------------------------- */
 
-struct BbiRawBlockDecoderIterator<'a> {
-    decoder: &'a BbiRawBlockDecoder<'a>,
-    i      : usize,
-}
-
-/* -------------------------------------------------------------------------- */
-
 struct BbiRawBlockDecoderItem<'a> {
     header: &'a BbiDataHeader,
     buffer: &'a [u8],
@@ -317,6 +310,58 @@ impl<'a> BbiRawBlockDecoderItem<'a> {
     }
 
 }
+
+/* -------------------------------------------------------------------------- */
+
+struct BbiRawBlockDecoderIterator<'a> {
+    decoder: &'a BbiRawBlockDecoder<'a>,
+    i      : usize,
+}
+
+/* -------------------------------------------------------------------------- */
+
+impl<'a> Iterator for BbiRawBlockDecoderIterator<'a> {
+
+    type Item = BbiRawBlockDecoderItem<'a>;
+
+    fn next(&mut self) -> Option<Self::Item>{
+
+        if self.i >= self.decoder.buffer.len() {
+            return None;
+        }
+        let r;
+
+        match self.decoder.header.kind {
+            BBI_TYPE_BED_GRAPH => {
+                r = BbiRawBlockDecoderItem{
+                    header: &self.decoder.header,
+                    buffer: &self.decoder.buffer[self.i..self.i+12],
+                    i     :  self.i,
+                };
+                self.i += 12;
+            }
+            BBI_TYPE_VARIABLE => {
+                r = BbiRawBlockDecoderItem{
+                    header: &self.decoder.header,
+                    buffer: &self.decoder.buffer[self.i..self.i+8],
+                    i     :  self.i,
+                };
+                self.i += 8;
+            }
+            BBI_TYPE_FIXED => {
+                r = BbiRawBlockDecoderItem{
+                    header: &self.decoder.header,
+                    buffer: &self.decoder.buffer[self.i..self.i+4],
+                    i     :  self.i,
+                };
+                self.i += 4;
+            }
+            _ => panic!("Unsupported block type"),
+        }
+        Some(r)
+    }
+}
+
 /* -------------------------------------------------------------------------- */
 
 trait BbiBlockDecoder {
@@ -415,44 +460,3 @@ impl<'a> BbiBlockDecoder for BbiRawBlockDecoder<'a> {
     }
 }
 
-impl<'a> Iterator for BbiRawBlockDecoderIterator<'a> {
-
-    type Item = BbiRawBlockDecoderItem<'a>;
-
-    fn next(&mut self) -> Option<Self::Item>{
-
-        if self.i >= self.decoder.buffer.len() {
-            return None;
-        }
-        let r;
-
-        match self.decoder.header.kind {
-            BBI_TYPE_BED_GRAPH => {
-                r = BbiRawBlockDecoderItem{
-                    header: &self.decoder.header,
-                    buffer: &self.decoder.buffer[self.i..self.i+12],
-                    i     :  self.i,
-                };
-                self.i += 12;
-            }
-            BBI_TYPE_VARIABLE => {
-                r = BbiRawBlockDecoderItem{
-                    header: &self.decoder.header,
-                    buffer: &self.decoder.buffer[self.i..self.i+8],
-                    i     :  self.i,
-                };
-                self.i += 8;
-            }
-            BBI_TYPE_FIXED => {
-                r = BbiRawBlockDecoderItem{
-                    header: &self.decoder.header,
-                    buffer: &self.decoder.buffer[self.i..self.i+4],
-                    i     :  self.i,
-                };
-                self.i += 4;
-            }
-            _ => panic!("Unsupported block type"),
-        }
-        Some(r)
-    }
-}
