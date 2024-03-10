@@ -460,6 +460,47 @@ impl<'a> BbiRawBlockDecoder<'a> {
 
 /* -------------------------------------------------------------------------- */
 
+struct BbiZoomBlockDecoderType(BbiSummaryRecord);
+
+/* -------------------------------------------------------------------------- */
+
+impl BbiZoomBlockDecoderType {
+
+    fn new() -> BbiZoomBlockDecoderType {
+        BbiZoomBlockDecoderType(
+            BbiSummaryRecord::new()
+        )
+    }
+
+    fn read<E: ByteOrder, T: Read + Seek>(&mut self, reader: &mut T) -> Result<(), io::Error> {
+        self.chrom_id               = reader.read_i32::<E>()?;
+        self.from                   = reader.read_i32::<E>()?;
+        self.to                     = reader.read_i32::<E>()?;
+        self.statistics.valid       = reader.read_f64::<E>()?;
+        self.statistics.min         = reader.read_f64::<E>()?;
+        self.statistics.max         = reader.read_f64::<E>()?;
+        self.statistics.sum         = reader.read_f64::<E>()?;
+        self.statistics.sum_squares = reader.read_f64::<E>()?;
+        Ok(())
+    }
+}
+
+impl std::ops::Deref for BbiZoomBlockDecoderType {
+    type Target = BbiSummaryRecord;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl std::ops::DerefMut for BbiZoomBlockDecoderType {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+
 struct BbiZoomBlockDecoder<'a> {
     buffer: &'a [u8],
 }
@@ -474,27 +515,13 @@ impl<'a> BbiZoomBlockDecoder<'a> {
     }
 
     fn decode(&self) -> BbiZoomBlockDecoderIterator {
-        let mut reader   = Cursor::new(self.buffer);
-        let mut iterator = BbiZoomBlockDecoderIterator {
+        let reader   = Cursor::new(self.buffer);
+        let iterator = BbiZoomBlockDecoderIterator {
             decoder : self,
             reader  : reader,
             ok      : true
         };
         iterator
-    }
-
-    fn read<E: ByteOrder, T: Read + Seek>(reader: &mut T) -> Result<BbiSummaryRecord, io::Error> {
-        let mut record = BbiSummaryRecord::new();
-
-        record.chrom_id               = reader.read_i32::<E>()?;
-        record.from                   = reader.read_i32::<E>()?;
-        record.to                     = reader.read_i32::<E>()?;
-        record.statistics.valid       = reader.read_f64::<E>()?;
-        record.statistics.min         = reader.read_f64::<E>()?;
-        record.statistics.max         = reader.read_f64::<E>()?;
-        record.statistics.sum         = reader.read_f64::<E>()?;
-        record.statistics.sum_squares = reader.read_f64::<E>()?;
-        Ok(record)
     }
 }
 
@@ -511,14 +538,16 @@ struct BbiZoomBlockDecoderIterator<'a> {
 
 impl<'a> BbiZoomBlockDecoderIterator<'a> {
  
-    fn read<E: ByteOrder>(&mut self) -> Result<BbiSummaryRecord, io::Error> { 
+    fn read<E: ByteOrder>(&mut self) -> Result<BbiZoomBlockDecoderType, io::Error> { 
 
-        let r = BbiZoomBlockDecoder::read::<E, Cursor<&[u8]>>(&mut self.reader);
+        let mut r = BbiZoomBlockDecoderType::new();
 
-        if r.is_err() {
+        if let Err(v) = r.read::<E, Cursor<&[u8]>>(&mut self.reader) {
             self.ok = false;
+            Err(v)
+        } else {
+            Ok(r)
         }
-        r
     }
 
 }
