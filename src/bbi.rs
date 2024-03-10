@@ -268,21 +268,21 @@ impl BbiDataHeader {
         self.end        = cursor.read_u32::<E>().unwrap();
         self.step       = cursor.read_u32::<E>().unwrap();
         self.span       = cursor.read_u32::<E>().unwrap();
-        self.kind       = cursor.read_u8().unwrap();
-        self.reserved   = cursor.read_u8().unwrap();
+        self.kind       = cursor.read_u8      ().unwrap();
+        self.reserved   = cursor.read_u8      ().unwrap();
         self.item_count = cursor.read_u16::<E>().unwrap();
     }
 
     fn write_buffer<E: ByteOrder>(&self, buffer: &mut [u8]) {
         let mut cursor = Cursor::new(buffer);
 
-        cursor.write_u32::<E>(self.chrom_id).unwrap();
-        cursor.write_u32::<E>(self.start).unwrap();
-        cursor.write_u32::<E>(self.end).unwrap();
-        cursor.write_u32::<E>(self.step).unwrap();
-        cursor.write_u32::<E>(self.span).unwrap();
-        cursor.write_u8(self.kind).unwrap();
-        cursor.write_u8(self.reserved).unwrap();
+        cursor.write_u32::<E>(self.chrom_id  ).unwrap();
+        cursor.write_u32::<E>(self.start     ).unwrap();
+        cursor.write_u32::<E>(self.end       ).unwrap();
+        cursor.write_u32::<E>(self.step      ).unwrap();
+        cursor.write_u32::<E>(self.span      ).unwrap();
+        cursor.write_u8      (self.kind      ).unwrap();
+        cursor.write_u8      (self.reserved  ).unwrap();
         cursor.write_u16::<E>(self.item_count).unwrap();
     }
 }
@@ -294,6 +294,8 @@ struct BbiRawBlockDecoderItem<'a> {
     buffer: &'a [u8],
     i     : usize
 }
+
+/* -------------------------------------------------------------------------- */
 
 impl<'a> BbiRawBlockDecoderItem<'a> {
  
@@ -329,7 +331,7 @@ impl<'a> Iterator for BbiRawBlockDecoderIterator<'a> {
 
     type Item = BbiRawBlockDecoderItem<'a>;
 
-    fn next(&mut self) -> Option<Self::Item>{
+    fn next(&mut self) -> Option<Self::Item> {
 
         if self.i >= self.decoder.buffer.len() {
             return None;
@@ -453,6 +455,86 @@ impl<'a> BbiRawBlockDecoder<'a> {
         record.statistics.min         = record.statistics.sum;
         record.statistics.max         = record.statistics.sum;
         record
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+
+struct BbiZoomBlockDecoder<'a> {
+    buffer: &'a [u8],
+}
+
+/* -------------------------------------------------------------------------- */
+
+impl<'a> BbiZoomBlockDecoder<'a> {
+    fn new(buffer: &'a [u8]) -> BbiZoomBlockDecoder<'a> {
+        BbiZoomBlockDecoder {
+            buffer,
+        }
+    }
+
+    fn decode(&self) -> BbiZoomBlockDecoderIterator {
+        let mut reader   = Cursor::new(self.buffer);
+        let mut iterator = BbiZoomBlockDecoderIterator {
+            decoder : self,
+            reader  : reader,
+            ok      : true
+        };
+        iterator
+    }
+
+    fn read<E: ByteOrder, T: Read + Seek>(reader: &mut T) -> Result<BbiSummaryRecord, io::Error> {
+        let mut record = BbiSummaryRecord::new();
+
+        record.chrom_id               = reader.read_i32::<E>()?;
+        record.from                   = reader.read_i32::<E>()?;
+        record.to                     = reader.read_i32::<E>()?;
+        record.statistics.valid       = reader.read_f64::<E>()?;
+        record.statistics.min         = reader.read_f64::<E>()?;
+        record.statistics.max         = reader.read_f64::<E>()?;
+        record.statistics.sum         = reader.read_f64::<E>()?;
+        record.statistics.sum_squares = reader.read_f64::<E>()?;
+        Ok(record)
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+
+#[derive(Clone)]
+struct BbiZoomBlockDecoderIterator<'a> {
+    decoder : &'a BbiZoomBlockDecoder<'a>,
+    reader  : Cursor<&'a [u8]>,
+    ok      : bool
+}
+
+/* -------------------------------------------------------------------------- */
+
+impl<'a> BbiZoomBlockDecoderIterator<'a> {
+ 
+    fn read<E: ByteOrder>(&mut self) -> Result<BbiSummaryRecord, io::Error> { 
+
+        let r = BbiZoomBlockDecoder::read::<E, Cursor<&[u8]>>(&mut self.reader);
+
+        if r.is_err() {
+            self.ok = false;
+        }
+        r
+    }
+
+}
+
+/* -------------------------------------------------------------------------- */
+
+impl<'a> Iterator for BbiZoomBlockDecoderIterator<'a> {
+
+    type Item = BbiZoomBlockDecoderIterator<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.ok {
+            Some(self.clone())
+        } else {
+            None
+        }
     }
 }
 
