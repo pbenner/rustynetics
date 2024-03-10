@@ -289,29 +289,29 @@ impl BbiDataHeader {
 
 /* -------------------------------------------------------------------------- */
 
-struct BbiRawBlockDecoderItem<'a> {
-    header: &'a BbiDataHeader,
-    buffer: &'a [u8],
-    i     : usize
+#[derive(Clone)]
+struct BbiRawBlockDecoderIterator<'a> {
+    decoder : &'a BbiRawBlockDecoder<'a>,
+    position: usize
 }
 
 /* -------------------------------------------------------------------------- */
 
-impl<'a> BbiRawBlockDecoderItem<'a> {
+impl<'a> BbiRawBlockDecoderIterator<'a> {
  
     fn read<E: ByteOrder>(&self) -> BbiRawBlockDecoderType { 
 
         let mut r = BbiRawBlockDecoderType::new();
 
-        match self.header.kind {
+        match self.decoder.header.kind {
             BBI_TYPE_BED_GRAPH => {
-                r.read_bed_graph::<E>(self.header, self.buffer)
+                r.read_bed_graph::<E>(&self.decoder.header, &self.decoder.buffer[self.position-12..self.position])
             }
             BBI_TYPE_VARIABLE => {
-                r.read_variable::<E>(self.header, self.buffer)
+                r.read_variable::<E>(&self.decoder.header, &self.decoder.buffer[self.position-8..self.position])
             }
             BBI_TYPE_FIXED => {
-                r.read_fixed::<E>(self.header, self.buffer, self.i)
+                r.read_fixed::<E>(&self.decoder.header, &self.decoder.buffer[self.position-4..self.position], self.position-4)
             }
             _ => panic!("Unsupported block type"),
         }
@@ -320,54 +320,29 @@ impl<'a> BbiRawBlockDecoderItem<'a> {
 
 }
 
-/* -------------------------------------------------------------------------- */
-
-struct BbiRawBlockDecoderIterator<'a> {
-    decoder: &'a BbiRawBlockDecoder<'a>,
-    i      : usize,
-}
-
-/* -------------------------------------------------------------------------- */
-
 impl<'a> Iterator for BbiRawBlockDecoderIterator<'a> {
 
-    type Item = BbiRawBlockDecoderItem<'a>;
+    type Item = Self;
 
     fn next(&mut self) -> Option<Self::Item> {
 
-        if self.i >= self.decoder.buffer.len() {
+        if self.position >= self.decoder.buffer.len() {
             return None;
         }
-        let r;
 
         match self.decoder.header.kind {
             BBI_TYPE_BED_GRAPH => {
-                r = BbiRawBlockDecoderItem{
-                    header: &self.decoder.header,
-                    buffer: &self.decoder.buffer[self.i..self.i+12],
-                    i     :  self.i,
-                };
-                self.i += 12;
+                self.position += 12;
             }
             BBI_TYPE_VARIABLE => {
-                r = BbiRawBlockDecoderItem{
-                    header: &self.decoder.header,
-                    buffer: &self.decoder.buffer[self.i..self.i+8],
-                    i     :  self.i,
-                };
-                self.i += 8;
+                self.position += 8;
             }
             BBI_TYPE_FIXED => {
-                r = BbiRawBlockDecoderItem{
-                    header: &self.decoder.header,
-                    buffer: &self.decoder.buffer[self.i..self.i+4],
-                    i     :  self.i,
-                };
-                self.i += 4;
+                self.position += 4;
             }
             _ => panic!("Unsupported block type"),
         }
-        Some(r)
+        Some(self.clone())
     }
 }
 
@@ -576,19 +551,17 @@ impl<'a> BbiZoomBlockDecoderIterator<'a> {
 
 impl<'a> Iterator for BbiZoomBlockDecoderIterator<'a> {
 
-    type Item = BbiZoomBlockDecoderIterator<'a>;
+    type Item = Self;
 
     fn next(&mut self) -> Option<Self::Item> {
 
-        if self.position < self.decoder.buffer.len() {
-
-            self.position += BbiZoomBlockDecoderType::LENGTH;
-
-            Some(self.clone())
-        } else {
-            None
+        if self.position >= self.decoder.buffer.len() {
+            return None
         }
 
+        self.position += BbiZoomBlockDecoderType::LENGTH;
+
+        Some(self.clone())
     }
 }
 
