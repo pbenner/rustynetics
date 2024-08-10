@@ -37,11 +37,11 @@ const BBI_TYPE_BED_GRAPH : u8    = 1;
 
 /* -------------------------------------------------------------------------- */
 
-fn file_read_at<T: Read + Seek>(file: &mut T, offset: u64) -> Result<Vec<u8>, std::io::Error> {
+fn file_read_at<T: Read + Seek>(file: &mut T, offset: u64, data: &mut [u8]) -> Result<Vec<u8>, std::io::Error> {
     let current_position = file.seek(SeekFrom::Current(0))?;
     file.seek(SeekFrom::Start(offset))?;
     let mut buffer = Vec::new();
-    file.read_to_end(&mut buffer)?;
+    file.read_exact(data)?;
     file.seek(SeekFrom::Start(current_position))?;
     Ok(buffer)
 }
@@ -822,3 +822,109 @@ impl BData {
         tree.write::<E, W>(file)
     }
 }
+
+/* -------------------------------------------------------------------------- */
+
+#[derive(Default)]
+struct BbiHeaderZoom {
+    reduction_level : u32,
+    reserved        : u32,
+    data_offset     : u64,
+    index_offset    : u64,
+    n_blocks        : u32,
+    ptr_data_offset : u64,
+    ptr_index_offset: u64,
+}
+
+/* -------------------------------------------------------------------------- */
+
+impl BbiHeaderZoom {
+    fn read<E: ByteOrder, R: Read + Seek>(&mut self, file: &mut R) -> std::io::Result<()> {
+        let mut buf = [0u8; 4];
+
+        self.reduction_level = file.read_u32::<E>()?;
+        self.reserved = file.read_u32::<E>()?;
+
+        self.ptr_data_offset = file.seek(SeekFrom::Current(0))?;
+        self.data_offset = file.read_u64::<E>()?;
+
+        self.ptr_index_offset = file.seek(SeekFrom::Current(0))?;
+        self.index_offset = file.read_u64::<E>()?;
+
+        file_read_at(file, self.data_offset, &mut buf)?;
+        self.n_blocks = E::read_u32(&buf);
+
+        Ok(())
+    }
+
+    fn write<E: ByteOrder, W: Write + Seek>(&mut self, file: &mut W) -> std::io::Result<()> {
+        file.write_u32::<E>(self.reduction_level)?;
+        file.write_u32::<E>(self.reserved)?;
+
+        self.ptr_data_offset = file.seek(SeekFrom::Current(0))?;
+        file.write_u64::<E>(self.data_offset)?;
+
+        self.ptr_index_offset = file.seek(SeekFrom::Current(0))?;
+        file.write_u64::<E>(self.index_offset)?;
+
+        Ok(())
+    }
+
+    fn write_offsets<E: ByteOrder, W: Write + Seek>(&self, file: &mut W) -> std::io::Result<()> {
+        let mut buf = [0u8; 4];
+
+        if self.ptr_data_offset != 0 {
+            E::write_u64(&mut buf, self.data_offset);
+
+            file_write_at(file, self.ptr_data_offset, &buf)?;
+        }
+        if self.ptr_index_offset != 0 {
+            E::write_u64(&mut buf, self.index_offset);
+
+            file_write_at(file, self.ptr_index_offset, &buf)?;
+        }
+        Ok(())
+    }
+
+    fn write_n_blocks<E: ByteOrder, W: Write + Seek>(&self, file: &mut W) -> std::io::Result<()> {
+        let mut buf = [0u8; 4];
+
+        E::write_u32(&mut buf, self.n_blocks);
+
+        file_write_at(file, self.data_offset, &buf)
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+
+#[derive(Default)]
+struct BbiHeader {
+    magic                  : u32,
+    version                : u16,
+    zoom_levels            : u16,
+    ct_offset              : u64,
+    data_offset            : u64,
+    index_offset           : u64,
+    field_count            : u16,
+    defined_field_count    : u16,
+    sql_offset             : u64,
+    summary_offset         : u64,
+    uncompress_buf_size    : u32,
+    extension_offset       : u64,
+    n_bases_covered        : u64,
+    min_val                : f64,
+    max_val                : f64,
+    sum_data               : f64,
+    sum_squares            : f64,
+    zoom_headers           : Vec<BbiHeaderZoom>,
+    n_blocks               : u64,
+    ptr_ct_offset          : i64,
+    ptr_data_offset        : i64,
+    ptr_index_offset       : i64,
+    ptr_sql_offset         : i64,
+    ptr_summary_offset     : i64,
+    ptr_uncompress_buf_size: i64,
+    ptr_extension_offset   : i64,
+}
+
+/* -------------------------------------------------------------------------- */
