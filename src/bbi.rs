@@ -14,9 +14,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-use std::io::{self, Read, Seek, Write};
-use std::io::Cursor;
-use std::io::SeekFrom;
+use std::io::{self, Cursor, Read, Seek, SeekFrom, Write};
 
 use std::f32;
 use std::f64;
@@ -567,17 +565,6 @@ impl<'a> Iterator for BbiZoomBlockDecoderIterator<'a> {
 
 /* -------------------------------------------------------------------------- */
 
-struct BData {
-    key_size       : u32,
-    value_size     : u32,
-    items_per_block: u32,
-    item_count     : u64,
-    keys           : Vec<Vec<u8>>,
-    values         : Vec<Vec<u8>>,
-}
-
-/* -------------------------------------------------------------------------- */
-
 struct BVertex {
     is_leaf : u8,
     keys    : Vec<Vec<u8>>,
@@ -721,5 +708,117 @@ impl BTree {
         writer.write_u64::<E>(0)?;
         self.root.write::<E, W>(writer)?;
         Ok(())
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+
+struct BData {
+    key_size       : u32,
+    value_size     : u32,
+    items_per_block: u32,
+    item_count     : u64,
+    keys           : Vec<Vec<u8>>,
+    values         : Vec<Vec<u8>>,
+    ptr_keys       : Vec<i64>,
+    ptr_values     : Vec<i64>,
+}
+
+/* -------------------------------------------------------------------------- */
+
+impl BData {
+    fn new() -> Self {
+        BData {
+            key_size        : 0,
+            value_size      : 0,
+            items_per_block : 0,
+            item_count      : 0,
+            keys            : Vec::new(),
+            values          : Vec::new(),
+            ptr_keys        : Vec::new(),
+            ptr_values      : Vec::new(),
+        }
+    }
+
+    fn add(&mut self, key: Vec<u8>, value: Vec<u8>) -> Result<(), String> {
+        if key.len() as u32 != self.key_size {
+            return Err("BData.Add(): key has invalid length".to_string());
+        }
+        if value.len() as u32 != self.value_size {
+            return Err("BData.Add(): value has invalid length".to_string());
+        }
+        self.keys.push(key);
+        self.values.push(value);
+        self.items_per_block += 1;
+        self.item_count += 1;
+        Ok(())
+    }
+
+    fn read_vertex_leaf<E: ByteOrder, R: Read + Seek>(&mut self, file: &mut R) -> io::Result<()> {
+        let n_vals = file.read_u16::<E>()?;
+        for _ in 0..n_vals {
+            let mut key = vec![0; self.key_size as usize];
+            let mut value = vec![0; self.value_size as usize];
+
+            let ptr_key = file.seek(SeekFrom::Current(0))?;
+            file.read_exact(&mut key)?;
+            let ptr_value = file.seek(SeekFrom::Current(0))?;
+            file.read_exact(&mut value)?;
+
+            self.keys.push(key);
+            self.values.push(value);
+            self.ptr_keys.push(ptr_key as i64);
+            self.ptr_values.push(ptr_value as i64);
+        }
+        Ok(())
+    }
+
+    fn read_vertex_index<E: ByteOrder, R: Read + Seek>(&mut self, file: &mut R) -> io::Result<()> {
+        let n_vals = file.read_u16::<E>()?;
+        for _ in 0..n_vals {
+            let mut key = vec![0; self.key_size as usize];
+            let position = file.read_u64::<E>()?;
+
+            file.read_exact(&mut key)?;
+
+            // save current position and jump to child vertex
+            let current_position = file.seek(SeekFrom::Current(0))?;
+            file.seek(SeekFrom::Start(position as u64))?;
+            self.read_vertex::<E, R>(file)?;
+            file.seek(SeekFrom::Start(current_position))?;
+        }
+        Ok(())
+    }
+
+    fn read_vertex<E: ByteOrder, R: Read + Seek>(&mut self, file: &mut R) -> io::Result<()> {
+        let is_leaf = file.read_u8()?;
+        file.read_u8()?; // padding
+        if is_leaf != 0 {
+            self.read_vertex_leaf::<E, R>(file)
+        } else {
+            self.read_vertex_index::<E, R>(file)
+        }
+    }
+
+    fn read<E: ByteOrder, R: Read + Seek>(&mut self, file: &mut R) -> io::Result<()> {
+        let magic = file.read_u32::<E>()?;
+        if magic != CIRTREE_MAGIC {
+            return Err(io::Error::new(io::ErrorKind::InvalidData, "invalid tree"));
+        }
+
+        self.items_per_block = file.read_u32::<E>()?;
+        self.key_size = file.read_u32::<E>()?;
+        self.value_size = file.read_u32::<E>()?;
+        self.item_count = file.read_u64::<E>()?;
+
+        file.read_u32::<E>()?; // padding
+        file.read_u32::<E>()?; // padding
+
+        self.read_vertex::<E, R>(file)
+    }
+
+    fn write<E: ByteOrder, W: Write+Seek>(&self, file: &mut W) -> io::Result<()> {
+        let tree = BTree::new(self); // Assuming a `BTree` struct similar to `BData`
+        tree.write::<E, W>(file)
     }
 }
