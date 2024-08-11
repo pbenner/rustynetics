@@ -25,6 +25,8 @@ use flate2::Compression;
 use flate2::write::ZlibEncoder;
 use flate2::read::ZlibDecoder;
 
+use std::sync::mpsc::{channel, Receiver};
+
 /* -------------------------------------------------------------------------- */
 
 const CIRTREE_MAGIC      : u32   = 0x78ca8c91;
@@ -70,7 +72,7 @@ fn compress_slice(data: &[u8]) -> io::Result<Vec<u8>> {
 
 /* -------------------------------------------------------------------------- */
 
-#[derive(Debug)]
+#[derive(Default, Debug)]
 struct BbiZoomRecord {
     chrom_id   : u32,
     start      : u32,
@@ -560,6 +562,122 @@ impl<'a> Iterator for BbiZoomBlockDecoderIterator<'a> {
         self.position += BbiZoomBlockDecoderType::LENGTH;
 
         Some(self.clone())
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+
+#[derive(Default)]
+struct BbiZoomBlockEncoderType {
+    from : usize,
+    to   : usize,
+    block: Vec<u8>,
+}
+
+/* -------------------------------------------------------------------------- */
+
+struct BbiZoomBlockEncoder {
+    items_per_slot : usize,
+    tmp            : Vec<u8>,
+    reduction_level: usize,
+}
+
+struct BbiZoomBlockEncoderIterator {
+    encoder : Box<BbiZoomBlockEncoder>,
+    chrom_id: usize,
+    sequence: Vec<f64>,
+    bin_size: usize,
+    position: usize,
+    record  : BbiZoomRecord,
+}
+
+impl BbiZoomBlockEncoder {
+    fn new(items_per_slot: usize, reduction_level: usize) -> Self {
+        BbiZoomBlockEncoder {
+            items_per_slot,
+            tmp: Vec::new(),
+            reduction_level,
+        }
+    }
+
+    fn encode(&self, chrom_id: usize, sequence: Vec<f64>, bin_size: usize) -> BbiZoomBlockEncoderIterator {
+        BbiZoomBlockEncoderIterator {
+            encoder: Box::new(*self.clone()),
+            chrom_id,
+            sequence,
+            bin_size,
+            position: 0,
+            r: BbiZoomBlockEncoderType::default(),
+        }
+    }
+}
+
+impl BbiZoomBlockEncoderIterator {
+
+    fn write<E: ByteOrder>(&mut self) -> io::Result<BbiZoomBlockDecoderType> { 
+    }
+
+}
+
+impl Iterator for BbiZoomBlockEncoderIterator {
+
+    type Item = Self;
+
+    fn next(&mut self) -> Option<Self::Item> {
+
+        let n = (self.encoder.reduction_level + self.bin_size - 1) / self.bin_size;
+
+        let mut buffer = Cursor::new(Vec::new());
+        let mut f = -1;
+        let mut t = -1;
+        let mut m =  0;
+
+        for p in (self.position..self.bin_size * self.sequence.len()).step_by(self.encoder.reduction_level) {
+
+            let i = p / self.bin_size;
+            let mut record = BbiZoomRecord::default();
+
+            record.chrom_id = self.chrom_id as u32;
+            record.start    = p as u32;
+            record.end      = (p + self.encoder.reduction_level) as u32;
+            record.min      = f32::NAN;
+            record.max      = f32::NAN;
+
+            if record.end > (self.bin_size * self.sequence.len()) as u32 {
+                record.end = (self.bin_size * self.sequence.len()) as u32;
+            }
+
+            for j in 0..n {
+                if i + j < self.sequence.len() {
+                    record.add_value(self.sequence[i + j]);
+                }
+            }
+
+            if record.valid > 0 {
+                if f == -1 {
+                    f = record.start as isize;
+                }
+                t  = record.end as isize;
+                m += 1;
+            }
+
+            if m == self.encoder.items_per_slot || p + self.encoder.reduction_level >= self.bin_size * self.sequence.len() {
+
+                record.write(&mut buffer).expect("Writing to buffer failed");
+
+                if buffer.get_ref().len() > 0 {
+  
+                    self.position = p + self.encoder.reduction_level;
+                    
+                    return Some(BbiZoomBlockEncoderType{
+                        from : f as usize,
+                        to   : t as usize,
+                        block: *buffer.get_ref(),
+                    })
+                }
+            }
+        }
+        None
     }
 }
 
@@ -1420,6 +1538,83 @@ impl RVertex {
                 file.write_u64::<E>(self.data_offset[i])?;
                 self.children[i].write::<E, W>(file)?;
             }
+        }
+
+        Ok(())
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+
+struct RVertexGenerator {
+    block_size: usize,
+    items_per_slot: usize,
+}
+
+struct RVertexGeneratorType {
+    vertex: RVertex,
+    blocks: Vec<Vec<u8>>,
+}
+
+impl RVertexGenerator {
+    fn new(block_size: usize, items_per_slot: usize) -> Result<Self, String> {
+        if block_size == 0 {
+            return Err(format!("invalid block size `{}`", block_size));
+        }
+        if items_per_slot == 0 {
+            return Err(format!("invalid items per slot `{}`", items_per_slot));
+        }
+        Ok(RVertexGenerator {
+            block_size,
+            items_per_slot,
+        })
+    }
+
+    fn generate(&self, chrom_id: usize, sequence: &[f64], bin_size: usize, reduction_level: usize, fixed_step: bool) -> Receiver<RVertexGeneratorType> {
+        let (tx, rx) = channel();
+        let generator = self.clone();
+
+        std::thread::spawn(move || {
+            generator.generate_impl(tx, chrom_id, sequence, bin_size, reduction_level, fixed_step).unwrap();
+        });
+
+        rx
+    }
+
+    fn generate_impl(&self, tx: std::sync::mpsc::Sender<RVertexGeneratorType>, chrom_id: usize, sequence: &[f64], bin_size: usize, reduction_level: usize, fixed_step: bool) -> Result<(), String> {
+        let encoder: Box<dyn BbiBlockEncoder> = if reduction_level > bin_size {
+            Box::new(BbiZoomBlockEncoder::new(self.items_per_slot, reduction_level)?)
+        } else {
+            Box::new(BbiRawBlockEncoder::new(self.items_per_slot, fixed_step)?)
+        };
+
+        let mut vertex = RVertex::default();
+        vertex.is_leaf = 1;
+        let mut blocks = Vec::new();
+
+        let mut it = encoder.encode(chrom_id, sequence, bin_size);
+        while let Some(chunk) = it.next() {
+            if vertex.n_children as usize == self.block_size {
+                tx.send(RVertexGeneratorType { vertex, blocks }).unwrap();
+                vertex = RVertex::default();
+                vertex.is_leaf = 1;
+                blocks = Vec::new();
+            }
+            vertex.chr_idx_start  .push(chrom_id as u32);
+            vertex.chr_idx_end    .push(chrom_id as u32);
+            vertex.base_start     .push(chunk.from as u32);
+            vertex.base_end       .push(chunk.to as u32);
+            vertex.data_offset    .push(0);
+            vertex.sizes          .push(0);
+            vertex.ptr_data_offset.push(0);
+            vertex.ptr_sizes      .push(0);
+            vertex.n_children += 1;
+
+            blocks.push(chunk.block);
+        }
+
+        if vertex.n_children != 0 {
+            tx.send(RVertexGeneratorType { vertex, blocks }).unwrap();
         }
 
         Ok(())
