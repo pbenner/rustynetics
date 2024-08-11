@@ -54,14 +54,14 @@ fn file_write_at<T: Write + Seek>(file: &mut T, offset: u64, data: &[u8]) -> io:
     Ok(())
 }
 
-fn uncompress_slice(data: &[u8]) -> Result<Vec<u8>, std::io::Error> {
+fn uncompress_slice(data: &[u8]) -> io::Result<Vec<u8>> {
     let mut decoder = ZlibDecoder::new(data);
     let mut buffer = Vec::new();
     decoder.read_to_end(&mut buffer)?;
     Ok(buffer)
 }
 
-fn compress_slice(data: &[u8]) -> Result<Vec<u8>, std::io::Error> {
+fn compress_slice(data: &[u8]) -> io::Result<Vec<u8>> {
     let mut encoder = ZlibEncoder::new(Vec::new(), Compression::best());
     encoder.write_all(data)?;
     let compressed_data = encoder.finish()?;
@@ -1109,4 +1109,329 @@ impl BbiHeader {
 
         Ok(())
     }
+}
+
+/* -------------------------------------------------------------------------- */
+
+#[derive(Default)]
+struct RTree {
+    block_size      : u32,
+    n_items         : u64,
+    chr_idx_start   : u32,
+    base_start      : u32,
+    chr_idx_end     : u32,
+    base_end        : u32,
+    idx_size        : u64,
+    n_items_per_slot: u32,
+    root            : Option<Box<RVertex>>,
+    ptr_idx_size    : i64,
+}
+
+/* -------------------------------------------------------------------------- */
+
+impl RTree {
+    fn new() -> Self {
+        RTree {
+            block_size: 256,
+            n_items_per_slot: 1024,
+            ..Default::default()
+        }
+    }
+
+    fn is_nil(&self) -> bool {
+        self.block_size == 0
+    }
+
+    fn read<E: ByteOrder, W: Read + Seek>(&mut self, file: &mut W) -> io::Result<()> {
+        let magic = file.read_u32::<E>()?;
+        if magic != IDX_MAGIC {
+            return Err(io::Error::other("invalid bbi tree"));
+        }
+
+        self.block_size       = file.read_u32::<E>()?;
+        self.n_items          = file.read_u64::<E>()?;
+        self.chr_idx_start    = file.read_u32::<E>()?;
+        self.base_start       = file.read_u32::<E>()?;
+        self.chr_idx_end      = file.read_u32::<E>()?;
+        self.base_end         = file.read_u32::<E>()?;
+        self.ptr_idx_size     = file.seek(SeekFrom::Current(0))? as i64;
+        self.idx_size         = file.read_u64::<E>()?;
+        self.n_items_per_slot = file.read_u32::<E>()?;
+
+        file.read_u32::<E>()?; // Padding
+
+        let mut root = Box::new(RVertex::default());
+        root.read::<E, W>(file)?;
+        self.root = Some(root);
+
+        Ok(())
+    }
+
+    fn write_size<E: ByteOrder, W: Write + Seek>(&self, file: &mut W) -> io::Result<()> {
+        file.seek(SeekFrom::Start(self.ptr_idx_size as u64))?;
+        file.write_u64::<E>(self.idx_size)?;
+        Ok(())
+    }
+
+    fn write<E: ByteOrder, W: Write + Seek>(&mut self, file: &mut W) -> io::Result<()> {
+        let offset_start = file.seek(SeekFrom::Current(0))?;
+
+        file.write_u32::<E>(IDX_MAGIC)?;
+        file.write_u32::<E>(self.block_size)?;
+        file.write_u64::<E>(self.n_items)?;
+        file.write_u32::<E>(self.chr_idx_start)?;
+        file.write_u32::<E>(self.base_start)?;
+        file.write_u32::<E>(self.chr_idx_end)?;
+        file.write_u32::<E>(self.base_end)?;
+
+        self.ptr_idx_size = file.seek(SeekFrom::Current(0))? as i64;
+        file.write_u64::<E>(self.idx_size)?;
+        file.write_u32::<E>(self.n_items_per_slot)?;
+
+        file.write_u32::<E>(0)?; // Padding
+
+        if let Some(ref mut root) = self.root {
+            root.write::<E, W>(file)?;
+        }
+
+        let offset_end = file.seek(SeekFrom::Current(0))?;
+        self.idx_size = offset_end - offset_start;
+
+        self.write_size::<E, W>(file)?;
+
+        Ok(())
+    }
+
+    fn build_tree_rec(&self, mut leaves: Vec<Box<RVertex>>, level: usize) -> (Option<Box<RVertex>>, Vec<Box<RVertex>>) {
+        let mut v = Box::new(RVertex::default());
+        let n = leaves.len();
+
+        if n == 0 {
+            return (None, leaves);
+        }
+
+        if level == 0 {
+            let n = n.min(self.block_size as usize);
+            v.n_children = n as u16;
+            v.children = leaves.drain(0..n).collect();
+        } else {
+            for _ in 0..self.block_size as usize {
+                if leaves.is_empty() {
+                    break;
+                }
+                let (vertex, remaining_leaves) = self.build_tree_rec(leaves, level - 1);
+                if let Some(vertex) = vertex {
+                    v.n_children += 1;
+                    v.children.push(vertex);
+                }
+                leaves = remaining_leaves;
+            }
+        }
+
+        for child in &v.children {
+            v.chr_idx_start.push(child.chr_idx_start[0]);
+            v.chr_idx_end.push(child.chr_idx_end[child.n_children as usize - 1]);
+            v.base_start.push(child.base_start[0]);
+            v.base_end.push(child.base_end[child.n_children as usize - 1]);
+        }
+
+        (Some(v), leaves)
+    }
+
+    fn build_tree(&mut self, leaves: Vec<Box<RVertex>>) -> io::Result<()> {
+        if leaves.is_empty() {
+            return Ok(());
+        }
+
+        if leaves.len() == 1 {
+            self.root = Some(leaves.into_iter().next().unwrap());
+        } else {
+            let depth = ((leaves.len() as f64).ln() / (self.block_size as f64).ln()).ceil() as usize;
+            let (root, remaining_leaves) = self.build_tree_rec(leaves, depth - 1);
+
+            if !remaining_leaves.is_empty() {
+                return Err(io::Error::other("internal error"));
+            }
+
+            self.root = root;
+        }
+
+        if let Some(ref root) = self.root {
+            self.chr_idx_start = root.chr_idx_start[0];
+            self.chr_idx_end = root.chr_idx_end[root.n_children as usize - 1];
+            self.base_start = root.base_start[0];
+            self.base_end = root.base_end[root.n_children as usize - 1];
+        }
+
+        Ok(())
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+
+#[derive(Default)]
+struct RVertex {
+    is_leaf        : u8,
+    n_children     : u16,
+    chr_idx_start  : Vec<u32>,
+    base_start     : Vec<u32>,
+    chr_idx_end    : Vec<u32>,
+    base_end       : Vec<u32>,
+    data_offset    : Vec<u64>,
+    sizes          : Vec<u64>,
+    children       : Vec<Box<RVertex>>,
+    ptr_data_offset: Vec<i64>,
+    ptr_sizes      : Vec<i64>,
+}
+
+/* -------------------------------------------------------------------------- */
+
+impl RVertex {
+    fn read_block<R: Read + Seek>(&self, reader: &mut R, bwf: &BbiFile, i: usize) -> io::Result<Vec<u8>> {
+        let mut block = vec![0u8; self.sizes[i] as usize];
+
+        reader.seek(SeekFrom::Start(self.data_offset[i]))?;
+        reader.read_exact(&mut block)?;
+
+        if bwf.header.uncompress_buf_size != 0 {
+            block = uncompress_slice(&block)?;
+        }
+
+        Ok(block)
+    }
+
+    fn write_block<E: ByteOrder, W: Write + Seek>(&mut self, writer: &mut W, bwf: &mut BbiFile, i: usize, mut block: Vec<u8>) -> io::Result<()> {
+        if bwf.header.uncompress_buf_size != 0 {
+            if block.len() as u32 > bwf.header.uncompress_buf_size {
+                bwf.header.uncompress_buf_size = block.len() as u32;
+                bwf.header.write_uncompress_buf_size::<E, W>(writer)?;
+            }
+            block = compress_slice(&block)?;
+        }
+
+        let offset = writer.seek(SeekFrom::Current(0))?;
+        self.data_offset[i] = offset;
+        if self.ptr_data_offset[i] != 0 {
+            writer.seek(SeekFrom::Start(self.ptr_data_offset[i] as u64))?;
+            writer.write_u64::<E>(self.data_offset[i])?;
+        }
+
+        writer.seek(SeekFrom::Start(offset))?;
+        writer.write_all(&block)?;
+
+        self.sizes[i] = block.len() as u64;
+        if self.ptr_sizes[i] != 0 {
+            writer.seek(SeekFrom::Start(self.ptr_sizes[i] as u64))?;
+            writer.write_u64::<E>(self.sizes[i])?;
+        }
+
+        Ok(())
+    }
+
+    fn read<E: ByteOrder, R: Read + Seek>(&mut self, file: &mut R) -> io::Result<()> {
+        let mut padding = [0u8; 1];
+
+        self.is_leaf    = file.read_u8()?;
+        file.read_exact(&mut padding)?;
+        self.n_children = file.read_u16::<E>()?;
+
+        self.chr_idx_start  .resize(self.n_children as usize, 0);
+        self.base_start     .resize(self.n_children as usize, 0);
+        self.chr_idx_end    .resize(self.n_children as usize, 0);
+        self.base_end       .resize(self.n_children as usize, 0);
+        self.data_offset    .resize(self.n_children as usize, 0);
+        self.ptr_data_offset.resize(self.n_children as usize, 0);
+
+        if self.is_leaf != 0 {
+            self.sizes.resize(self.n_children as usize, 0);
+            self.ptr_sizes.resize(self.n_children as usize, 0);
+        }
+
+        for i in 0..self.n_children as usize {
+            self.chr_idx_start[i] = file.read_u32::<E>()?;
+            self.base_start   [i] = file.read_u32::<E>()?;
+            self.chr_idx_end  [i] = file.read_u32::<E>()?;
+            self.base_end     [i] = file.read_u32::<E>()?;
+
+            let offset = file.seek(SeekFrom::Current(0))?;
+            self.ptr_data_offset[i] = offset as i64;
+            self.data_offset    [i] = file.read_u64::<E>()?;
+
+            if self.is_leaf != 0 {
+                let offset = file.seek(SeekFrom::Current(0))?;
+                self.ptr_sizes[i] = offset as i64;
+                self.sizes    [i] = file.read_u64::<E>()?;
+            }
+        }
+
+        if self.is_leaf == 0 {
+            for i in 0..self.n_children as usize {
+                file.seek(SeekFrom::Start(self.data_offset[i]))?;
+                let mut child = Box::new(RVertex::default());
+                child.read::<E, R>(file)?;
+                self.children.push(child);
+            }
+        }
+        assert_eq!(self.children.len(), self.n_children as usize);
+
+        Ok(())
+    }
+
+    fn write<E: ByteOrder, W: Write + Seek>(&mut self, file: &mut W) -> std::io::Result<()> {
+        if self.data_offset.len() != self.n_children as usize {
+            self.data_offset.resize(self.n_children as usize, 0);
+        }
+        if self.sizes.len() != self.n_children as usize {
+            self.sizes.resize(self.n_children as usize, 0);
+        }
+        if self.ptr_data_offset.len() != self.n_children as usize {
+            self.ptr_data_offset.resize(self.n_children as usize, 0);
+        }
+        if self.ptr_sizes.len() != self.n_children as usize {
+            self.ptr_sizes.resize(self.n_children as usize, 0);
+        }
+
+        file.write_u8(self.is_leaf)?;
+        file.write_u8(0)?; // padding
+        file.write_u16::<E>(self.n_children)?;
+
+        for i in 0..self.n_children as usize {
+            file.write_u32::<E>(self.chr_idx_start[i])?;
+            file.write_u32::<E>(self.base_start[i])?;
+            file.write_u32::<E>(self.chr_idx_end[i])?;
+            file.write_u32::<E>(self.base_end[i])?;
+
+            let offset = file.seek(SeekFrom::Current(0))?;
+            self.ptr_data_offset[i] = offset as i64;
+            file.write_u64::<E>(self.data_offset[i])?;
+
+            let offset = file.seek(SeekFrom::Current(0))?;
+            self.ptr_sizes[i] = offset as i64;
+
+            if self.is_leaf != 0 {
+                file.write_u64::<E>(self.sizes[i])?;
+            }
+        }
+
+        if self.is_leaf == 0 {
+            for i in 0..self.n_children as usize {
+                let offset = file.seek(SeekFrom::Current(0))?;
+                self.data_offset[i] = offset;
+                file.write_u64::<E>(self.data_offset[i])?;
+                self.children[i].write::<E, W>(file)?;
+            }
+        }
+
+        Ok(())
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+
+struct BbiFile {
+    header    : BbiHeader,
+    chrom_data: BData,
+    index     : RTree,
+    index_zoom: Vec<RTree>,
+    //order     : Box<dyn ByteOrder>,
 }
