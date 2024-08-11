@@ -72,7 +72,7 @@ fn compress_slice(data: &[u8]) -> io::Result<Vec<u8>> {
 
 /* -------------------------------------------------------------------------- */
 
-#[derive(Default, Debug)]
+#[derive(Clone, Default, Debug)]
 struct BbiZoomRecord {
     chrom_id   : u32,
     start      : u32,
@@ -124,6 +124,12 @@ impl BbiZoomRecord {
         writer.write_f32::<E>(self.sum)?;
         writer.write_f32::<E>(self.sum_squares)?;
         Ok(())
+    }
+
+    fn write_buffer<E: ByteOrder>(&self, buffer : &mut Vec<u8>) -> io::Result<()> {
+        let mut cursor = Cursor::new(buffer);
+
+        self.write::<E, _>(&mut cursor)
     }
 }
 
@@ -576,19 +582,24 @@ struct BbiZoomBlockEncoderType {
 
 /* -------------------------------------------------------------------------- */
 
+#[derive(Clone)]
 struct BbiZoomBlockEncoder {
     items_per_slot : usize,
     tmp            : Vec<u8>,
     reduction_level: usize,
 }
 
+#[derive(Clone)]
 struct BbiZoomBlockEncoderIterator {
     encoder : Box<BbiZoomBlockEncoder>,
     chrom_id: usize,
     sequence: Vec<f64>,
     bin_size: usize,
     position: usize,
-    record  : BbiZoomRecord,
+    records : Vec<BbiZoomRecord>,
+    from    : i64,
+    to      : i64,
+    count   : usize,
 }
 
 impl BbiZoomBlockEncoder {
@@ -602,19 +613,34 @@ impl BbiZoomBlockEncoder {
 
     fn encode(&self, chrom_id: usize, sequence: Vec<f64>, bin_size: usize) -> BbiZoomBlockEncoderIterator {
         BbiZoomBlockEncoderIterator {
-            encoder: Box::new(*self.clone()),
-            chrom_id,
-            sequence,
-            bin_size,
-            position: 0,
-            r: BbiZoomBlockEncoderType::default(),
+            encoder  : Box::new(self.clone()),
+            chrom_id : chrom_id,
+            sequence : sequence,
+            bin_size : bin_size,
+            position : 0,
+            records  : vec![],
+            from     : 0,
+            to       : 0,
+            count    : 0,
         }
     }
 }
 
 impl BbiZoomBlockEncoderIterator {
 
-    fn write<E: ByteOrder>(&mut self) -> io::Result<BbiZoomBlockDecoderType> { 
+    fn write<E: ByteOrder>(&mut self) -> io::Result<BbiZoomBlockEncoderType> { 
+
+        let mut buffer = Vec::new();
+
+        for record in self.records {
+            record.write_buffer::<E>(&mut buffer)?;
+        }
+
+        Ok(BbiZoomBlockEncoderType{
+            from : self.from as usize,
+            to   : self.to   as usize,
+            block: buffer,
+        })
     }
 
 }
@@ -627,10 +653,9 @@ impl Iterator for BbiZoomBlockEncoderIterator {
 
         let n = (self.encoder.reduction_level + self.bin_size - 1) / self.bin_size;
 
-        let mut buffer = Cursor::new(Vec::new());
-        let mut f = -1;
-        let mut t = -1;
-        let mut m =  0;
+        self.from  = -1;
+        self.to    = -1;
+        self.count =  0;
 
         for p in (self.position..self.bin_size * self.sequence.len()).step_by(self.encoder.reduction_level) {
 
@@ -654,27 +679,21 @@ impl Iterator for BbiZoomBlockEncoderIterator {
             }
 
             if record.valid > 0 {
-                if f == -1 {
-                    f = record.start as isize;
+
+                self.records.push(record);
+
+                if self.from == -1 {
+                    self.from = record.start as i64;
                 }
-                t  = record.end as isize;
-                m += 1;
+                self.to     = record.end as i64;
+                self.count += 1;
             }
 
-            if m == self.encoder.items_per_slot || p + self.encoder.reduction_level >= self.bin_size * self.sequence.len() {
-
-                record.write(&mut buffer).expect("Writing to buffer failed");
-
-                if buffer.get_ref().len() > 0 {
+            if self.count == self.encoder.items_per_slot || p + self.encoder.reduction_level >= self.bin_size * self.sequence.len() {
   
-                    self.position = p + self.encoder.reduction_level;
+                self.position = p + self.encoder.reduction_level;
                     
-                    return Some(BbiZoomBlockEncoderType{
-                        from : f as usize,
-                        to   : t as usize,
-                        block: *buffer.get_ref(),
-                    })
-                }
+                return Some(self.clone())
             }
         }
         None
