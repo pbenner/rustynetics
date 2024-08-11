@@ -37,7 +37,7 @@ const BBI_TYPE_BED_GRAPH : u8    = 1;
 
 /* -------------------------------------------------------------------------- */
 
-fn file_read_at<T: Read + Seek>(file: &mut T, offset: u64, data: &mut [u8]) -> Result<Vec<u8>, std::io::Error> {
+fn file_read_at<T: Read + Seek>(file: &mut T, offset: u64, data: &mut [u8]) -> io::Result<Vec<u8>> {
     let current_position = file.seek(SeekFrom::Current(0))?;
     file.seek(SeekFrom::Start(offset))?;
     let mut buffer = Vec::new();
@@ -46,7 +46,7 @@ fn file_read_at<T: Read + Seek>(file: &mut T, offset: u64, data: &mut [u8]) -> R
     Ok(buffer)
 }
 
-fn file_write_at<T: Write + Seek>(file: &mut T, offset: u64, data: &[u8]) -> Result<(), std::io::Error> {
+fn file_write_at<T: Write + Seek>(file: &mut T, offset: u64, data: &[u8]) -> io::Result<()> {
     let current_position = file.seek(SeekFrom::Current(0))?;
     file.seek(SeekFrom::Start(offset))?;
     file.write_all(data)?;
@@ -100,7 +100,7 @@ impl BbiZoomRecord {
         self.sum_squares += (x * x) as f32;
     }
 
-    fn read<E: ByteOrder, T: Read + Seek>(&mut self, reader: &mut T) -> Result<(), std::io::Error> {
+    fn read<E: ByteOrder, T: Read + Seek>(&mut self, reader: &mut T) -> io::Result<()> {
         self.chrom_id    = reader.read_u32::<E>()?;
         self.start       = reader.read_u32::<E>()?;
         self.end         = reader.read_u32::<E>()?;
@@ -112,7 +112,7 @@ impl BbiZoomRecord {
         Ok(())
     }
 
-    fn write<E: ByteOrder, T: Write + Seek>(&self, writer: &mut T) -> Result<(), std::io::Error> {
+    fn write<E: ByteOrder, T: Write + Seek>(&self, writer: &mut T) -> io::Result<()> {
         writer.write_u32::<E>(self.chrom_id)?;
         writer.write_u32::<E>(self.start)?;
         writer.write_u32::<E>(self.end)?;
@@ -416,7 +416,7 @@ struct BbiRawBlockDecoder<'a> {
 /* -------------------------------------------------------------------------- */
 
 impl<'a> BbiRawBlockDecoder<'a> {
-    fn new<E: ByteOrder>(buffer: &'a [u8]) -> Result<BbiRawBlockDecoder<'a>, std::io::Error> {
+    fn new<E: ByteOrder>(buffer: &'a [u8]) -> io::Result<BbiRawBlockDecoder<'a>> {
         if buffer.len() < 24 {
             return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "block length is shorter than 24 bytes"));
         }
@@ -464,7 +464,7 @@ impl BbiZoomBlockDecoderType {
         )
     }
 
-    fn read_buffer<E: ByteOrder>(&mut self, buffer : &[u8]) -> Result<(), io::Error> {
+    fn read_buffer<E: ByteOrder>(&mut self, buffer : &[u8]) -> io::Result<()> {
         let mut cursor = Cursor::new(buffer);
 
         self.chrom_id               = cursor.read_i32::<E>()?;
@@ -529,7 +529,7 @@ struct BbiZoomBlockDecoderIterator<'a> {
 
 impl<'a> BbiZoomBlockDecoderIterator<'a> {
  
-    fn read<E: ByteOrder>(&mut self) -> Result<BbiZoomBlockDecoderType, io::Error> { 
+    fn read<E: ByteOrder>(&mut self) -> io::Result<BbiZoomBlockDecoderType> { 
 
         let mut r = BbiZoomBlockDecoderType::new();
 
@@ -818,7 +818,7 @@ impl BData {
     }
 
     fn write<E: ByteOrder, W: Write+Seek>(&self, file: &mut W) -> io::Result<()> {
-        let tree = BTree::new(self); // Assuming a `BTree` struct similar to `BData`
+        let tree = BTree::new(self);
         tree.write::<E, W>(file)
     }
 }
@@ -839,7 +839,7 @@ struct BbiHeaderZoom {
 /* -------------------------------------------------------------------------- */
 
 impl BbiHeaderZoom {
-    fn read<E: ByteOrder, R: Read + Seek>(&mut self, file: &mut R) -> std::io::Result<()> {
+    fn read<E: ByteOrder, R: Read + Seek>(&mut self, file: &mut R) -> io::Result<()> {
         let mut buf = [0u8; 4];
 
         self.reduction_level = file.read_u32::<E>()?;
@@ -857,7 +857,7 @@ impl BbiHeaderZoom {
         Ok(())
     }
 
-    fn write<E: ByteOrder, W: Write + Seek>(&mut self, file: &mut W) -> std::io::Result<()> {
+    fn write<E: ByteOrder, W: Write + Seek>(&mut self, file: &mut W) -> io::Result<()> {
         file.write_u32::<E>(self.reduction_level)?;
         file.write_u32::<E>(self.reserved)?;
 
@@ -870,8 +870,8 @@ impl BbiHeaderZoom {
         Ok(())
     }
 
-    fn write_offsets<E: ByteOrder, W: Write + Seek>(&self, file: &mut W) -> std::io::Result<()> {
-        let mut buf = [0u8; 4];
+    fn write_offsets<E: ByteOrder, W: Write + Seek>(&self, file: &mut W) -> io::Result<()> {
+        let mut buf = [0u8; 8];
 
         if self.ptr_data_offset != 0 {
             E::write_u64(&mut buf, self.data_offset);
@@ -886,7 +886,7 @@ impl BbiHeaderZoom {
         Ok(())
     }
 
-    fn write_n_blocks<E: ByteOrder, W: Write + Seek>(&self, file: &mut W) -> std::io::Result<()> {
+    fn write_n_blocks<E: ByteOrder, W: Write + Seek>(&self, file: &mut W) -> io::Result<()> {
         let mut buf = [0u8; 4];
 
         E::write_u32(&mut buf, self.n_blocks);
@@ -918,13 +918,195 @@ struct BbiHeader {
     sum_squares            : f64,
     zoom_headers           : Vec<BbiHeaderZoom>,
     n_blocks               : u64,
-    ptr_ct_offset          : i64,
-    ptr_data_offset        : i64,
-    ptr_index_offset       : i64,
-    ptr_sql_offset         : i64,
-    ptr_summary_offset     : i64,
-    ptr_uncompress_buf_size: i64,
-    ptr_extension_offset   : i64,
+    ptr_ct_offset          : u64,
+    ptr_data_offset        : u64,
+    ptr_index_offset       : u64,
+    ptr_sql_offset         : u64,
+    ptr_summary_offset     : u64,
+    ptr_uncompress_buf_size: u64,
+    ptr_extension_offset   : u64,
 }
 
 /* -------------------------------------------------------------------------- */
+
+impl BbiHeader {
+    fn new() -> Self {
+        BbiHeader {
+            version: 4,
+            min_val: f64::NAN,
+            max_val: f64::NAN,
+            ..Default::default()
+        }
+    }
+
+    fn summary_add_value(&mut self, x: f64, n: i32) {
+        if x.is_nan() {
+            return;
+        }
+
+        if self.min_val.is_nan() || self.min_val > x {
+            self.min_val = x;
+        }
+
+        if self.max_val.is_nan() || self.max_val < x {
+            self.max_val = x;
+        }
+
+        self.n_bases_covered += n as u64;
+        self.sum_data        += x;
+        self.sum_squares     += x * x;
+    }
+
+    fn read_order<E: ByteOrder, R: Read + Seek>(&mut self, file: &mut R) -> io::Result<()> {
+
+        let mut buf = [0u8; 4];
+
+        self.version                 = file.read_u16::<E>()?;
+        self.zoom_levels             = file.read_u16::<E>()?;
+        self.ptr_ct_offset           = file.seek(SeekFrom::Current(0))?;
+        self.ct_offset               = file.read_u64::<E>()?;
+        self.ptr_data_offset         = file.seek(SeekFrom::Current(0))?;
+        self.data_offset             = file.read_u64::<E>()?;
+        self.ptr_index_offset        = file.seek(SeekFrom::Current(0))?;
+        self.index_offset            = file.read_u64::<E>()?;
+        self.field_count             = file.read_u16::<E>()?;
+        self.defined_field_count     = file.read_u16::<E>()?;
+        self.ptr_sql_offset          = file.seek(SeekFrom::Current(0))?;
+        self.sql_offset              = file.read_u64::<E>()?;
+        self.ptr_summary_offset      = file.seek(SeekFrom::Current(0))?;
+        self.summary_offset          = file.read_u64::<E>()?;
+        self.ptr_uncompress_buf_size = file.seek(SeekFrom::Current(0))?;
+        self.uncompress_buf_size     = file.read_u32::<E>()?;
+        self.ptr_extension_offset    = file.seek(SeekFrom::Current(0))?;
+        self.extension_offset        = file.read_u64::<E>()?;
+
+        self.zoom_headers = Vec::with_capacity(self.zoom_levels as usize);
+        for _ in 0..self.zoom_levels {
+            let mut zoom_header = BbiHeaderZoom::default();
+            zoom_header.read::<E, R>(file)?;
+            self.zoom_headers.push(zoom_header);
+        }
+
+        if self.summary_offset > 0 {
+            file.seek(SeekFrom::Start(self.summary_offset))?;
+            self.n_bases_covered = file.read_u64::<E>()?;
+            self.min_val         = file.read_f64::<E>()?;
+            self.max_val         = file.read_f64::<E>()?;
+            self.sum_data        = file.read_f64::<E>()?;
+            self.sum_squares     = file.read_f64::<E>()?;
+        }
+
+        file_read_at(file, self.data_offset, &mut buf)?;
+        self.n_blocks = E::read_u64(&buf);
+
+        Ok(())
+    }
+
+    fn read<R: Read + Seek>(&mut self, file: &mut R, magic: u32) -> io::Result<()> {
+
+        // Read magin number
+        self.magic = file.read_u32::<LittleEndian>()?;
+
+        if self.magic == magic {
+
+            self.read_order::<LittleEndian, R>(file)?;
+
+        } else {
+
+            file.seek(SeekFrom::Current(-4))?;
+            self.magic = file.read_u32::<BigEndian>()?;
+
+            if self.magic != magic {
+                return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid magic number"));
+            }
+
+            self.read_order::<BigEndian, R>(file)?;
+
+        }
+
+        Ok(())
+    }
+
+    fn write_offsets<E: ByteOrder, W: Write + Seek>(&self, file: &mut W) -> io::Result<()> {
+
+        let mut buf = [0u8; 8];
+
+        if self.ptr_ct_offset != 0 {
+            E::write_u64(&mut buf, self.ct_offset);
+            file_write_at(file, self.ptr_ct_offset, &buf)?;
+        }
+        if self.ptr_data_offset != 0 {
+            E::write_u64(&mut buf, self.data_offset);
+            file_write_at(file, self.ptr_data_offset, &buf)?;
+        }
+        if self.ptr_index_offset != 0 {
+            E::write_u64(&mut buf, self.index_offset);
+            file_write_at(file, self.ptr_index_offset, &buf)?;
+        }
+        if self.ptr_sql_offset != 0 {
+            E::write_u64(&mut buf, self.sql_offset);
+            file_write_at(file, self.ptr_sql_offset, &buf)?;
+        }
+        if self.ptr_extension_offset != 0 {
+            E::write_u64(&mut buf, self.extension_offset);
+            file_write_at(file, self.ptr_extension_offset, &buf)?;
+        }
+        Ok(())
+    }
+
+    fn write_uncompress_buf_size<E: ByteOrder, W: Write + Seek>(&self, file: &mut W) -> std::io::Result<()> {
+
+        let mut buf = [0u8; 4];
+
+        if self.ptr_uncompress_buf_size != 0 {
+            E::write_u32(&mut buf, self.uncompress_buf_size);
+            file_write_at(file, self.ptr_uncompress_buf_size, &buf)?;
+        }
+        Ok(())
+    }
+
+    fn write<E: ByteOrder, W: Write + Seek>(&mut self, file: &mut W) -> std::io::Result<()> {
+        file.write_u32::<E>(self.magic)?;
+        file.write_u16::<E>(self.version)?;
+        file.write_u16::<E>(self.zoom_levels)?;
+
+        self.ptr_ct_offset = file.seek(SeekFrom::Current(0))?;
+        file.write_u64::<E>(self.ct_offset)?;
+
+        self.ptr_data_offset = file.seek(SeekFrom::Current(0))?;
+        file.write_u64::<E>(self.data_offset)?;
+
+        self.ptr_index_offset = file.seek(SeekFrom::Current(0))?;
+        file.write_u64::<E>(self.index_offset)?;
+
+        file.write_u16::<E>(self.field_count)?;
+        file.write_u16::<E>(self.defined_field_count)?;
+
+        self.ptr_sql_offset = file.seek(SeekFrom::Current(0))?;
+        file.write_u64::<E>(self.sql_offset)?;
+
+        self.ptr_summary_offset = file.seek(SeekFrom::Current(0))?;
+        file.write_u64::<E>(self.summary_offset)?;
+
+        self.ptr_uncompress_buf_size = file.seek(SeekFrom::Current(0))?;
+        file.write_u32::<E>(self.uncompress_buf_size)?;
+
+        self.ptr_extension_offset = file.seek(SeekFrom::Current(0))?;
+        file.write_u64::<E>(self.extension_offset)?;
+
+        for zoom_header in &mut self.zoom_headers {
+            zoom_header.write::<E, W>(file)?;
+        }
+
+        if self.summary_offset > 0 {
+            file.seek(SeekFrom::Start(self.summary_offset))?;
+            file.write_u64::<E>(self.n_bases_covered)?;
+            file.write_f64::<E>(self.min_val)?;
+            file.write_f64::<E>(self.max_val)?;
+            file.write_f64::<E>(self.sum_data)?;
+            file.write_f64::<E>(self.sum_squares)?;
+        }
+
+        Ok(())
+    }
+}
