@@ -657,6 +657,8 @@ impl Iterator for BbiZoomBlockEncoderIterator {
         self.to    = -1;
         self.count =  0;
 
+        self.records.clear();
+
         for p in (self.position..self.bin_size * self.sequence.len()).step_by(self.encoder.reduction_level) {
 
             let i = p / self.bin_size;
