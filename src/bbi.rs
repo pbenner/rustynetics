@@ -458,6 +458,144 @@ impl<'a> BbiRawBlockDecoder<'a> {
 
 /* -------------------------------------------------------------------------- */
 
+struct BbiRawBlockEncoder {
+    items_per_slot: usize,
+    tmp           : Vec<u8>,
+    fixed_step    : bool,
+}
+
+/* -------------------------------------------------------------------------- */
+
+struct BbiRawBlockEncoderIterator {
+    encoder : Box<BbiRawBlockEncoder>,
+    chrom_id: usize,
+    sequence: Vec<f64>,
+    bin_size: usize,
+    position: usize,
+    r       : BbiBlockEncoderType,
+}
+
+/* -------------------------------------------------------------------------- */
+
+#[derive(Default)]
+struct BbiBlockEncoderType {
+    from : usize,
+    to   : usize,
+    block: Option<Vec<u8>>,
+}
+
+/* -------------------------------------------------------------------------- */
+
+impl BbiRawBlockEncoder {
+    fn new(items_per_slot: usize, fixed_step: bool) -> Self {
+        BbiRawBlockEncoder {
+            items_per_slot,
+            tmp: vec![0u8; 24],
+            fixed_step,
+        }
+    }
+
+    fn encode_variable<E: ByteOrder>(&self, buffer: &mut [u8], position: u32, value: f64) {
+        E::write_u32_into(&[position, value.to_bits() as u32], &mut buffer[0..8]);
+    }
+
+    fn encode_fixed<E: ByteOrder>(&self, buffer: &mut [u8], value: f64) {
+        E::write_u32(buffer, value.to_bits() as u32);
+    }
+
+    fn encode(&self, chrom_id: usize, sequence: Vec<f64>, bin_size: usize) -> BbiRawBlockEncoderIterator {
+        let mut it = BbiRawBlockEncoderIterator {
+            encoder: Box::new(*self.clone()),
+            chrom_id,
+            sequence,
+            bin_size,
+            position: 0,
+            r: BbiBlockEncoderType::default(),
+        };
+        it.next();
+        it
+    }
+}
+
+impl BbiRawBlockEncoderIterator {
+    fn get(&self) -> &BbiBlockEncoderType {
+        &self.r
+    }
+
+    fn ok(&self) -> bool {
+        self.r.block.is_some()
+    }
+
+    fn next(&mut self) {
+        let mut buffer = Cursor::new(Vec::new());
+        
+        while self.position < self.sequence.len() && self.sequence[self.position].is_nan() {
+            self.position += 1;
+        }
+
+        self.r.from  = 0;
+        self.r.to    = 0;
+        self.r.block = None;
+
+        let mut header = BbiDataHeader {
+            chrom_id  : self.chrom_id as u32,
+            start     : (self.bin_size * self.position) as u32,
+            end       : (self.bin_size * self.position) as u32,
+            step      : self.bin_size as u32,
+            span      : self.bin_size as u32,
+            item_count: 0,
+            kind      : if self.encoder.fixed_step { 3 } else { 2 },
+            reserved  : 0,
+        };
+
+        header.write_buffer(&mut self.encoder.tmp);
+        buffer.write_all(&self.encoder.tmp).unwrap();
+
+        if self.encoder.fixed_step {
+            while self.position < self.sequence.len() {
+                if self.sequence[self.position].is_nan() {
+                    while self.position < self.sequence.len() && self.sequence[self.position].is_nan() {
+                        self.position += 1;
+                    }
+                    break;
+                }
+                self.encoder.encode_fixed(&mut self.encoder.tmp, self.sequence[self.position]);
+                buffer.write_all(&self.encoder.tmp[..4]).unwrap();
+                header.item_count += 1;
+                header.end += header.step;
+                if header.item_count as usize == self.encoder.items_per_slot {
+                    self.position += 1;
+                    break;
+                }
+                self.position += 1;
+            }
+        } else {
+            while self.position < self.sequence.len() {
+                if !self.sequence[self.position].is_nan() {
+                    self.encoder.encode_variable(&mut self.encoder.tmp, header.end, self.sequence[self.position]);
+                    buffer.write_all(&self.encoder.tmp[..8]).unwrap();
+                    header.item_count += 1;
+                    header.end = (self.bin_size * self.position) as u32 + header.step;
+                }
+                if header.item_count as usize == self.encoder.items_per_slot {
+                    self.position += 1;
+                    break;
+                }
+                self.position += 1;
+            }
+        }
+
+        if buffer.get_ref().len() > 24 {
+            header.write_buffer(&mut buffer.get_mut()[..24]);
+            self.r.from = header.start as usize;
+            self.r.to = header.end as usize;
+            self.r.block = Some(buffer.into_inner());
+        }
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+
 struct BbiZoomBlockDecoderType(BbiSummaryRecord);
 
 /* -------------------------------------------------------------------------- */
