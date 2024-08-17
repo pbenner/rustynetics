@@ -1751,12 +1751,11 @@ impl RVertexGenerator {
         })
     }
 
-    fn generate<E: ByteOrder>(&self, chrom_id: usize, sequence: Vec<f64>, bin_size: usize, reduction_level: usize, fixed_step: bool) -> Receiver<RVertexGeneratorType> {
+    fn generate<E: ByteOrder>(self, chrom_id: usize, sequence: Vec<f64>, bin_size: usize, reduction_level: usize, fixed_step: bool) -> Receiver<RVertexGeneratorType> {
         let (tx, rx) = channel();
-        let generator = self.clone();
 
         std::thread::spawn(move || {
-            generator.generate_impl::<E>(tx, chrom_id, sequence, bin_size, reduction_level, fixed_step).unwrap();
+            self.generate_impl::<E>(tx, chrom_id, sequence, bin_size, reduction_level, fixed_step).unwrap();
         });
 
         rx
