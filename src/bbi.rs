@@ -42,7 +42,7 @@ const BBI_TYPE_BED_GRAPH : u8    = 1;
 fn file_read_at<T: Read + Seek>(file: &mut T, offset: u64, data: &mut [u8]) -> io::Result<Vec<u8>> {
     let current_position = file.seek(SeekFrom::Current(0))?;
     file.seek(SeekFrom::Start(offset))?;
-    let mut buffer = Vec::new();
+    let buffer = Vec::new();
     file.read_exact(data)?;
     file.seek(SeekFrom::Start(current_position))?;
     Ok(buffer)
@@ -72,7 +72,7 @@ fn compress_slice(data: &[u8]) -> io::Result<Vec<u8>> {
 
 /* -------------------------------------------------------------------------- */
 
-#[derive(Clone, Default, Debug)]
+#[derive(Clone, Copy, Default, Debug)]
 struct BbiZoomRecord {
     chrom_id   : u32,
     start      : u32,
@@ -637,7 +637,7 @@ struct BbiRawBlockEncoderIterator {
 
 impl BbiRawBlockEncoderIterator {
 
-    fn write<E: ByteOrder>(&self) -> BbiBlockEncoderType { 
+    fn write<E: ByteOrder>(&self) -> io::Result<BbiBlockEncoderType> {
 
         let mut buffer = Cursor::new(Vec::new());
         let mut tmp    = vec![0u8; 24];
@@ -646,22 +646,22 @@ impl BbiRawBlockEncoderIterator {
         buffer.write_all(&tmp).unwrap();
 
         if self.encoder.fixed_step {
-            for entry in self.seqbuf {
-                self.encoder.encode_fixed::<E>(&mut tmp, entry);
-                buffer.write_all(&tmp[..4]).unwrap();
+            for entry in &self.seqbuf {
+                self.encoder.encode_fixed::<E>(&mut tmp, *entry);
+                buffer.write_all(&tmp[..4])?;
             }
         } else {
-            for entry in self.seqbuf {
-                self.encoder.encode_variable::<E>(&mut tmp, self.header.end, entry);
-                buffer.write_all(&tmp[..8]).unwrap();
+            for entry in &self.seqbuf {
+                self.encoder.encode_variable::<E>(&mut tmp, self.header.end, *entry);
+                buffer.write_all(&tmp[..8])?;
             }
         }
 
-        BbiBlockEncoderType{
+        Ok(BbiBlockEncoderType{
             from : self.header.start as usize,
             to   : self.header.end   as usize,
             block: buffer.into_inner(),
-        }
+        })
     }
 
 }
@@ -791,7 +791,7 @@ impl BbiZoomBlockEncoderIterator {
 
         let mut buffer = Vec::new();
 
-        for record in self.records {
+        for record in &self.records {
             record.write_buffer::<E>(&mut buffer)?;
         }
 
@@ -1751,30 +1751,31 @@ impl RVertexGenerator {
         })
     }
 
-    fn generate(&self, chrom_id: usize, sequence: Vec<f64>, bin_size: usize, reduction_level: usize, fixed_step: bool) -> Receiver<RVertexGeneratorType> {
+    fn generate<E: ByteOrder>(&self, chrom_id: usize, sequence: Vec<f64>, bin_size: usize, reduction_level: usize, fixed_step: bool) -> Receiver<RVertexGeneratorType> {
         let (tx, rx) = channel();
         let generator = self.clone();
 
         std::thread::spawn(move || {
-            generator.generate_impl(tx, chrom_id, sequence, bin_size, reduction_level, fixed_step).unwrap();
+            generator.generate_impl::<E>(tx, chrom_id, sequence, bin_size, reduction_level, fixed_step).unwrap();
         });
 
         rx
     }
 
-    fn generate_impl(&self, tx: std::sync::mpsc::Sender<RVertexGeneratorType>, chrom_id: usize, sequence: Vec<f64>, bin_size: usize, reduction_level: usize, fixed_step: bool) -> Result<(), String> {
-        let encoder: Box<dyn BbiBlockEncoder> = if reduction_level > bin_size {
-            Box::new(BbiZoomBlockEncoder::new(self.items_per_slot, reduction_level))
-        } else {
-            Box::new(BbiRawBlockEncoder::new(self.items_per_slot, fixed_step))
-        };
+    fn generate_zoom<E: ByteOrder>(&self, tx: std::sync::mpsc::Sender<RVertexGeneratorType>, chrom_id: usize, sequence: Vec<f64>, bin_size: usize, reduction_level: usize) -> Result<(), String> {
+
+        let encoder = BbiZoomBlockEncoder::new(
+            self.items_per_slot, reduction_level
+        );
 
         let mut vertex = RVertex::default();
         vertex.is_leaf = 1;
         let mut blocks = Vec::new();
         let mut it     = encoder.encode(chrom_id, sequence, bin_size);
 
-        while let Some(chunk) = it.next() {
+        while let Some(mut chunk_) = it.next() {
+            let chunk = chunk_.write::<E>().unwrap();
+
             if vertex.n_children as usize == self.block_size {
                 tx.send(RVertexGeneratorType { vertex, blocks }).unwrap();
                 vertex = RVertex::default();
@@ -1799,6 +1800,54 @@ impl RVertexGenerator {
         }
 
         Ok(())
+    }
+
+    fn generate_raw<E: ByteOrder>(&self, tx: std::sync::mpsc::Sender<RVertexGeneratorType>, chrom_id: usize, sequence: Vec<f64>, bin_size: usize, fixed_step: bool) -> Result<(), String> {
+
+        let encoder = BbiRawBlockEncoder::new(
+            self.items_per_slot, fixed_step
+        );
+
+        let mut vertex = RVertex::default();
+        vertex.is_leaf = 1;
+        let mut blocks = Vec::new();
+        let mut it     = encoder.encode(chrom_id, sequence, bin_size);
+
+        while let Some(chunk_) = it.next() {
+            let chunk = chunk_.write::<E>().unwrap();
+
+            if vertex.n_children as usize == self.block_size {
+                tx.send(RVertexGeneratorType { vertex, blocks }).unwrap();
+                vertex = RVertex::default();
+                vertex.is_leaf = 1;
+                blocks = Vec::new();
+            }
+            vertex.chr_idx_start  .push(chrom_id   as u32);
+            vertex.chr_idx_end    .push(chrom_id   as u32);
+            vertex.base_start     .push(chunk.from as u32);
+            vertex.base_end       .push(chunk.to   as u32);
+            vertex.data_offset    .push(0);
+            vertex.sizes          .push(0);
+            vertex.ptr_data_offset.push(0);
+            vertex.ptr_sizes      .push(0);
+            vertex.n_children += 1;
+
+            blocks.push(chunk.block);
+        }
+
+        if vertex.n_children != 0 {
+            tx.send(RVertexGeneratorType { vertex, blocks }).unwrap();
+        }
+
+        Ok(())
+    }
+
+    fn generate_impl<E: ByteOrder>(&self, tx: std::sync::mpsc::Sender<RVertexGeneratorType>, chrom_id: usize, sequence: Vec<f64>, bin_size: usize, reduction_level: usize, fixed_step: bool) -> Result<(), String> {
+        if reduction_level > bin_size {
+            self.generate_zoom::<E>(tx, chrom_id, sequence, bin_size, reduction_level)
+        } else {
+            self.generate_raw::<E>(tx, chrom_id, sequence, bin_size, fixed_step)
+        }
     }
 }
 
