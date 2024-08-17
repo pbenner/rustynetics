@@ -741,6 +741,8 @@ struct BbiZoomBlockEncoder {
     reduction_level: usize,
 }
 
+/* -------------------------------------------------------------------------- */
+
 #[derive(Clone)]
 struct BbiZoomBlockEncoderIterator {
     encoder : Box<BbiZoomBlockEncoder>,
@@ -754,7 +756,10 @@ struct BbiZoomBlockEncoderIterator {
     count   : usize,
 }
 
+/* -------------------------------------------------------------------------- */
+
 impl BbiZoomBlockEncoder {
+
     fn new(items_per_slot: usize, reduction_level: usize) -> Self {
         BbiZoomBlockEncoder {
             items_per_slot,
@@ -778,6 +783,8 @@ impl BbiZoomBlockEncoder {
     }
 }
 
+/* -------------------------------------------------------------------------- */
+
 impl BbiZoomBlockEncoderIterator {
 
     fn write<E: ByteOrder>(&mut self) -> io::Result<BbiBlockEncoderType> {
@@ -794,8 +801,9 @@ impl BbiZoomBlockEncoderIterator {
             block: buffer,
         })
     }
-
 }
+
+/* -------------------------------------------------------------------------- */
 
 impl Iterator for BbiZoomBlockEncoderIterator {
 
@@ -1743,7 +1751,7 @@ impl RVertexGenerator {
         })
     }
 
-    fn generate(&self, chrom_id: usize, sequence: &[f64], bin_size: usize, reduction_level: usize, fixed_step: bool) -> Receiver<RVertexGeneratorType> {
+    fn generate(&self, chrom_id: usize, sequence: Vec<f64>, bin_size: usize, reduction_level: usize, fixed_step: bool) -> Receiver<RVertexGeneratorType> {
         let (tx, rx) = channel();
         let generator = self.clone();
 
@@ -1754,11 +1762,11 @@ impl RVertexGenerator {
         rx
     }
 
-    fn generate_impl(&self, tx: std::sync::mpsc::Sender<RVertexGeneratorType>, chrom_id: usize, sequence: &[f64], bin_size: usize, reduction_level: usize, fixed_step: bool) -> Result<(), String> {
+    fn generate_impl(&self, tx: std::sync::mpsc::Sender<RVertexGeneratorType>, chrom_id: usize, sequence: Vec<f64>, bin_size: usize, reduction_level: usize, fixed_step: bool) -> Result<(), String> {
         let encoder: Box<dyn BbiBlockEncoder> = if reduction_level > bin_size {
-            Box::new(BbiZoomBlockEncoder::new(self.items_per_slot, reduction_level)?)
+            Box::new(BbiZoomBlockEncoder::new(self.items_per_slot, reduction_level))
         } else {
-            Box::new(BbiRawBlockEncoder::new(self.items_per_slot, fixed_step)?)
+            Box::new(BbiRawBlockEncoder::new(self.items_per_slot, fixed_step))
         };
 
         let mut vertex = RVertex::default();
