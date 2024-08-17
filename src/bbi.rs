@@ -1771,8 +1771,8 @@ impl RVertexGenerator {
         vertex.is_leaf = 1;
         let mut blocks = Vec::new();
 
-        for mut chunk_ in encoder.encode(chrom_id, sequence, bin_size) {
-            let chunk = chunk_.write::<E>().unwrap();
+        for mut item in encoder.encode(chrom_id, sequence, bin_size) {
+            let chunk = item.write::<E>().unwrap();
 
             if vertex.n_children as usize == self.block_size {
                 tx.send(RVertexGeneratorType { vertex, blocks }).unwrap();
@@ -1810,8 +1810,8 @@ impl RVertexGenerator {
         vertex.is_leaf = 1;
         let mut blocks = Vec::new();
 
-        for chunk_ in encoder.encode(chrom_id, sequence, bin_size) {
-            let chunk = chunk_.write::<E>().unwrap();
+        for item in encoder.encode(chrom_id, sequence, bin_size) {
+            let chunk = item.write::<E>().unwrap();
 
             if vertex.n_children as usize == self.block_size {
                 tx.send(RVertexGeneratorType { vertex, blocks }).unwrap();
