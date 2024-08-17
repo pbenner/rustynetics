@@ -237,7 +237,7 @@ impl BbiSummaryRecord {
 
 /* -------------------------------------------------------------------------- */
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct BbiDataHeader {
     chrom_id  : u32,
     start     : u32,
@@ -458,21 +458,10 @@ impl<'a> BbiRawBlockDecoder<'a> {
 
 /* -------------------------------------------------------------------------- */
 
+#[derive(Clone)]
 struct BbiRawBlockEncoder {
     items_per_slot: usize,
-    tmp           : Vec<u8>,
     fixed_step    : bool,
-}
-
-/* -------------------------------------------------------------------------- */
-
-struct BbiRawBlockEncoderIterator {
-    encoder : Box<BbiRawBlockEncoder>,
-    chrom_id: usize,
-    sequence: Vec<f64>,
-    bin_size: usize,
-    position: usize,
-    r       : BbiBlockEncoderType,
 }
 
 /* -------------------------------------------------------------------------- */
@@ -490,7 +479,6 @@ impl BbiRawBlockEncoder {
     fn new(items_per_slot: usize, fixed_step: bool) -> Self {
         BbiRawBlockEncoder {
             items_per_slot,
-            tmp: vec![0u8; 24],
             fixed_step,
         }
     }
@@ -504,40 +492,79 @@ impl BbiRawBlockEncoder {
     }
 
     fn encode(&self, chrom_id: usize, sequence: Vec<f64>, bin_size: usize) -> BbiRawBlockEncoderIterator {
-        let mut it = BbiRawBlockEncoderIterator {
-            encoder: Box::new(*self.clone()),
+        BbiRawBlockEncoderIterator {
+            encoder: Box::new(self.clone()),
             chrom_id,
             sequence,
             bin_size,
             position: 0,
-            r: BbiBlockEncoderType::default(),
-        };
-        it.next();
-        it
+            seqbuf  : Vec::new(),
+            header  : BbiDataHeader::new(),
+        }
     }
 }
 
+/* -------------------------------------------------------------------------- */
+
+#[derive(Clone)]
+struct BbiRawBlockEncoderIterator {
+    encoder : Box<BbiRawBlockEncoder>,
+    chrom_id: usize,
+    sequence: Vec<f64>,
+    bin_size: usize,
+    position: usize,
+    seqbuf  : Vec<f64>,
+    header  : BbiDataHeader,
+}
+
+/* -------------------------------------------------------------------------- */
+
 impl BbiRawBlockEncoderIterator {
-    fn get(&self) -> &BbiBlockEncoderType {
-        &self.r
-    }
 
-    fn ok(&self) -> bool {
-        self.r.block.is_some()
-    }
+    fn write<E: ByteOrder>(&self) -> BbiBlockEncoderType { 
 
-    fn next(&mut self) {
         let mut buffer = Cursor::new(Vec::new());
-        
+        let mut tmp    = vec![0u8; 24];
+
+        self.header.write_buffer::<E>(&mut tmp);
+        buffer.write_all(&tmp).unwrap();
+
+        if self.encoder.fixed_step {
+            for entry in self.seqbuf {
+                self.encoder.encode_fixed::<E>(&mut tmp, entry);
+                buffer.write_all(&tmp[..4]).unwrap();
+            }
+        } else {
+            for entry in self.seqbuf {
+                self.encoder.encode_variable::<E>(&mut tmp, self.header.end, entry);
+                buffer.write_all(&tmp[..8]).unwrap();
+            }
+        }
+
+        BbiBlockEncoderType{
+            from : self.header.start as usize,
+            to   : self.header.end   as usize,
+            block: Some(buffer.into_inner()),
+        }
+    }
+
+}
+
+/* -------------------------------------------------------------------------- */
+
+impl Iterator for BbiRawBlockEncoderIterator {
+
+    type Item = Self;
+
+    fn next(&mut self) -> Option<Self::Item> {
+
         while self.position < self.sequence.len() && self.sequence[self.position].is_nan() {
             self.position += 1;
         }
 
-        self.r.from  = 0;
-        self.r.to    = 0;
-        self.r.block = None;
+        self.seqbuf.clear();
 
-        let mut header = BbiDataHeader {
+        self.header = BbiDataHeader {
             chrom_id  : self.chrom_id as u32,
             start     : (self.bin_size * self.position) as u32,
             end       : (self.bin_size * self.position) as u32,
@@ -548,9 +575,6 @@ impl BbiRawBlockEncoderIterator {
             reserved  : 0,
         };
 
-        header.write_buffer(&mut self.encoder.tmp);
-        buffer.write_all(&self.encoder.tmp).unwrap();
-
         if self.encoder.fixed_step {
             while self.position < self.sequence.len() {
                 if self.sequence[self.position].is_nan() {
@@ -559,11 +583,10 @@ impl BbiRawBlockEncoderIterator {
                     }
                     break;
                 }
-                self.encoder.encode_fixed(&mut self.encoder.tmp, self.sequence[self.position]);
-                buffer.write_all(&self.encoder.tmp[..4]).unwrap();
-                header.item_count += 1;
-                header.end += header.step;
-                if header.item_count as usize == self.encoder.items_per_slot {
+                self.seqbuf.push(self.sequence[self.position]);
+                self.header.item_count += 1;
+                self.header.end        += self.header.step;
+                if self.header.item_count as usize == self.encoder.items_per_slot {
                     self.position += 1;
                     break;
                 }
@@ -572,12 +595,11 @@ impl BbiRawBlockEncoderIterator {
         } else {
             while self.position < self.sequence.len() {
                 if !self.sequence[self.position].is_nan() {
-                    self.encoder.encode_variable(&mut self.encoder.tmp, header.end, self.sequence[self.position]);
-                    buffer.write_all(&self.encoder.tmp[..8]).unwrap();
-                    header.item_count += 1;
-                    header.end = (self.bin_size * self.position) as u32 + header.step;
+                    self.seqbuf.push(self.sequence[self.position]);
+                    self.header.item_count += 1;
+                    self.header.end         = (self.bin_size * self.position) as u32 + self.header.step;
                 }
-                if header.item_count as usize == self.encoder.items_per_slot {
+                if self.header.item_count as usize == self.encoder.items_per_slot {
                     self.position += 1;
                     break;
                 }
@@ -585,11 +607,11 @@ impl BbiRawBlockEncoderIterator {
             }
         }
 
-        if buffer.get_ref().len() > 24 {
-            header.write_buffer(&mut buffer.get_mut()[..24]);
-            self.r.from = header.start as usize;
-            self.r.to = header.end as usize;
-            self.r.block = Some(buffer.into_inner());
+        if self.seqbuf.len() > 0 {
+            Some(self.clone())
+        }
+        else {
+            None
         }
     }
 }
