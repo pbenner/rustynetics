@@ -1770,9 +1770,8 @@ impl RVertexGenerator {
         let mut vertex = RVertex::default();
         vertex.is_leaf = 1;
         let mut blocks = Vec::new();
-        let mut it     = encoder.encode(chrom_id, sequence, bin_size);
 
-        while let Some(mut chunk_) = it.next() {
+        for mut chunk_ in encoder.encode(chrom_id, sequence, bin_size) {
             let chunk = chunk_.write::<E>().unwrap();
 
             if vertex.n_children as usize == self.block_size {
@@ -1810,9 +1809,8 @@ impl RVertexGenerator {
         let mut vertex = RVertex::default();
         vertex.is_leaf = 1;
         let mut blocks = Vec::new();
-        let mut it     = encoder.encode(chrom_id, sequence, bin_size);
 
-        while let Some(chunk_) = it.next() {
+        for chunk_ in encoder.encode(chrom_id, sequence, bin_size) {
             let chunk = chunk_.write::<E>().unwrap();
 
             if vertex.n_children as usize == self.block_size {
