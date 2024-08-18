@@ -2017,7 +2017,7 @@ impl BbiFile {
                                     }
                                 }
         
-                                result.bbi_summary_record.add_record(&record.bbi_summary_record);        
+                                result.bbi_summary_record.add_record(&record);        
                             }
                         }
                     }
@@ -2069,41 +2069,33 @@ impl BbiFile {
 
                     for item in decoder.decode() {
 
-                        match item.read::<E>() {
-                            Err(err) => {
-                                channel.push(BbiQueryType {
-                                    error: Some(err),
-                                    ..BbiQueryType::new(Box::new(|| {}))
-                                });
-                            },
-                            Ok(record) => {
-                                if record.chrom_id != chrom_id || record.from < from || record.to > to {
-                                    continue;
-                                }
+                        let record = item.read::<E>();
 
-                                if result.bbi_summary_record.chrom_id == -1 {
-                                    result.bbi_summary_record.chrom_id = record.chrom_id;
-                                    result.bbi_summary_record.from     = record.from;
-                                    result.bbi_summary_record.to       = record.from;
-                                    result.data_type                   = decoder.get_data_type();
-                                }
+                        if record.chrom_id != chrom_id || record.from < from || record.to > to {
+                            continue;
+                        }
 
-                                if result.bbi_summary_record.to - result.bbi_summary_record.from >= bin_size
-                                    || result.bbi_summary_record.from + bin_size < record.from
-                                {
-                                    if result.bbi_summary_record.from != result.bbi_summary_record.to {
-                                        if *done {
-                                            return false;
-                                        } else {
-                                            channel.push(result);
-                                            result = BbiQueryType::new(Box::new(|| *done = true));
-                                        }
-                                    }
-                                }
+                        if result.bbi_summary_record.chrom_id == -1 {
+                            result.bbi_summary_record.chrom_id = record.chrom_id;
+                            result.bbi_summary_record.from     = record.from;
+                            result.bbi_summary_record.to       = record.from;
+                            result.data_type                   = decoder.header.kind;
+                        }
 
-                                result.bbi_summary_record.add_record(&record.bbi_summary_record);
+                        if result.bbi_summary_record.to - result.bbi_summary_record.from >= bin_size
+                            || result.bbi_summary_record.from + bin_size < record.from
+                        {
+                            if result.bbi_summary_record.from != result.bbi_summary_record.to {
+                                if *done {
+                                    return false;
+                                } else {
+                                    channel.push(result);
+                                    result = BbiQueryType::new(Box::new(|| *done = true));
+                                }
                             }
                         }
+
+                        result.bbi_summary_record.add_record(&record);
                     }
                 }
             }
