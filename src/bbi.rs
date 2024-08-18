@@ -428,8 +428,8 @@ impl<'a> BbiRawBlockDecoder<'a> {
         if buffer.len() < 24 {
             return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "block length is shorter than 24 bytes"));
         }
-           let mut decoder = BbiRawBlockDecoder {
-               header: BbiDataHeader::new(),
+        let mut decoder = BbiRawBlockDecoder {
+            header: BbiDataHeader::new(),
             buffer,
         }; 
         decoder.header.read_buffer::<E>(buffer);
@@ -453,7 +453,13 @@ impl<'a> BbiRawBlockDecoder<'a> {
         }
         Ok(decoder)
     }
-
+    fn decode(&self) -> BbiRawBlockDecoderIterator {
+        let iterator = BbiRawBlockDecoderIterator {
+            decoder : self,
+            position: 0
+        };
+        iterator
+    }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -1850,10 +1856,296 @@ impl RVertexGenerator {
 
 /* -------------------------------------------------------------------------- */
 
+struct BbiQueryType {
+    bbi_summary_record: BbiSummaryRecord,
+    data_type         : u8,
+    quit              : Box<dyn FnOnce()>,
+    error             : Option<std::io::Error>,
+}
+
+/* -------------------------------------------------------------------------- */
+
+impl BbiQueryType {
+    pub fn new(quit: Box<dyn FnOnce()>) -> Self {
+        BbiQueryType {
+            bbi_summary_record: BbiSummaryRecord::new(),
+            data_type: 0,
+            quit,
+            error: None,
+        }
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+
 struct BbiFile {
     header    : BbiHeader,
     chrom_data: BData,
     index     : RTree,
     index_zoom: Vec<RTree>,
-    //order     : Box<dyn ByteOrder>,
+}
+
+/* -------------------------------------------------------------------------- */
+
+impl BbiFile {
+    pub fn new() -> Self {
+        BbiFile {
+            header    : BbiHeader::new(),
+            chrom_data: BData::new(),
+            index     : RTree::new(),
+            index_zoom: vec![],
+        }
+    }
+
+    pub fn estimate_size(&self, offset: i64, init: usize) -> usize {
+        let mut n = i64::MAX;
+        let mut k : i64;        
+
+        k = self.header.ct_offset as i64;
+        if offset < k as i64 && k < n {
+            n = k;
+        }
+
+        k = self.header.data_offset as i64;
+        if offset < k && k < n {
+            n = k;
+        }
+
+        k = self.header.index_offset as i64;
+        if offset < k && k < n {
+            n = k;
+        }
+
+        for zoom_header in &self.header.zoom_headers {
+            k = zoom_header.index_offset as i64;
+            if offset < k && k < n {
+                n = k;
+            }
+
+            k = zoom_header.data_offset as i64;
+            if offset < k && k < n {
+                n = k;
+            }
+        }
+
+        if n == i64::MAX {
+            init
+        } else {
+            (n - offset) as usize
+        }
+    }
+
+    pub fn read_index<E: ByteOrder, R: Read + Seek>(&mut self, reader: &mut R) -> io::Result<()> {
+        let n = self.estimate_size(self.header.index_offset as i64, 1024);
+        reader.seek(SeekFrom::Start(self.header.index_offset))?;
+        self.index.read::<E, R>(reader)
+    }
+
+    pub fn read_zoom_index<E: ByteOrder, R: Read + Seek>(&mut self, reader: &mut R, i: usize) -> io::Result<()> {
+        let n = self.estimate_size(self.header.zoom_headers[i].index_offset as i64, 1024);
+        reader.seek(SeekFrom::Start(self.header.zoom_headers[i].index_offset))?;
+        self.index_zoom[i].read::<E, R>(reader)
+    }
+
+    pub fn query_zoom<E: ByteOrder, R: Read + Seek>(
+        &mut self,
+        reader  : &mut R,
+        channel : &mut Vec<BbiQueryType>,
+        done    : &mut bool,
+        zoom_idx: usize,
+        chrom_id: i32,
+        from    : i32,
+        to      : i32,
+        bin_size: i32,
+    ) -> bool {
+        if self.index_zoom[zoom_idx].is_nil() {
+            if let Err(err) = self.read_zoom_index(reader, zoom_idx) {
+                channel.push(BbiQueryType {
+                    error: Some(err),
+                    ..BbiQueryType::new(Box::new(|| {}))
+                });
+                return false;
+            }
+        }
+
+        let mut traverser = RTreeTraverser::new(&self.index_zoom[zoom_idx], chrom_id, from, to);
+        let mut result = BbiQueryType::new(Box::new(|| *done = true));
+
+        while traverser.ok() {
+            let r = traverser.get();
+            match r.vertex.read_block::<E>(reader, self, r.idx) {
+                Err(err) => {
+                    channel.push(BbiQueryType {
+                        error: Some(err),
+                        ..BbiQueryType::new(Box::new(|| {}))
+                    });
+                },
+                Ok(block) => {
+                    let mut decoder = BbiZoomBlockDecoder::new(block);
+
+                    for item in decoder.decode() {
+
+                        match item.read::<E>() {
+                            Err(err) => {
+                                channel.push(BbiQueryType {
+                                    error: Some(err),
+                                    ..BbiQueryType::new(Box::new(|| {}))
+                                });
+                            },
+                            Ok(record) => {
+                                if record.chrom_id != chrom_id || record.from < from || record.to > to {
+                                    continue;
+                                }
+        
+                                if result.bbi_summary_record.chrom_id == -1 {
+                                    result.bbi_summary_record.chrom_id = record.chrom_id;
+                                    result.bbi_summary_record.from     = record.from;
+                                    result.bbi_summary_record.to       = record.from;
+                                    result.data_type                   = BBI_TYPE_BED_GRAPH;
+                                }
+        
+                                if result.bbi_summary_record.to - result.bbi_summary_record.from >= bin_size
+                                    || result.bbi_summary_record.from + bin_size < record.from
+                                {
+                                    if result.bbi_summary_record.from != result.bbi_summary_record.to {
+                                        if *done {
+                                            return false;
+                                        } else {
+                                            channel.push(result);
+                                            result = BbiQueryType::new(Box::new(|| *done = true));
+                                        }
+                                    }
+                                }
+        
+                                result.bbi_summary_record.add_record(&record.bbi_summary_record);        
+                            }
+                        }
+                    }
+                }
+            }
+            traverser.next();
+        }
+
+        if result.bbi_summary_record.chrom_id != -1 {
+            channel.push(result);
+        }
+        true
+    }
+
+    pub fn query_raw<E: ByteOrder, R: Read + Seek>(
+        &mut self,
+        reader  : &mut R,
+        channel : &mut Vec<BbiQueryType>,
+        done    : &mut bool,
+        chrom_id: i32,
+        from    : i32,
+        to      : i32,
+        bin_size: i32,
+    ) -> bool {
+        if self.index.is_nil() {
+            if let Err(err) = self.read_index(reader) {
+                channel.push(BbiQueryType {
+                    error: Some(err),
+                    ..BbiQueryType::new(Box::new(|| {}))
+                });
+                return false;
+            }
+        }
+
+        let mut traverser = RTreeTraverser::new(&self.index, chrom_id, from, to);
+        let mut result = BbiQueryType::new(Box::new(|| *done = true));
+
+        while traverser.ok() {
+            let r = traverser.get();
+            match r.vertex.read_block::<E>(reader, self, r.idx) {
+                Err(err) => {
+                    channel.push(BbiQueryType {
+                        error: Some(err),
+                        ..BbiQueryType::new(Box::new(|| {}))
+                    });
+                },
+                Ok(block) => {
+                    let mut decoder = BbiRawBlockDecoder::new(block).unwrap();
+
+                    for item in decoder.decode() {
+
+                        match item.read::<E>() {
+                            Err(err) => {
+                                channel.push(BbiQueryType {
+                                    error: Some(err),
+                                    ..BbiQueryType::new(Box::new(|| {}))
+                                });
+                            },
+                            Ok(record) => {
+                                if record.chrom_id != chrom_id || record.from < from || record.to > to {
+                                    continue;
+                                }
+
+                                if result.bbi_summary_record.chrom_id == -1 {
+                                    result.bbi_summary_record.chrom_id = record.chrom_id;
+                                    result.bbi_summary_record.from     = record.from;
+                                    result.bbi_summary_record.to       = record.from;
+                                    result.data_type                   = decoder.get_data_type();
+                                }
+
+                                if result.bbi_summary_record.to - result.bbi_summary_record.from >= bin_size
+                                    || result.bbi_summary_record.from + bin_size < record.from
+                                {
+                                    if result.bbi_summary_record.from != result.bbi_summary_record.to {
+                                        if *done {
+                                            return false;
+                                        } else {
+                                            channel.push(result);
+                                            result = BbiQueryType::new(Box::new(|| *done = true));
+                                        }
+                                    }
+                                }
+
+                                result.bbi_summary_record.add_record(&record.bbi_summary_record);
+                            }
+                        }
+                    }
+                }
+            }
+            traverser.next();
+        }
+
+        if result.bbi_summary_record.chrom_id != -1 {
+            channel.push(result);
+        }
+        true
+    }
+
+    pub fn query<E: ByteOrder, R: Read + Seek>(
+        &mut self,
+        reader  : &mut R,
+        channel : &mut Vec<BbiQueryType>,
+        chrom_id: i32,
+        from    : i32,
+        to      : i32,
+        bin_size: i32,
+    ) -> bool {
+        let mut done = false;
+
+        if bin_size != 0 {
+            let from = (from / bin_size) * bin_size;
+            let to = ((to + bin_size - 1) / bin_size) * bin_size;
+
+            let mut zoom_idx = -1;
+            for (i, zoom_header) in self.header.zoom_headers.iter().enumerate() {
+                if bin_size >= zoom_header.reduction_level as i32
+                    && bin_size % zoom_header.reduction_level as i32 == 0
+                {
+                    zoom_idx = i as i32;
+                    break;
+                }
+            }
+
+            if zoom_idx != -1 {
+                return self.query_zoom::<E, R>(reader, channel, &mut done, zoom_idx as usize, chrom_id, from, to, bin_size);
+            }
+        }
+
+        self.query_raw::<E, R>(reader, channel, &mut done, chrom_id, from, to, bin_size)
+    }
 }
