@@ -63,12 +63,11 @@ enum BigWigStream {
 
 struct BigWigFile {
     stream: BigWigStream,
-    close_fn: Option<Box<dyn FnOnce() -> io::Result<()>>>,
 }
 
 impl BigWigFile {
-    fn new(stream: BigWigStream, close_fn: Option<Box<dyn FnOnce() -> io::Result<()>>>) -> Self {
-        BigWigFile { stream, close_fn }
+    fn new(stream: BigWigStream) -> Self {
+        BigWigFile { stream }
     }
 
     fn open_file(filename: &str) -> Result<BigWigFile, Box<dyn Error>> {
@@ -76,7 +75,7 @@ impl BigWigFile {
 
         if path.exists() && path.is_file() {
             let file = File::open(path)?;
-            Ok(BigWigFile::new(BigWigStream::File(file), Some(Box::new(move || Ok(())))))
+            Ok(BigWigFile::new(BigWigStream::File(file)))
         } else {
             Err(Box::new(io::Error::new(io::ErrorKind::NotFound, "File not found")))
         }
@@ -89,7 +88,7 @@ impl BigWigFile {
         if head_resp.status().is_success() {
             if let Some(content_length) = head_resp.content_length() {
                 let http_reader = HttpSeekableReader::new(client, url.to_string(), content_length);
-                return Ok(BigWigFile::new(BigWigStream::Http(http_reader), None));
+                return Ok(BigWigFile::new(BigWigStream::Http(http_reader)));
             }
         }
 
@@ -104,13 +103,6 @@ impl BigWigFile {
         }
     }
 
-    fn close(self) -> io::Result<()> {
-        if let Some(close_fn) = self.close_fn {
-            close_fn()
-        } else {
-            Ok(())
-        }
-    }
 }
 
 /* -------------------------------------------------------------------------- */
