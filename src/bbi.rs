@@ -210,16 +210,16 @@ impl BbiSummaryRecord {
 
     fn reset(&mut self) {
         self.chrom_id = -1;
-        self.from = 0;
-        self.to = 0;
+        self.from     = 0;
+        self.to       = 0;
         self.statistics.reset();
     }
 
     fn add_record(&mut self, other: &BbiSummaryRecord) {
         if self.chrom_id == -1 {
             self.chrom_id = other.chrom_id;
-            self.from = other.from;
-            self.to = other.to;
+            self.from     = other.from;
+            self.to       = other.to;
         }
         if self.to < other.from {
             self.statistics.valid += (other.from - self.to) as f64;
@@ -1858,9 +1858,9 @@ impl RVertexGenerator {
 
 #[derive(Debug)]
 struct RTreeTraverser<'a> {
-    chrom_id: i32,                            // Chromosome ID for the query
-    from    : i32,                            // Start of the region query
-    to      : i32,                            // End of the region query
+    chrom_id: u32,                            // Chromosome ID for the query
+    from    : u32,                            // Start of the region query
+    to      : u32,                            // End of the region query
     stack   : Vec<RTreeTraverserType<'a>>,    // Stack for keeping track of the current tree position
 }
 
@@ -1871,7 +1871,7 @@ struct RTreeTraverserType<'a> {
 }
 
 impl<'a> RTreeTraverser<'a> {
-    fn new(tree: &'a RTree, chrom_id: i32, from: i32, to: i32) -> Self {
+    fn new(tree: &'a RTree, chrom_id: u32, from: u32, to: u32) -> Self {
         let mut traverser = RTreeTraverser {
             chrom_id,
             from,
@@ -1879,24 +1879,22 @@ impl<'a> RTreeTraverser<'a> {
             stack: Vec::new(),
         };
         // Push the root of the tree onto the stack and initiate traversal
-        traverser.stack.push(RTreeTraverserType { vertex: &tree.root, idx: 0 });
+        traverser.stack.push(RTreeTraverserType { vertex: tree.root.unwrap().as_ref(), idx: 0 });
         traverser
     }
 }
 
 impl<'a> Iterator for RTreeTraverser<'a> {
 
-    type Item = &'a RTreeTraverserType<'a>;
+    type Item = RTreeTraverserType<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
 
-        if self.stack.is_empty() {
-            return None;
-        }
-
         // Loop over the stack until we find a new position or the stack is empty
-        while let Some(mut top) = self.stack.pop() {
+        while let Some(top) = self.stack.pop() {
+
             let vertex = top.vertex;
+
             for i in top.idx..vertex.n_children as usize {
                 // If chromosome index start is greater than the query, stop searching this node
                 if vertex.chr_idx_start[i] > self.chrom_id {
@@ -1939,6 +1937,7 @@ impl<'a> Iterator for RTreeTraverser<'a> {
                 }
             }
         }
+        None
     }
 }
 
@@ -2041,13 +2040,13 @@ impl BbiFile {
         channel : &mut Vec<BbiQueryType>,
         done    : &mut bool,
         zoom_idx: usize,
-        chrom_id: i32,
-        from    : i32,
-        to      : i32,
-        bin_size: i32,
+        chrom_id: u32,
+        from    : u32,
+        to      : u32,
+        bin_size: u32,
     ) -> bool {
         if self.index_zoom[zoom_idx].is_nil() {
-            if let Err(err) = self.read_zoom_index(reader, zoom_idx) {
+            if let Err(err) = self.read_zoom_index::<E, R>(reader, zoom_idx) {
                 channel.push(BbiQueryType {
                     error: Some(err),
                     ..BbiQueryType::new(Box::new(|| {}))
@@ -2056,12 +2055,12 @@ impl BbiFile {
             }
         }
 
-        let mut traverser = RTreeTraverser::new(&self.index_zoom[zoom_idx], chrom_id, from, to);
+        let traverser = RTreeTraverser::new(&self.index_zoom[zoom_idx], chrom_id, from, to);
         let mut result = BbiQueryType::new(Box::new(|| *done = true));
 
         for r in traverser {
 
-            match r.vertex.read_block::<E>(reader, self, r.idx) {
+            match r.vertex.read_block::<R>(reader, self, r.idx) {
                 Err(err) => {
                     channel.push(BbiQueryType {
                         error: Some(err),
@@ -2069,9 +2068,9 @@ impl BbiFile {
                     });
                 },
                 Ok(block) => {
-                    let mut decoder = BbiZoomBlockDecoder::new(block);
+                    let decoder = BbiZoomBlockDecoder::new(&block);
 
-                    for item in decoder.decode() {
+                    for mut item in decoder.decode() {
 
                         match item.read::<E>() {
                             Err(err) => {
@@ -2081,7 +2080,7 @@ impl BbiFile {
                                 });
                             },
                             Ok(record) => {
-                                if record.chrom_id != chrom_id || record.from < from || record.to > to {
+                                if record.chrom_id != chrom_id as i32 || record.from < from as i32 || record.to > to as i32 {
                                     continue;
                                 }
         
@@ -2092,8 +2091,8 @@ impl BbiFile {
                                     result.data_type                   = BBI_TYPE_BED_GRAPH;
                                 }
         
-                                if result.bbi_summary_record.to - result.bbi_summary_record.from >= bin_size
-                                    || result.bbi_summary_record.from + bin_size < record.from
+                                if result.bbi_summary_record.to - result.bbi_summary_record.from >= bin_size as i32
+                                    || result.bbi_summary_record.from + (bin_size as i32) < record.from
                                 {
                                     if result.bbi_summary_record.from != result.bbi_summary_record.to {
                                         if *done {
@@ -2111,7 +2110,6 @@ impl BbiFile {
                     }
                 }
             }
-            traverser.next();
         }
 
         if result.bbi_summary_record.chrom_id != -1 {
@@ -2125,13 +2123,13 @@ impl BbiFile {
         reader  : &mut R,
         channel : &mut Vec<BbiQueryType>,
         done    : &mut bool,
-        chrom_id: i32,
-        from    : i32,
-        to      : i32,
-        bin_size: i32,
+        chrom_id: u32,
+        from    : u32,
+        to      : u32,
+        bin_size: u32,
     ) -> bool {
         if self.index.is_nil() {
-            if let Err(err) = self.read_index(reader) {
+            if let Err(err) = self.read_index::<E, R>(reader) {
                 channel.push(BbiQueryType {
                     error: Some(err),
                     ..BbiQueryType::new(Box::new(|| {}))
@@ -2140,12 +2138,12 @@ impl BbiFile {
             }
         }
 
-        let mut traverser = RTreeTraverser::new(&self.index, chrom_id, from, to);
+        let traverser = RTreeTraverser::new(&self.index, chrom_id, from, to);
         let mut result = BbiQueryType::new(Box::new(|| *done = true));
 
         for r in traverser {
 
-            match r.vertex.read_block::<E>(reader, self, r.idx) {
+            match r.vertex.read_block::<R>(reader, self, r.idx) {
                 Err(err) => {
                     channel.push(BbiQueryType {
                         error: Some(err),
@@ -2153,13 +2151,13 @@ impl BbiFile {
                     });
                 },
                 Ok(block) => {
-                    let mut decoder = BbiRawBlockDecoder::new(block).unwrap();
+                    let decoder = BbiRawBlockDecoder::new::<E>(&block).unwrap();
 
                     for item in decoder.decode() {
 
                         let record = item.read::<E>();
 
-                        if record.chrom_id != chrom_id || record.from < from || record.to > to {
+                        if record.chrom_id != chrom_id as i32 || record.from < from as i32 || record.to > to as i32 {
                             continue;
                         }
 
@@ -2170,8 +2168,8 @@ impl BbiFile {
                             result.data_type                   = decoder.header.kind;
                         }
 
-                        if result.bbi_summary_record.to - result.bbi_summary_record.from >= bin_size
-                            || result.bbi_summary_record.from + bin_size < record.from
+                        if result.bbi_summary_record.to - result.bbi_summary_record.from >= bin_size as i32
+                            || result.bbi_summary_record.from + (bin_size as i32) < record.from
                         {
                             if result.bbi_summary_record.from != result.bbi_summary_record.to {
                                 if *done {
@@ -2187,7 +2185,6 @@ impl BbiFile {
                     }
                 }
             }
-            traverser.next();
         }
 
         if result.bbi_summary_record.chrom_id != -1 {
@@ -2200,10 +2197,10 @@ impl BbiFile {
         &mut self,
         reader  : &mut R,
         channel : &mut Vec<BbiQueryType>,
-        chrom_id: i32,
-        from    : i32,
-        to      : i32,
-        bin_size: i32,
+        chrom_id: u32,
+        from    : u32,
+        to      : u32,
+        bin_size: u32,
     ) -> bool {
         let mut done = false;
 
@@ -2213,8 +2210,8 @@ impl BbiFile {
 
             let mut zoom_idx = -1;
             for (i, zoom_header) in self.header.zoom_headers.iter().enumerate() {
-                if bin_size >= zoom_header.reduction_level as i32
-                    && bin_size % zoom_header.reduction_level as i32 == 0
+                if bin_size >= zoom_header.reduction_level
+                    && bin_size % zoom_header.reduction_level == 0
                 {
                     zoom_idx = i as i32;
                     break;
