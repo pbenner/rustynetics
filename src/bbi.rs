@@ -1574,7 +1574,7 @@ impl RTree {
 
 /* -------------------------------------------------------------------------- */
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 struct RVertex {
     is_leaf        : u8,
     n_children     : u16,
@@ -1856,6 +1856,94 @@ impl RVertexGenerator {
 
 /* -------------------------------------------------------------------------- */
 
+#[derive(Debug)]
+struct RTreeTraverser<'a> {
+    chrom_id: i32,                            // Chromosome ID for the query
+    from    : i32,                            // Start of the region query
+    to      : i32,                            // End of the region query
+    stack   : Vec<RTreeTraverserType<'a>>,    // Stack for keeping track of the current tree position
+}
+
+#[derive(Debug)]
+struct RTreeTraverserType<'a> {
+    vertex: &'a RVertex,  // A reference to the current vertex
+    idx: usize,           // Index within the vertex
+}
+
+impl<'a> RTreeTraverser<'a> {
+    fn new(tree: &'a RTree, chrom_id: i32, from: i32, to: i32) -> Self {
+        let mut traverser = RTreeTraverser {
+            chrom_id,
+            from,
+            to,
+            stack: Vec::new(),
+        };
+        // Push the root of the tree onto the stack and initiate traversal
+        traverser.stack.push(RTreeTraverserType { vertex: &tree.root, idx: 0 });
+        traverser
+    }
+}
+
+impl<'a> Iterator for RTreeTraverser<'a> {
+
+    type Item = &'a RTreeTraverserType<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+
+        if self.stack.is_empty() {
+            return None;
+        }
+
+        // Loop over the stack until we find a new position or the stack is empty
+        while let Some(mut top) = self.stack.pop() {
+            let vertex = top.vertex;
+            for i in top.idx..vertex.n_children as usize {
+                // If chromosome index start is greater than the query, stop searching this node
+                if vertex.chr_idx_start[i] > self.chrom_id {
+                    continue;
+                }
+
+                // Check if this is the correct chromosome
+                if self.chrom_id >= vertex.chr_idx_start[i] && self.chrom_id <= vertex.chr_idx_end[i] {
+                    // Check region on the chromosome
+                    if vertex.chr_idx_start[i] == vertex.chr_idx_end[i] {
+                        // Check if query region is ahead or past the current region
+                        if vertex.base_end[i] <= self.from {
+                            continue;
+                        }
+                        if vertex.base_start[i] >= self.to {
+                            break;
+                        }
+                    }
+
+                    // Push current position incremented by one leaf
+                    self.stack.push(RTreeTraverserType {
+                        vertex,
+                        idx: i + 1,
+                    });
+
+                    // If this is a non-leaf vertex, traverse its children
+                    if vertex.is_leaf == 0 {
+                        self.stack.push(RTreeTraverserType {
+                            vertex: &vertex.children[i],
+                            idx: 0,
+                        });
+                        break;
+                    } else {
+                        // Save result and exit
+                        return Some(RTreeTraverserType {
+                            vertex,
+                            idx: i,
+                        });
+                    }
+                }
+            }
+        }
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+
 struct BbiQueryType {
     bbi_summary_record: BbiSummaryRecord,
     data_type         : u8,
@@ -1971,8 +2059,8 @@ impl BbiFile {
         let mut traverser = RTreeTraverser::new(&self.index_zoom[zoom_idx], chrom_id, from, to);
         let mut result = BbiQueryType::new(Box::new(|| *done = true));
 
-        while traverser.ok() {
-            let r = traverser.get();
+        for r in traverser {
+
             match r.vertex.read_block::<E>(reader, self, r.idx) {
                 Err(err) => {
                     channel.push(BbiQueryType {
@@ -2055,8 +2143,8 @@ impl BbiFile {
         let mut traverser = RTreeTraverser::new(&self.index, chrom_id, from, to);
         let mut result = BbiQueryType::new(Box::new(|| *done = true));
 
-        while traverser.ok() {
-            let r = traverser.get();
+        for r in traverser {
+
             match r.vertex.read_block::<E>(reader, self, r.idx) {
                 Err(err) => {
                     channel.push(BbiQueryType {
