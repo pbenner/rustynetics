@@ -1879,7 +1879,7 @@ impl<'a> RTreeTraverser<'a> {
             stack: Vec::new(),
         };
         // Push the root of the tree onto the stack and initiate traversal
-        traverser.stack.push(RTreeTraverserType { vertex: tree.root.unwrap().as_ref(), idx: 0 });
+        traverser.stack.push(RTreeTraverserType { vertex: tree.root.as_ref().unwrap(), idx: 0 });
         traverser
     }
 }
@@ -2023,13 +2023,11 @@ impl BbiFile {
     }
 
     pub fn read_index<E: ByteOrder, R: Read + Seek>(&mut self, reader: &mut R) -> io::Result<()> {
-        let n = self.estimate_size(self.header.index_offset as i64, 1024);
         reader.seek(SeekFrom::Start(self.header.index_offset))?;
         self.index.read::<E, R>(reader)
     }
 
     pub fn read_zoom_index<E: ByteOrder, R: Read + Seek>(&mut self, reader: &mut R, i: usize) -> io::Result<()> {
-        let n = self.estimate_size(self.header.zoom_headers[i].index_offset as i64, 1024);
         reader.seek(SeekFrom::Start(self.header.zoom_headers[i].index_offset))?;
         self.index_zoom[i].read::<E, R>(reader)
     }
