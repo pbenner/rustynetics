@@ -33,6 +33,8 @@ use std::sync::Arc;
 
 const CIRTREE_MAGIC      : u32   = 0x78ca8c91;
 const IDX_MAGIC          : u32   = 0x2468ace0;
+const BIGWIG_MAGIC       : u32   = 0x888FFC26;
+
 const BBI_MAX_ZOOM_LEVELS: usize = 10;
 const BBI_RES_INCREMENT  : u32   = 4;
 const BBI_TYPE_FIXED     : u8    = 3;
@@ -1420,7 +1422,7 @@ impl BbiHeader {
 
 /* -------------------------------------------------------------------------- */
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 struct RTree {
     block_size      : u32,
     n_items         : u64,
@@ -1576,7 +1578,7 @@ impl RTree {
 
 /* -------------------------------------------------------------------------- */
 
-#[derive(Default, Debug)]
+#[derive(Clone, Default, Debug)]
 pub struct RVertex {
     is_leaf        : u8,
     n_children     : u16,
@@ -2228,5 +2230,85 @@ impl BbiFile {
         }
 
         self.query_raw::<E, R>(reader, channel, quit, chrom_id, from, to, bin_size)
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+
+impl BbiFile {
+    fn open<E: ByteOrder, R: Read + Seek>(&mut self, reader_: &mut R) -> io::Result<()> {
+        let mut reader = BufferedReadSeeker::new(reader_, 1024)?;  // Assume a similar BufferedReader is available
+        // parse header
+        let order = self.header.read(&mut reader, BIGWIG_MAGIC)?;
+
+        if self.header.magic != BIGWIG_MAGIC {
+            return Err(io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "not a BigWig file",
+            ));
+        }
+
+        // parse chromosome list
+        reader.seek(SeekFrom::Start(self.header.ct_offset))?;
+        self.chrom_data.read::<E, R>(&mut reader)?;
+
+        // Initialize index_zoom based on zoom levels from header
+        self.index_zoom = vec![RTree::default(); self.header.zoom_levels as usize];
+        Ok(())
+    }
+
+    fn create<E: ByteOrder, W: Write + Seek>(&mut self, writer: &mut W) -> io::Result<()> {
+        // write header
+        self.header.write::<E, W>(writer)?;
+
+        // data starts here
+        let offset = writer.seek(SeekFrom::Current(0))?;
+        self.header.data_offset = offset as u64;
+
+        // update offsets
+        self.header.write_offsets::<E, W>(writer)?;
+
+        // write number of blocks (zero at the moment)
+        writer.write_u64::<E>(0)?;
+
+        Ok(())
+    }
+
+    fn write_chrom_list<E: ByteOrder, W: Write + Seek>(&mut self, writer: &mut W) -> io::Result<()> {
+        // write chromosome list
+        let offset = writer.seek(SeekFrom::Current(0))?;
+        self.header.ct_offset = offset as u64;
+
+        self.chrom_data.write::<E, W>(write_uncompress_buf_size)?;
+
+        // update offsets
+        self.header.write_offsets(writer)?;
+        Ok(())
+    }
+
+    fn write_index<E: ByteOrder, W: Write + Seek>(&mut self, writer: &mut W) -> io::Result<()> {
+        // write data index offset
+        let offset = writer.seek(SeekFrom::Current(0))?;
+        self.header.index_offset = offset as u64;
+
+        // write data index
+        self.index.write::<E, W>(writer)?;
+
+        // update offsets
+        self.header.write_offsets::<E, W>(writer)?;
+        Ok(())
+    }
+
+    fn write_index_zoom<E: ByteOrder, W: Write + Seek>(&mut self, writer: &mut W, i: usize) -> io::Result<()> {
+        // write data index zoom offset
+        let offset = writer.seek(SeekFrom::Current(0))?;
+        self.header.zoom_headers[i].index_offset = offset as u64;
+
+        // write data index zoom
+        self.index_zoom[i].write::<E, W>(writer)?;
+
+        // update offsets
+        self.header.zoom_headers[i].write_offsets::<E, W>(writer)?;
+        Ok(())
     }
 }

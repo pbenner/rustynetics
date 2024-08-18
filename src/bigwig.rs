@@ -15,7 +15,7 @@
  */
 
 use std::fs::File;
-use std::io::{Read, Seek, SeekFrom};
+use std::io::{Read, Write, Seek, SeekFrom};
 use std::error::Error;
 use std::path::Path;
 use std::result::Result;
@@ -31,11 +31,6 @@ use crate::genome::Genome;
 use crate::bbi::RVertex;
 use crate::bbi::BbiQueryType;
 use crate::bbi::BbiFile;
-
-/* -------------------------------------------------------------------------- */
-
-// Constants
-const BIGWIG_MAGIC: u32 = 0x888FFC26;
 
 /* -------------------------------------------------------------------------- */
 
