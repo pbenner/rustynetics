@@ -10,3 +10,5 @@ list_comprehension_macro = "0.1"
 rand = "0.8.5"
 mysql = "24.0.0"
 byteorder = "1.5.0"
+reqwest = { version = "0.11", features = ["blocking"] }
+url = "2"
