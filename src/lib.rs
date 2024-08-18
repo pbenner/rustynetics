@@ -19,7 +19,7 @@
 
 pub mod alphabet;
 pub mod bbi;
-pub mod bigWig;
+pub mod bigwig;
 pub mod genes;
 pub mod genes_ucsc;
 pub mod genome;
