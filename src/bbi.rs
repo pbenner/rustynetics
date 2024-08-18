@@ -970,7 +970,7 @@ impl BVertex {
 
 /* -------------------------------------------------------------------------- */
 
-struct BTree {
+pub struct BTree {
     key_size       : u32,
     value_size     : u32,
     items_per_block: u32,
@@ -982,7 +982,7 @@ struct BTree {
 
 impl BTree {
 
-    fn new(data: &BData) -> Self {
+    pub fn new(data: &BData) -> Self {
         let mut tree = BTree {
             key_size       : data.key_size,
             value_size     : data.value_size,
@@ -1004,7 +1004,7 @@ impl BTree {
         tree
     }
 
-    fn write<E: ByteOrder, W: Write+Seek>(&self, writer: &mut W) -> io::Result<()> {
+    pub fn write<E: ByteOrder, W: Write+Seek>(&self, writer: &mut W) -> io::Result<()> {
         let magic = CIRTREE_MAGIC;
 
         writer.write_u32::<E>(magic)?;
@@ -1020,7 +1020,7 @@ impl BTree {
 
 /* -------------------------------------------------------------------------- */
 
-struct BData {
+pub struct BData {
     key_size       : u32,
     value_size     : u32,
     items_per_block: u32,
@@ -1034,7 +1034,7 @@ struct BData {
 /* -------------------------------------------------------------------------- */
 
 impl BData {
-    fn new() -> Self {
+    pub fn new() -> Self {
         BData {
             key_size        : 0,
             value_size      : 0,
@@ -1107,7 +1107,7 @@ impl BData {
         }
     }
 
-    fn read<E: ByteOrder, R: Read + Seek>(&mut self, file: &mut R) -> io::Result<()> {
+    pub fn read<E: ByteOrder, R: Read + Seek>(&mut self, file: &mut R) -> io::Result<()> {
         let magic = file.read_u32::<E>()?;
         if magic != CIRTREE_MAGIC {
             return Err(io::Error::new(io::ErrorKind::InvalidData, "invalid tree"));
@@ -1124,7 +1124,7 @@ impl BData {
         self.read_vertex::<E, R>(file)
     }
 
-    fn write<E: ByteOrder, W: Write+Seek>(&self, file: &mut W) -> io::Result<()> {
+    pub fn write<E: ByteOrder, W: Write+Seek>(&self, file: &mut W) -> io::Result<()> {
         let tree = BTree::new(self);
         tree.write::<E, W>(file)
     }
@@ -1205,7 +1205,7 @@ impl BbiHeaderZoom {
 /* -------------------------------------------------------------------------- */
 
 #[derive(Default)]
-struct BbiHeader {
+pub struct BbiHeader {
     magic                  : u32,
     version                : u16,
     zoom_levels            : u16,
@@ -1237,7 +1237,7 @@ struct BbiHeader {
 /* -------------------------------------------------------------------------- */
 
 impl BbiHeader {
-    fn new() -> Self {
+    pub fn new() -> Self {
         BbiHeader {
             version: 4,
             min_val: f64::NAN,
@@ -1309,7 +1309,7 @@ impl BbiHeader {
         Ok(())
     }
 
-    fn read<R: Read + Seek>(&mut self, file: &mut R, magic: u32) -> io::Result<()> {
+    pub fn read<R: Read + Seek>(&mut self, file: &mut R, magic: u32) -> io::Result<()> {
 
         // Read magin number
         self.magic = file.read_u32::<LittleEndian>()?;
@@ -1334,7 +1334,7 @@ impl BbiHeader {
         Ok(())
     }
 
-    fn write_offsets<E: ByteOrder, W: Write + Seek>(&self, file: &mut W) -> io::Result<()> {
+    pub fn write_offsets<E: ByteOrder, W: Write + Seek>(&self, file: &mut W) -> io::Result<()> {
 
         let mut buf = [0u8; 8];
 
@@ -1577,7 +1577,7 @@ impl RTree {
 /* -------------------------------------------------------------------------- */
 
 #[derive(Default, Debug)]
-struct RVertex {
+pub struct RVertex {
     is_leaf        : u8,
     n_children     : u16,
     chr_idx_start  : Vec<u32>,
@@ -1594,7 +1594,7 @@ struct RVertex {
 /* -------------------------------------------------------------------------- */
 
 impl RVertex {
-    fn read_block<R: Read + Seek>(&self, reader: &mut R, bwf: &BbiFile, i: usize) -> io::Result<Vec<u8>> {
+    pub fn read_block<R: Read + Seek>(&self, reader: &mut R, bwf: &BbiFile, i: usize) -> io::Result<Vec<u8>> {
         let mut block = vec![0u8; self.sizes[i] as usize];
 
         reader.seek(SeekFrom::Start(self.data_offset[i]))?;
@@ -1607,7 +1607,7 @@ impl RVertex {
         Ok(block)
     }
 
-    fn write_block<E: ByteOrder, W: Write + Seek>(&mut self, writer: &mut W, bwf: &mut BbiFile, i: usize, mut block: Vec<u8>) -> io::Result<()> {
+    pub fn write_block<E: ByteOrder, W: Write + Seek>(&mut self, writer: &mut W, bwf: &mut BbiFile, i: usize, mut block: Vec<u8>) -> io::Result<()> {
         if bwf.header.uncompress_buf_size != 0 {
             if block.len() as u32 > bwf.header.uncompress_buf_size {
                 bwf.header.uncompress_buf_size = block.len() as u32;
@@ -1635,7 +1635,7 @@ impl RVertex {
         Ok(())
     }
 
-    fn read<E: ByteOrder, R: Read + Seek>(&mut self, file: &mut R) -> io::Result<()> {
+    pub fn read<E: ByteOrder, R: Read + Seek>(&mut self, file: &mut R) -> io::Result<()> {
         let mut padding = [0u8; 1];
 
         self.is_leaf    = file.read_u8()?;
@@ -1684,7 +1684,7 @@ impl RVertex {
         Ok(())
     }
 
-    fn write<E: ByteOrder, W: Write + Seek>(&mut self, file: &mut W) -> std::io::Result<()> {
+    pub fn write<E: ByteOrder, W: Write + Seek>(&mut self, file: &mut W) -> std::io::Result<()> {
         if self.data_offset.len() != self.n_children as usize {
             self.data_offset.resize(self.n_children as usize, 0);
         }
@@ -1735,18 +1735,18 @@ impl RVertex {
 
 /* -------------------------------------------------------------------------- */
 
-struct RVertexGenerator {
+pub struct RVertexGenerator {
     block_size: usize,
     items_per_slot: usize,
 }
 
-struct RVertexGeneratorType {
+pub struct RVertexGeneratorType {
     vertex: RVertex,
     blocks: Vec<Vec<u8>>,
 }
 
 impl RVertexGenerator {
-    fn new(block_size: usize, items_per_slot: usize) -> Result<Self, String> {
+    pub fn new(block_size: usize, items_per_slot: usize) -> Result<Self, String> {
         if block_size == 0 {
             return Err(format!("invalid block size `{}`", block_size));
         }
@@ -1759,7 +1759,7 @@ impl RVertexGenerator {
         })
     }
 
-    fn generate<E: ByteOrder>(self, chrom_id: usize, sequence: Vec<f64>, bin_size: usize, reduction_level: usize, fixed_step: bool) -> Receiver<RVertexGeneratorType> {
+    pub fn generate<E: ByteOrder>(self, chrom_id: usize, sequence: Vec<f64>, bin_size: usize, reduction_level: usize, fixed_step: bool) -> Receiver<RVertexGeneratorType> {
         let (tx, rx) = channel();
 
         std::thread::spawn(move || {
@@ -1945,7 +1945,7 @@ impl<'a> Iterator for RTreeTraverser<'a> {
 
 /* -------------------------------------------------------------------------- */
 
-struct BbiQueryType {
+pub struct BbiQueryType {
     bbi_summary_record: BbiSummaryRecord,
     data_type         : u8,
     quit_atomic       : Arc<AtomicBool>,
@@ -1971,7 +1971,7 @@ impl BbiQueryType {
 
 /* -------------------------------------------------------------------------- */
 
-struct BbiFile {
+pub struct BbiFile {
     header    : BbiHeader,
     chrom_data: BData,
     index     : RTree,
@@ -2028,17 +2028,17 @@ impl BbiFile {
         }
     }
 
-    pub fn read_index<E: ByteOrder, R: Read + Seek>(&mut self, reader: &mut R) -> io::Result<()> {
+    fn read_index<E: ByteOrder, R: Read + Seek>(&mut self, reader: &mut R) -> io::Result<()> {
         reader.seek(SeekFrom::Start(self.header.index_offset))?;
         self.index.read::<E, R>(reader)
     }
 
-    pub fn read_zoom_index<E: ByteOrder, R: Read + Seek>(&mut self, reader: &mut R, i: usize) -> io::Result<()> {
+    fn read_zoom_index<E: ByteOrder, R: Read + Seek>(&mut self, reader: &mut R, i: usize) -> io::Result<()> {
         reader.seek(SeekFrom::Start(self.header.zoom_headers[i].index_offset))?;
         self.index_zoom[i].read::<E, R>(reader)
     }
 
-    pub fn query_zoom<E: ByteOrder, R: Read + Seek>(
+    fn query_zoom<E: ByteOrder, R: Read + Seek>(
         &mut self,
         reader  : &mut R,
         channel : Sender<BbiQueryType>,
@@ -2122,7 +2122,7 @@ impl BbiFile {
         true
     }
 
-    pub fn query_raw<E: ByteOrder, R: Read + Seek>(
+    fn query_raw<E: ByteOrder, R: Read + Seek>(
         &mut self,
         reader  : &mut R,
         channel : Sender<BbiQueryType>,
