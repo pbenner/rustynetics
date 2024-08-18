@@ -15,15 +15,22 @@
  */
 
 use std::fs::File;
-use std::io::{BufReader, BufRead, Read, Seek, SeekFrom};
+use std::io::{Read, Seek, SeekFrom};
 use std::error::Error;
 use std::path::Path;
 use std::result::Result;
 use std::io;
+use std::thread;
+use std::sync::mpsc::{channel, Sender};
 
-use url::Url;
 use std::ops::Range;
 use reqwest::blocking::{Client, Response};
+use byteorder::{ByteOrder, ReadBytesExt, WriteBytesExt, BigEndian, LittleEndian};
+
+use crate::genome::Genome;
+use crate::bbi::RVertex;
+use crate::bbi::BbiQueryType;
+use crate::bbi::BbiFile;
 
 /* -------------------------------------------------------------------------- */
 
@@ -175,5 +182,112 @@ impl Seek for HttpSeekableReader {
         } else {
             Err(io::Error::new(io::ErrorKind::InvalidInput, "Seek position out of bounds"))
         }
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+
+struct BigWigReader<R: Read + Seek> {
+    reader: R,
+    bwf   : BbiFile,
+    genome: Genome,
+}
+
+/* -------------------------------------------------------------------------- */
+
+struct BigWigReaderType {
+    block: Option<Vec<u8>>,
+    error: Option<Box<dyn Error>>,
+}
+
+/* -------------------------------------------------------------------------- */
+
+impl<R: Read + Seek> BigWigReader<R> {
+    fn new(mut reader: R) -> Result<Self, Box<dyn Error>> {
+        let mut bwf = BbiFile::new();
+        bwf.open(&mut reader)?;
+
+        let mut seqnames = vec![String::new(); bwf.chrom_data.keys.len()];
+        let mut lengths = vec![0; bwf.chrom_data.keys.len()];
+
+        for i in 0..bwf.chrom_data.keys.len() {
+            if bwf.chrom_data.values[i].len() != 8 {
+                return Err(Box::new(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    "invalid chromosome list",
+                )));
+            }
+            let idx = (&bwf.chrom_data.values[i][0..4]).read_u32::<LittleEndian>()? as usize;
+            if idx >= bwf.chrom_data.keys.len() {
+                return Err(Box::new(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    "invalid chromosome index",
+                )));
+            }
+            seqnames[idx] = String::from_utf8_lossy(&bwf.chrom_data.keys[i]).trim_end_matches('\x00').to_string();
+            lengths[idx] = (&bwf.chrom_data.values[i][4..8]).read_u32::<LittleEndian>()? as usize;
+        }
+
+        let genome = Genome::new(seqnames, lengths);
+
+        Ok(BigWigReader {
+            reader,
+            bwf,
+            genome,
+        })
+    }
+
+    fn read_blocks(&mut self) -> std::sync::mpsc::Receiver<BigWigReaderType> {
+        let (tx, rx) = channel();
+        let bwf = self.bwf.clone();
+        let mut reader = self.reader.try_clone().unwrap();
+
+        thread::spawn(move || {
+            Self::fill_channel(tx, &mut reader, &bwf.index.root).unwrap();
+        });
+
+        rx
+    }
+
+    fn fill_channel(tx: Sender<BigWigReaderType>, reader: &mut R, vertex: &RVertex) -> Result<(), Box<dyn Error>> {
+        if vertex.is_leaf != 0 {
+            for i in 0..vertex.n_children as usize {
+                match vertex.read_block(reader, i) {
+                    Ok(block) => tx.send(BigWigReaderType { block: Some(block), error: None }).unwrap(),
+                    Err(err) => tx.send(BigWigReaderType { block: None, error: Some(Box::new(err)) }).unwrap(),
+                }
+            }
+        } else {
+            for i in 0..vertex.n_children as usize {
+                Self::fill_channel(tx.clone(), reader, &vertex.children[i])?;
+            }
+        }
+        Ok(())
+    }
+
+    fn query(&mut self, seq_regex: &str, from: usize, to: usize, bin_size: usize) -> std::sync::mpsc::Receiver<BbiQueryType> {
+        let (tx, rx) = channel();
+        let genome = self.genome.clone();
+        let mut reader = self.reader.try_clone().unwrap();
+        let bwf = self.bwf.clone();
+
+        let re = regex::Regex::new(&format!("^{}$", seq_regex)).unwrap();
+        let done_tx = tx.clone();
+
+        thread::spawn(move || {
+            for seqname in &genome.seqnames {
+                if !re.is_match(seqname) {
+                    continue;
+                }
+                if let Ok(idx) = genome.get_idx(seqname) {
+                    if bwf.query(&mut reader, tx.clone(), idx, from, to, bin_size).is_err() {
+                        break;
+                    }
+                }
+            }
+            drop(done_tx);
+        });
+
+        rx
     }
 }
