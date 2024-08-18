@@ -25,7 +25,9 @@ use flate2::Compression;
 use flate2::write::ZlibEncoder;
 use flate2::read::ZlibDecoder;
 
-use std::sync::mpsc::{channel, Receiver};
+use std::sync::mpsc::{channel, Receiver, Sender};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
 /* -------------------------------------------------------------------------- */
 
@@ -1767,7 +1769,7 @@ impl RVertexGenerator {
         rx
     }
 
-    fn generate_zoom<E: ByteOrder>(&self, tx: std::sync::mpsc::Sender<RVertexGeneratorType>, chrom_id: usize, sequence: Vec<f64>, bin_size: usize, reduction_level: usize) -> Result<(), String> {
+    fn generate_zoom<E: ByteOrder>(&self, tx: Sender<RVertexGeneratorType>, chrom_id: usize, sequence: Vec<f64>, bin_size: usize, reduction_level: usize) -> Result<(), String> {
 
         let encoder = BbiZoomBlockEncoder::new(
             self.items_per_slot, reduction_level
@@ -1806,7 +1808,7 @@ impl RVertexGenerator {
         Ok(())
     }
 
-    fn generate_raw<E: ByteOrder>(&self, tx: std::sync::mpsc::Sender<RVertexGeneratorType>, chrom_id: usize, sequence: Vec<f64>, bin_size: usize, fixed_step: bool) -> Result<(), String> {
+    fn generate_raw<E: ByteOrder>(&self, tx: Sender<RVertexGeneratorType>, chrom_id: usize, sequence: Vec<f64>, bin_size: usize, fixed_step: bool) -> Result<(), String> {
 
         let encoder = BbiRawBlockEncoder::new(
             self.items_per_slot, fixed_step
@@ -1845,7 +1847,7 @@ impl RVertexGenerator {
         Ok(())
     }
 
-    fn generate_impl<E: ByteOrder>(&self, tx: std::sync::mpsc::Sender<RVertexGeneratorType>, chrom_id: usize, sequence: Vec<f64>, bin_size: usize, reduction_level: usize, fixed_step: bool) -> Result<(), String> {
+    fn generate_impl<E: ByteOrder>(&self, tx: Sender<RVertexGeneratorType>, chrom_id: usize, sequence: Vec<f64>, bin_size: usize, reduction_level: usize, fixed_step: bool) -> Result<(), String> {
         if reduction_level > bin_size {
             self.generate_zoom::<E>(tx, chrom_id, sequence, bin_size, reduction_level)
         } else {
@@ -1946,20 +1948,24 @@ impl<'a> Iterator for RTreeTraverser<'a> {
 struct BbiQueryType {
     bbi_summary_record: BbiSummaryRecord,
     data_type         : u8,
-    quit              : Box<dyn FnOnce()>,
+    quit_atomic       : Arc<AtomicBool>,
     error             : Option<std::io::Error>,
 }
 
 /* -------------------------------------------------------------------------- */
 
 impl BbiQueryType {
-    pub fn new(quit: Box<dyn FnOnce()>) -> Self {
+    pub fn new(quit: Arc<AtomicBool>) -> Self {
         BbiQueryType {
             bbi_summary_record: BbiSummaryRecord::new(),
-            data_type: 0,
-            quit,
-            error: None,
+            data_type         : 0,
+            quit_atomic       : quit,
+            error             : None,
         }
+    }
+
+    pub fn quit(&mut self) {
+        self.quit_atomic.store(false, Ordering::Relaxed);
     }
 }
 
@@ -2035,35 +2041,36 @@ impl BbiFile {
     pub fn query_zoom<E: ByteOrder, R: Read + Seek>(
         &mut self,
         reader  : &mut R,
-        channel : &mut Vec<BbiQueryType>,
-        done    : &mut bool,
+        channel : Sender<BbiQueryType>,
+        quit    : Arc<AtomicBool>,
         zoom_idx: usize,
         chrom_id: u32,
         from    : u32,
         to      : u32,
         bin_size: u32,
     ) -> bool {
+
         if self.index_zoom[zoom_idx].is_nil() {
             if let Err(err) = self.read_zoom_index::<E, R>(reader, zoom_idx) {
-                channel.push(BbiQueryType {
+                channel.send(BbiQueryType {
                     error: Some(err),
-                    ..BbiQueryType::new(Box::new(|| {}))
-                });
+                    ..BbiQueryType::new(quit)
+                }).unwrap();
                 return false;
             }
         }
 
         let traverser = RTreeTraverser::new(&self.index_zoom[zoom_idx], chrom_id, from, to);
-        let mut result = BbiQueryType::new(Box::new(|| *done = true));
+        let mut result = BbiQueryType::new(quit.clone());
 
         for r in traverser {
 
             match r.vertex.read_block::<R>(reader, self, r.idx) {
                 Err(err) => {
-                    channel.push(BbiQueryType {
+                    channel.send(BbiQueryType {
                         error: Some(err),
-                        ..BbiQueryType::new(Box::new(|| {}))
-                    });
+                        ..BbiQueryType::new(quit.clone())
+                    }).unwrap();
                 },
                 Ok(block) => {
                     let decoder = BbiZoomBlockDecoder::new(&block);
@@ -2072,10 +2079,10 @@ impl BbiFile {
 
                         match item.read::<E>() {
                             Err(err) => {
-                                channel.push(BbiQueryType {
+                                channel.send(BbiQueryType {
                                     error: Some(err),
-                                    ..BbiQueryType::new(Box::new(|| {}))
-                                });
+                                    ..BbiQueryType::new(quit.clone())
+                                }).unwrap();
                             },
                             Ok(record) => {
                                 if record.chrom_id != chrom_id as i32 || record.from < from as i32 || record.to > to as i32 {
@@ -2093,12 +2100,11 @@ impl BbiFile {
                                     || result.bbi_summary_record.from + (bin_size as i32) < record.from
                                 {
                                     if result.bbi_summary_record.from != result.bbi_summary_record.to {
-                                        if *done {
+                                        if quit.load(Ordering::Relaxed) {
                                             return false;
-                                        } else {
-                                            channel.push(result);
-                                            result = BbiQueryType::new(Box::new(|| *done = true));
                                         }
+                                        channel.send(result).unwrap();
+                                        result = BbiQueryType::new(quit.clone());
                                     }
                                 }
         
@@ -2111,7 +2117,7 @@ impl BbiFile {
         }
 
         if result.bbi_summary_record.chrom_id != -1 {
-            channel.push(result);
+            channel.send(result).unwrap();
         }
         true
     }
@@ -2119,8 +2125,8 @@ impl BbiFile {
     pub fn query_raw<E: ByteOrder, R: Read + Seek>(
         &mut self,
         reader  : &mut R,
-        channel : &mut Vec<BbiQueryType>,
-        done    : &mut bool,
+        channel : Sender<BbiQueryType>,
+        quit    : Arc<AtomicBool>,
         chrom_id: u32,
         from    : u32,
         to      : u32,
@@ -2128,25 +2134,25 @@ impl BbiFile {
     ) -> bool {
         if self.index.is_nil() {
             if let Err(err) = self.read_index::<E, R>(reader) {
-                channel.push(BbiQueryType {
+                channel.send(BbiQueryType {
                     error: Some(err),
-                    ..BbiQueryType::new(Box::new(|| {}))
-                });
+                    ..BbiQueryType::new(quit.clone())
+                }).unwrap();
                 return false;
             }
         }
 
         let traverser = RTreeTraverser::new(&self.index, chrom_id, from, to);
-        let mut result = BbiQueryType::new(Box::new(|| *done = true));
+        let mut result = BbiQueryType::new(quit.clone());
 
         for r in traverser {
 
             match r.vertex.read_block::<R>(reader, self, r.idx) {
                 Err(err) => {
-                    channel.push(BbiQueryType {
+                    channel.send(BbiQueryType {
                         error: Some(err),
-                        ..BbiQueryType::new(Box::new(|| {}))
-                    });
+                        ..BbiQueryType::new(quit.clone())
+                    }).unwrap();
                 },
                 Ok(block) => {
                     let decoder = BbiRawBlockDecoder::new::<E>(&block).unwrap();
@@ -2170,12 +2176,11 @@ impl BbiFile {
                             || result.bbi_summary_record.from + (bin_size as i32) < record.from
                         {
                             if result.bbi_summary_record.from != result.bbi_summary_record.to {
-                                if *done {
+                                if quit.load(Ordering::Relaxed) {
                                     return false;
-                                } else {
-                                    channel.push(result);
-                                    result = BbiQueryType::new(Box::new(|| *done = true));
                                 }
+                                channel.send(result).unwrap();
+                                result = BbiQueryType::new(quit.clone());
                             }
                         }
 
@@ -2186,7 +2191,7 @@ impl BbiFile {
         }
 
         if result.bbi_summary_record.chrom_id != -1 {
-            channel.push(result);
+            channel.send(result).unwrap();
         }
         true
     }
@@ -2194,13 +2199,14 @@ impl BbiFile {
     pub fn query<E: ByteOrder, R: Read + Seek>(
         &mut self,
         reader  : &mut R,
-        channel : &mut Vec<BbiQueryType>,
+        channel : Sender<BbiQueryType>,
         chrom_id: u32,
         from    : u32,
         to      : u32,
         bin_size: u32,
     ) -> bool {
-        let mut done = false;
+
+        let quit = Arc::new(AtomicBool::new(false));
 
         if bin_size != 0 {
             let from = (from / bin_size) * bin_size;
@@ -2217,10 +2223,10 @@ impl BbiFile {
             }
 
             if zoom_idx != -1 {
-                return self.query_zoom::<E, R>(reader, channel, &mut done, zoom_idx as usize, chrom_id, from, to, bin_size);
+                return self.query_zoom::<E, R>(reader, channel, quit, zoom_idx as usize, chrom_id, from, to, bin_size);
             }
         }
 
-        self.query_raw::<E, R>(reader, channel, &mut done, chrom_id, from, to, bin_size)
+        self.query_raw::<E, R>(reader, channel, quit, chrom_id, from, to, bin_size)
     }
 }
