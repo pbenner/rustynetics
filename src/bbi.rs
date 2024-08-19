@@ -2238,8 +2238,7 @@ impl BbiFile {
 /* -------------------------------------------------------------------------- */
 
 impl BbiFile {
-    pub fn open<E: ByteOrder, R: Read + Seek>(&mut self, reader_: &mut R) -> io::Result<()> {
-        let mut reader = BufferedReadSeeker::new(reader_, 1024)?;  // Assume a similar BufferedReader is available
+    pub fn open<E: ByteOrder, R: Read + Seek>(&mut self, reader: &mut R) -> io::Result<()> {
         // parse header
         let order = self.header.read(&mut reader, BIGWIG_MAGIC)?;
 

@@ -262,9 +262,8 @@ impl<R: Read + Seek> BigWigReader<R> {
 
     fn query(&mut self, seq_regex: &str, from: usize, to: usize, bin_size: usize) -> std::sync::mpsc::Receiver<BbiQueryType> {
         let (tx, rx) = channel();
-        let genome = self.genome.clone();
-        let mut reader = self.reader.try_clone().unwrap();
-        let bwf = self.bwf.clone();
+        let genome   = self.genome.clone();
+        let bwf      = self.bwf.clone();
 
         let re = regex::Regex::new(&format!("^{}$", seq_regex)).unwrap();
         let done_tx = tx.clone();
@@ -275,7 +274,7 @@ impl<R: Read + Seek> BigWigReader<R> {
                     continue;
                 }
                 if let Some(idx) = genome.get_idx(seqname) {
-                    if bwf.query(&mut reader, tx.clone(), idx, from, to, bin_size).is_err() {
+                    if !bwf.query(&mut self.reader, tx.clone(), idx as u32, from as u32, to as u32, bin_size as u32) {
                         break;
                     }
                 }
