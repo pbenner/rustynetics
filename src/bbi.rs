@@ -33,7 +33,6 @@ use std::sync::Arc;
 
 const CIRTREE_MAGIC      : u32   = 0x78ca8c91;
 const IDX_MAGIC          : u32   = 0x2468ace0;
-const BIGWIG_MAGIC       : u32   = 0x888FFC26;
 
 const BBI_MAX_ZOOM_LEVELS: usize = 10;
 const BBI_RES_INCREMENT  : u32   = 4;
@@ -1267,9 +1266,13 @@ impl BbiHeader {
         self.sum_squares     += x * x;
     }
 
-    fn read_order<E: ByteOrder, R: Read + Seek>(&mut self, file: &mut R) -> io::Result<()> {
+    fn read<E: ByteOrder, R: Read + Seek>(&mut self, file: &mut R, magic: u32) -> io::Result<()> {
 
-        let mut buf = [0u8; 4];
+        self.magic = file.read_u32::<E>()?;
+
+        if self.magic != magic {
+            return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid magic number"));
+        }
 
         self.version                 = file.read_u16::<E>()?;
         self.zoom_levels             = file.read_u16::<E>()?;
@@ -1306,33 +1309,10 @@ impl BbiHeader {
             self.sum_squares     = file.read_f64::<E>()?;
         }
 
+        let mut buf = [0u8; 4];
+
         file_read_at(file, self.data_offset, &mut buf)?;
         self.n_blocks = E::read_u64(&buf);
-
-        Ok(())
-    }
-
-    pub fn read<R: Read + Seek>(&mut self, file: &mut R, magic: u32) -> io::Result<()> {
-
-        // Read magin number
-        self.magic = file.read_u32::<LittleEndian>()?;
-
-        if self.magic == magic {
-
-            self.read_order::<LittleEndian, R>(file)?;
-
-        } else {
-
-            file.seek(SeekFrom::Current(-4))?;
-            self.magic = file.read_u32::<BigEndian>()?;
-
-            if self.magic != magic {
-                return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid magic number"));
-            }
-
-            self.read_order::<BigEndian, R>(file)?;
-
-        }
 
         Ok(())
     }
@@ -2238,16 +2218,9 @@ impl BbiFile {
 /* -------------------------------------------------------------------------- */
 
 impl BbiFile {
-    pub fn open<E: ByteOrder, R: Read + Seek>(&mut self, reader: &mut R) -> io::Result<()> {
+    pub fn open<E: ByteOrder, R: Read + Seek>(&mut self, reader: &mut R, magic: u32) -> io::Result<()> {
         // parse header
-        let order = self.header.read(&mut reader, BIGWIG_MAGIC)?;
-
-        if self.header.magic != BIGWIG_MAGIC {
-            return Err(io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                "not a BigWig file",
-            ));
-        }
+        self.header.read::<E, R>(&mut reader, magic)?;
 
         // parse chromosome list
         reader.seek(SeekFrom::Start(self.header.ct_offset))?;

@@ -34,6 +34,10 @@ use crate::bbi::BbiFile;
 
 /* -------------------------------------------------------------------------- */
 
+const BIGWIG_MAGIC : u32 = 0x888FFC26;
+
+/* -------------------------------------------------------------------------- */
+
 // Struct for BigWigParameters
 #[derive(Debug)]
 struct BigWigParameters {
@@ -200,7 +204,7 @@ struct BigWigReaderType {
 impl<R: Read + Seek> BigWigReader<R> {
     fn new(mut reader: R) -> Result<Self, Box<dyn Error>> {
         let mut bwf = BbiFile::new();
-        bwf.open(&mut reader)?;
+        bwf.open(&mut reader, BIGWIG_MAGIC)?;
 
         let mut seqnames = vec![String::new(); bwf.chrom_data.keys.len()];
         let mut lengths = vec![0; bwf.chrom_data.keys.len()];
