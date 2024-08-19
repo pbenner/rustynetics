@@ -193,7 +193,7 @@ impl BbiSummaryStatistics {
 /* -------------------------------------------------------------------------- */
 
 #[derive(Debug)]
-struct BbiSummaryRecord {
+pub struct BbiSummaryRecord {
     chrom_id  : i32,
     from      : i32,
     to        : i32,
@@ -1022,13 +1022,14 @@ impl BTree {
 
 /* -------------------------------------------------------------------------- */
 
+#[derive(Clone, Debug)]
 pub struct BData {
-    key_size       : u32,
-    value_size     : u32,
-    items_per_block: u32,
-    item_count     : u64,
-    keys           : Vec<Vec<u8>>,
-    values         : Vec<Vec<u8>>,
+    pub key_size       : u32,
+    pub value_size     : u32,
+    pub items_per_block: u32,
+    pub item_count     : u64,
+    pub keys           : Vec<Vec<u8>>,
+    pub values         : Vec<Vec<u8>>,
     ptr_keys       : Vec<i64>,
     ptr_values     : Vec<i64>,
 }
@@ -1134,7 +1135,7 @@ impl BData {
 
 /* -------------------------------------------------------------------------- */
 
-#[derive(Default)]
+#[derive(Clone, Debug, Default)]
 struct BbiHeaderZoom {
     reduction_level : u32,
     reserved        : u32,
@@ -1206,7 +1207,7 @@ impl BbiHeaderZoom {
 
 /* -------------------------------------------------------------------------- */
 
-#[derive(Default)]
+#[derive(Clone, Debug, Default)]
 pub struct BbiHeader {
     magic                  : u32,
     version                : u16,
@@ -1422,17 +1423,17 @@ impl BbiHeader {
 
 /* -------------------------------------------------------------------------- */
 
-#[derive(Clone, Default)]
-struct RTree {
-    block_size      : u32,
-    n_items         : u64,
-    chr_idx_start   : u32,
-    base_start      : u32,
-    chr_idx_end     : u32,
-    base_end        : u32,
-    idx_size        : u64,
-    n_items_per_slot: u32,
-    root            : Option<Box<RVertex>>,
+#[derive(Clone, Debug, Default)]
+pub struct RTree {
+    pub block_size      : u32,
+    pub n_items         : u64,
+    pub chr_idx_start   : u32,
+    pub base_start      : u32,
+    pub chr_idx_end     : u32,
+    pub base_end        : u32,
+    pub idx_size        : u64,
+    pub n_items_per_slot: u32,
+    pub root            : Option<Box<RVertex>>,
     ptr_idx_size    : i64,
 }
 
@@ -1580,15 +1581,15 @@ impl RTree {
 
 #[derive(Clone, Default, Debug)]
 pub struct RVertex {
-    is_leaf        : u8,
-    n_children     : u16,
-    chr_idx_start  : Vec<u32>,
-    base_start     : Vec<u32>,
-    chr_idx_end    : Vec<u32>,
-    base_end       : Vec<u32>,
-    data_offset    : Vec<u64>,
-    sizes          : Vec<u64>,
-    children       : Vec<Box<RVertex>>,
+    pub is_leaf        : u8,
+    pub n_children     : u16,
+    pub chr_idx_start  : Vec<u32>,
+    pub base_start     : Vec<u32>,
+    pub chr_idx_end    : Vec<u32>,
+    pub base_end       : Vec<u32>,
+    pub data_offset    : Vec<u64>,
+    pub sizes          : Vec<u64>,
+    pub children       : Vec<Box<RVertex>>,
     ptr_data_offset: Vec<i64>,
     ptr_sizes      : Vec<i64>,
 }
@@ -1973,11 +1974,12 @@ impl BbiQueryType {
 
 /* -------------------------------------------------------------------------- */
 
+#[derive(Clone, Debug)]
 pub struct BbiFile {
-    header    : BbiHeader,
-    chrom_data: BData,
-    index     : RTree,
-    index_zoom: Vec<RTree>,
+    pub header    : BbiHeader,
+    pub chrom_data: BData,
+    pub index     : RTree,
+    pub index_zoom: Vec<RTree>,
 }
 
 /* -------------------------------------------------------------------------- */
@@ -2236,7 +2238,7 @@ impl BbiFile {
 /* -------------------------------------------------------------------------- */
 
 impl BbiFile {
-    fn open<E: ByteOrder, R: Read + Seek>(&mut self, reader_: &mut R) -> io::Result<()> {
+    pub fn open<E: ByteOrder, R: Read + Seek>(&mut self, reader_: &mut R) -> io::Result<()> {
         let mut reader = BufferedReadSeeker::new(reader_, 1024)?;  // Assume a similar BufferedReader is available
         // parse header
         let order = self.header.read(&mut reader, BIGWIG_MAGIC)?;
@@ -2257,7 +2259,7 @@ impl BbiFile {
         Ok(())
     }
 
-    fn create<E: ByteOrder, W: Write + Seek>(&mut self, writer: &mut W) -> io::Result<()> {
+    pub fn create<E: ByteOrder, W: Write + Seek>(&mut self, writer: &mut W) -> io::Result<()> {
         // write header
         self.header.write::<E, W>(writer)?;
 
@@ -2279,10 +2281,10 @@ impl BbiFile {
         let offset = writer.seek(SeekFrom::Current(0))?;
         self.header.ct_offset = offset as u64;
 
-        self.chrom_data.write::<E, W>(write_uncompress_buf_size)?;
+        self.chrom_data.write::<E, W>(writer)?;
 
         // update offsets
-        self.header.write_offsets(writer)?;
+        self.header.write_offsets::<E, W>(writer)?;
         Ok(())
     }
 

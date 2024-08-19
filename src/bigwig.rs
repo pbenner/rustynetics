@@ -249,7 +249,7 @@ impl<R: Read + Seek> BigWigReader<R> {
             for i in 0..vertex.n_children as usize {
                 match vertex.read_block(reader, i) {
                     Ok(block) => tx.send(BigWigReaderType { block: Some(block), error: None }).unwrap(),
-                    Err(err) => tx.send(BigWigReaderType { block: None, error: Some(Box::new(err)) }).unwrap(),
+                    Err(err)  => tx.send(BigWigReaderType { block: None, error: Some(Box::new(err)) }).unwrap(),
                 }
             }
         } else {
@@ -274,7 +274,7 @@ impl<R: Read + Seek> BigWigReader<R> {
                 if !re.is_match(seqname) {
                     continue;
                 }
-                if let Ok(idx) = genome.get_idx(seqname) {
+                if let Some(idx) = genome.get_idx(seqname) {
                     if bwf.query(&mut reader, tx.clone(), idx, from, to, bin_size).is_err() {
                         break;
                     }

@@ -43,6 +43,15 @@ impl Genome {
         self.seqnames.len()
     }
 
+    pub fn get_idx(&self, seqname: &str) -> Option<usize> {
+        for (i, sn) in self.seqnames.iter().enumerate() {
+            if seqname == sn {
+                return Some(i);
+            }
+        }
+        None
+    }
+
     pub fn seq_length(&self, seqname: &str) -> Result<usize, String> {
         for (i, sn) in self.seqnames.iter().enumerate() {
             if seqname == sn {
