@@ -1271,7 +1271,7 @@ impl BbiHeader {
         self.magic = file.read_u32::<E>()?;
 
         if self.magic != magic {
-            return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid magic number"));
+            return Err(std::io::Error::new(io::ErrorKind::InvalidData, "Invalid magic number"));
         }
 
         self.version                 = file.read_u16::<E>()?;

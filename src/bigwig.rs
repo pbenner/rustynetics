@@ -186,10 +186,18 @@ impl Seek for HttpSeekableReader {
 
 /* -------------------------------------------------------------------------- */
 
+enum BigWigOrder {
+    LE,
+    BE,
+}
+
+/* -------------------------------------------------------------------------- */
+
 struct BigWigReader<R: Read + Seek> {
     reader: R,
     bwf   : BbiFile,
     genome: Genome,
+    order : BigWigOrder
 }
 
 /* -------------------------------------------------------------------------- */
@@ -202,9 +210,35 @@ struct BigWigReaderType {
 /* -------------------------------------------------------------------------- */
 
 impl<R: Read + Seek> BigWigReader<R> {
-    fn new(mut reader: R) -> Result<Self, Box<dyn Error>> {
+
+    fn open(mut reader: R) -> io::Result<(BbiFile, BigWigOrder)> {
+
         let mut bwf = BbiFile::new();
-        bwf.open(&mut reader, BIGWIG_MAGIC)?;
+
+        // Try to open with little endian
+        let r1 = bwf.open::<LittleEndian, R>(&mut reader, BIGWIG_MAGIC);
+
+        if let Err(err) = r1 {
+            if err.kind() != io::ErrorKind::InvalidData || err.to_string() != "Invalid magic number" {
+                return Err(err)
+            }
+        } else {
+            return Ok((bwf, BigWigOrder::LE))
+        }
+
+        let r2 = bwf.open::<BigEndian, R>(&mut reader, BIGWIG_MAGIC);
+
+        if let Err(err) = r1 {
+            return Err(err)
+        } else {
+            return Ok((bwf, BigWigOrder::BE))
+        }
+    }
+
+    fn new(mut reader: R) -> Result<Self, Box<dyn Error>> {
+
+        let (mut bwf, mut order) = BigWigReader::<R>::open(reader)?;
+        
 
         let mut seqnames = vec![String::new(); bwf.chrom_data.keys.len()];
         let mut lengths = vec![0; bwf.chrom_data.keys.len()];
@@ -233,13 +267,14 @@ impl<R: Read + Seek> BigWigReader<R> {
             reader,
             bwf,
             genome,
+            order,
         })
     }
 
     fn read_blocks(&mut self) -> std::sync::mpsc::Receiver<BigWigReaderType> {
         let (tx, rx) = channel();
         let bwf = self.bwf.clone();
-        let mut reader = self.reader.try_clone().unwrap();
+        let mut reader = self.reader;
 
         thread::spawn(move || {
             Self::fill_channel(tx, &mut reader, &bwf.index.root).unwrap();
