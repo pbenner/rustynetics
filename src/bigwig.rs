@@ -186,6 +186,7 @@ impl Seek for HttpSeekableReader {
 
 /* -------------------------------------------------------------------------- */
 
+#[derive(PartialEq)]
 enum BigWigOrder {
     LE,
     BE,
@@ -198,13 +199,6 @@ struct BigWigReader<R: Read + Seek> {
     bwf   : BbiFile,
     genome: Genome,
     order : BigWigOrder
-}
-
-/* -------------------------------------------------------------------------- */
-
-struct BigWigReaderType {
-    block: Option<Vec<u8>>,
-    error: Option<Box<dyn Error>>,
 }
 
 /* -------------------------------------------------------------------------- */
@@ -238,10 +232,9 @@ impl<R: Read + Seek> BigWigReader<R> {
     fn new(mut reader: R) -> Result<Self, Box<dyn Error>> {
 
         let (mut bwf, mut order) = BigWigReader::<R>::open(reader)?;
-        
-
+    
         let mut seqnames = vec![String::new(); bwf.chrom_data.keys.len()];
-        let mut lengths = vec![0; bwf.chrom_data.keys.len()];
+        let mut lengths  = vec![0; bwf.chrom_data.keys.len()];
 
         for i in 0..bwf.chrom_data.keys.len() {
             if bwf.chrom_data.values[i].len() != 8 {
@@ -250,7 +243,10 @@ impl<R: Read + Seek> BigWigReader<R> {
                     "invalid chromosome list",
                 )));
             }
-            let idx = (&bwf.chrom_data.values[i][0..4]).read_u32::<LittleEndian>()? as usize;
+            let idx = match order {
+                BigWigOrder::LE => (&bwf.chrom_data.values[i][0..4]).read_u32::<LittleEndian>()? as usize,
+                BigWigOrder::BE => (&bwf.chrom_data.values[i][0..4]).read_u32::<BigEndian>()? as usize,
+            };
             if idx >= bwf.chrom_data.keys.len() {
                 return Err(Box::new(std::io::Error::new(
                     std::io::ErrorKind::InvalidData,
@@ -258,7 +254,10 @@ impl<R: Read + Seek> BigWigReader<R> {
                 )));
             }
             seqnames[idx] = String::from_utf8_lossy(&bwf.chrom_data.keys[i]).trim_end_matches('\x00').to_string();
-            lengths[idx] = (&bwf.chrom_data.values[i][4..8]).read_u32::<LittleEndian>()? as usize;
+            lengths [idx] = match order {
+                BigWigOrder::LE => (&bwf.chrom_data.values[i][4..8]).read_u32::<LittleEndian>()? as usize,
+                BigWigOrder::BE => (&bwf.chrom_data.values[i][4..8]).read_u32::<BigEndian>()? as usize
+            };
         }
 
         let genome = Genome::new(seqnames, lengths);
@@ -274,7 +273,7 @@ impl<R: Read + Seek> BigWigReader<R> {
     fn read_blocks(&mut self) -> std::sync::mpsc::Receiver<BigWigReaderType> {
         let (tx, rx) = channel();
         let bwf = self.bwf.clone();
-        let mut reader = self.reader;
+        let mut reader = self.reader.clone();
 
         thread::spawn(move || {
             Self::fill_channel(tx, &mut reader, &bwf.index.root).unwrap();
@@ -322,5 +321,31 @@ impl<R: Read + Seek> BigWigReader<R> {
         });
 
         rx
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+
+struct BigWigIterator<R: Read + Seek> {
+    reader    : BigWigReader<R>
+    seqname_i : usize
+}
+
+/* -------------------------------------------------------------------------- */
+
+struct BigWigReaderType {
+    block: Option<Vec<u8>>,
+    error: Option<Box<dyn Error>>,
+}
+/* -------------------------------------------------------------------------- */
+
+impl<R: Read + Seek> Iterator for BigWigIterator<R> {
+
+    type Item = BigWigReaderType;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.sequname_i >= self.genome.seqnames.len() {
+            return None;
+        }
     }
 }

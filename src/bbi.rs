@@ -15,19 +15,23 @@
  */
 
 use std::io::{self, Cursor, Read, Seek, SeekFrom, Write};
+use std::sync::mpsc::{channel, Receiver, Sender};
 
 use std::f32;
 use std::f64;
 
-use byteorder::{ByteOrder, ReadBytesExt, WriteBytesExt, BigEndian, LittleEndian};
+use byteorder::{ByteOrder, ReadBytesExt, WriteBytesExt};
 
 use flate2::Compression;
 use flate2::write::ZlibEncoder;
 use flate2::read::ZlibDecoder;
 
-use std::sync::mpsc::{channel, Receiver, Sender};
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use async_stream::stream;
+use core::pin::Pin;
+use futures::executor::block_on_stream;
+use futures::executor::BlockingStream;
+use futures_core::stream::Stream;
+use futures_util::pin_mut;
 
 /* -------------------------------------------------------------------------- */
 
@@ -1029,8 +1033,8 @@ pub struct BData {
     pub item_count     : u64,
     pub keys           : Vec<Vec<u8>>,
     pub values         : Vec<Vec<u8>>,
-    ptr_keys       : Vec<i64>,
-    ptr_values     : Vec<i64>,
+    ptr_keys           : Vec<i64>,
+    ptr_values         : Vec<i64>,
 }
 
 /* -------------------------------------------------------------------------- */
@@ -1134,7 +1138,7 @@ impl BData {
 
 /* -------------------------------------------------------------------------- */
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default)]
 struct BbiHeaderZoom {
     reduction_level : u32,
     reserved        : u32,
@@ -1849,11 +1853,15 @@ struct RTreeTraverser<'a> {
     stack   : Vec<RTreeTraverserType<'a>>,    // Stack for keeping track of the current tree position
 }
 
+/* -------------------------------------------------------------------------- */
+
 #[derive(Debug)]
 struct RTreeTraverserType<'a> {
     vertex: &'a RVertex,  // A reference to the current vertex
     idx: usize,           // Index within the vertex
 }
+
+/* -------------------------------------------------------------------------- */
 
 impl<'a> RTreeTraverser<'a> {
     fn new(tree: &'a RTree, chrom_id: u32, from: u32, to: u32) -> Self {
@@ -1868,6 +1876,8 @@ impl<'a> RTreeTraverser<'a> {
         traverser
     }
 }
+
+/* -------------------------------------------------------------------------- */
 
 impl<'a> Iterator for RTreeTraverser<'a> {
 
@@ -1931,24 +1941,16 @@ impl<'a> Iterator for RTreeTraverser<'a> {
 pub struct BbiQueryType {
     bbi_summary_record: BbiSummaryRecord,
     data_type         : u8,
-    quit_atomic       : Arc<AtomicBool>,
-    error             : Option<std::io::Error>,
 }
 
 /* -------------------------------------------------------------------------- */
 
 impl BbiQueryType {
-    pub fn new(quit: Arc<AtomicBool>) -> Self {
+    pub fn new() -> Self {
         BbiQueryType {
             bbi_summary_record: BbiSummaryRecord::new(),
             data_type         : 0,
-            quit_atomic       : quit,
-            error             : None,
         }
-    }
-
-    pub fn quit(&mut self) {
-        self.quit_atomic.store(false, Ordering::Relaxed);
     }
 }
 
@@ -2022,175 +2024,150 @@ impl BbiFile {
         self.index_zoom[i].read::<E, R>(reader)
     }
 
-    fn query_zoom<E: ByteOrder, R: Read + Seek>(
-        &mut self,
-        reader  : &mut R,
-        channel : Sender<BbiQueryType>,
-        quit    : Arc<AtomicBool>,
+    fn query_zoom<'a, E: ByteOrder, R: Read + Seek>(
+        &'a mut self,
+        reader  : &'a mut R,
         zoom_idx: usize,
         chrom_id: u32,
         from    : u32,
         to      : u32,
         bin_size: u32,
-    ) -> bool {
+    ) -> impl Stream<Item = io::Result<BbiQueryType>> + 'a {
 
-        if self.index_zoom[zoom_idx].is_nil() {
-            if let Err(err) = self.read_zoom_index::<E, R>(reader, zoom_idx) {
-                channel.send(BbiQueryType {
-                    error: Some(err),
-                    ..BbiQueryType::new(quit)
-                }).unwrap();
-                return false;
+        stream! {
+            if self.index_zoom[zoom_idx].is_nil() {
+                if let Err(err) = self.read_zoom_index::<E, R>(reader, zoom_idx) {
+                    yield Err(err); return ();
+                }
             }
-        }
 
-        let traverser = RTreeTraverser::new(&self.index_zoom[zoom_idx], chrom_id, from, to);
-        let mut result = BbiQueryType::new(quit.clone());
+            let traverser = RTreeTraverser::new(&self.index_zoom[zoom_idx], chrom_id, from, to);
+            let mut result = BbiQueryType::new();
 
-        for r in traverser {
+            for r in traverser {
 
-            match r.vertex.read_block::<R>(reader, self, r.idx) {
-                Err(err) => {
-                    channel.send(BbiQueryType {
-                        error: Some(err),
-                        ..BbiQueryType::new(quit.clone())
-                    }).unwrap();
-                },
-                Ok(block) => {
-                    let decoder = BbiZoomBlockDecoder::new(&block);
+                match r.vertex.read_block::<R>(reader, self, r.idx) {
+                    Err(err) => {
+                        yield Err(err); return ();
+                    },
+                    Ok(block) => {
+                        let decoder = BbiZoomBlockDecoder::new(&block);
 
-                    for mut item in decoder.decode() {
+                        for mut item in decoder.decode() {
 
-                        match item.read::<E>() {
-                            Err(err) => {
-                                channel.send(BbiQueryType {
-                                    error: Some(err),
-                                    ..BbiQueryType::new(quit.clone())
-                                }).unwrap();
-                            },
-                            Ok(record) => {
-                                if record.chrom_id != chrom_id as i32 || record.from < from as i32 || record.to > to as i32 {
-                                    continue;
-                                }
-        
-                                if result.bbi_summary_record.chrom_id == -1 {
-                                    result.bbi_summary_record.chrom_id = record.chrom_id;
-                                    result.bbi_summary_record.from     = record.from;
-                                    result.bbi_summary_record.to       = record.from;
-                                    result.data_type                   = BBI_TYPE_BED_GRAPH;
-                                }
-        
-                                if result.bbi_summary_record.to - result.bbi_summary_record.from >= bin_size as i32
-                                    || result.bbi_summary_record.from + (bin_size as i32) < record.from
-                                {
-                                    if result.bbi_summary_record.from != result.bbi_summary_record.to {
-                                        if quit.load(Ordering::Relaxed) {
-                                            return false;
-                                        }
-                                        channel.send(result).unwrap();
-                                        result = BbiQueryType::new(quit.clone());
+                            match item.read::<E>() {
+                                Err(err) => {
+                                    yield Err(err); return ();
+                                },
+                                Ok(record) => {
+                                    if record.chrom_id != chrom_id as i32 || record.from < from as i32 || record.to > to as i32 {
+                                        continue;
                                     }
+            
+                                    if result.bbi_summary_record.chrom_id == -1 {
+                                        result.bbi_summary_record.chrom_id = record.chrom_id;
+                                        result.bbi_summary_record.from     = record.from;
+                                        result.bbi_summary_record.to       = record.from;
+                                        result.data_type                   = BBI_TYPE_BED_GRAPH;
+                                    }
+            
+                                    if result.bbi_summary_record.to - result.bbi_summary_record.from >= bin_size as i32
+                                        || result.bbi_summary_record.from + (bin_size as i32) < record.from
+                                    {
+                                        if result.bbi_summary_record.from != result.bbi_summary_record.to {
+                                            yield Ok(result);
+                                            result = BbiQueryType::new();
+                                        }
+                                    }
+            
+                                    result.bbi_summary_record.add_record(&record);        
                                 }
-        
-                                result.bbi_summary_record.add_record(&record);        
                             }
                         }
                     }
                 }
             }
-        }
 
-        if result.bbi_summary_record.chrom_id != -1 {
-            channel.send(result).unwrap();
+            if result.bbi_summary_record.chrom_id != -1 {
+                yield Ok(result);
+            }
         }
-        true
     }
 
-    fn query_raw<E: ByteOrder, R: Read + Seek>(
-        &mut self,
-        reader  : &mut R,
-        channel : Sender<BbiQueryType>,
-        quit    : Arc<AtomicBool>,
+    fn query_raw<'a, E: ByteOrder, R: Read + Seek>(
+        &'a mut self,
+        reader  : &'a mut R,
         chrom_id: u32,
         from    : u32,
         to      : u32,
         bin_size: u32,
-    ) -> bool {
-        if self.index.is_nil() {
-            if let Err(err) = self.read_index::<E, R>(reader) {
-                channel.send(BbiQueryType {
-                    error: Some(err),
-                    ..BbiQueryType::new(quit.clone())
-                }).unwrap();
-                return false;
+    ) -> impl Stream<Item = io::Result<BbiQueryType>> + 'a {
+
+        stream! {
+
+            if self.index.is_nil() {
+                if let Err(err) = self.read_index::<E, R>(reader) {
+                    yield Err(err); return ();
+                }
             }
-        }
 
-        let traverser = RTreeTraverser::new(&self.index, chrom_id, from, to);
-        let mut result = BbiQueryType::new(quit.clone());
+            let traverser = RTreeTraverser::new(&self.index, chrom_id, from, to);
+            let mut result = BbiQueryType::new();
 
-        for r in traverser {
+            for r in traverser {
 
-            match r.vertex.read_block::<R>(reader, self, r.idx) {
-                Err(err) => {
-                    channel.send(BbiQueryType {
-                        error: Some(err),
-                        ..BbiQueryType::new(quit.clone())
-                    }).unwrap();
-                },
-                Ok(block) => {
-                    let decoder = BbiRawBlockDecoder::new::<E>(&block).unwrap();
+                match r.vertex.read_block::<R>(reader, self, r.idx) {
+                    Err(err) => {
+                        yield Err(err); return ();
 
-                    for item in decoder.decode() {
+                    },
+                    Ok(block) => {
+                        let decoder = BbiRawBlockDecoder::new::<E>(&block).unwrap();
 
-                        let record = item.read::<E>();
+                        for item in decoder.decode() {
 
-                        if record.chrom_id != chrom_id as i32 || record.from < from as i32 || record.to > to as i32 {
-                            continue;
-                        }
+                            let record = item.read::<E>();
 
-                        if result.bbi_summary_record.chrom_id == -1 {
-                            result.bbi_summary_record.chrom_id = record.chrom_id;
-                            result.bbi_summary_record.from     = record.from;
-                            result.bbi_summary_record.to       = record.from;
-                            result.data_type                   = decoder.header.kind;
-                        }
-
-                        if result.bbi_summary_record.to - result.bbi_summary_record.from >= bin_size as i32
-                            || result.bbi_summary_record.from + (bin_size as i32) < record.from
-                        {
-                            if result.bbi_summary_record.from != result.bbi_summary_record.to {
-                                if quit.load(Ordering::Relaxed) {
-                                    return false;
-                                }
-                                channel.send(result).unwrap();
-                                result = BbiQueryType::new(quit.clone());
+                            if record.chrom_id != chrom_id as i32 || record.from < from as i32 || record.to > to as i32 {
+                                continue;
                             }
-                        }
 
-                        result.bbi_summary_record.add_record(&record);
+                            if result.bbi_summary_record.chrom_id == -1 {
+                                result.bbi_summary_record.chrom_id = record.chrom_id;
+                                result.bbi_summary_record.from     = record.from;
+                                result.bbi_summary_record.to       = record.from;
+                                result.data_type                   = decoder.header.kind;
+                            }
+
+                            if result.bbi_summary_record.to - result.bbi_summary_record.from >= bin_size as i32
+                                || result.bbi_summary_record.from + (bin_size as i32) < record.from
+                            {
+                                if result.bbi_summary_record.from != result.bbi_summary_record.to {
+                                    yield Ok(result);
+                                    result = BbiQueryType::new();
+                                }
+                            }
+
+                            result.bbi_summary_record.add_record(&record);
+                        }
                     }
                 }
             }
-        }
 
-        if result.bbi_summary_record.chrom_id != -1 {
-            channel.send(result).unwrap();
+            if result.bbi_summary_record.chrom_id != -1 {
+                yield Ok(result);
+            }
         }
-        true
     }
 
-    pub fn query<E: ByteOrder, R: Read + Seek>(
-        &mut self,
-        reader  : &mut R,
-        channel : Sender<BbiQueryType>,
+    pub fn query<'a, E: ByteOrder, R: Read + Seek>(
+        &'a mut self,
+        reader  : &'a mut R,
         chrom_id: u32,
         from    : u32,
         to      : u32,
         bin_size: u32,
-    ) -> bool {
-
-        let quit = Arc::new(AtomicBool::new(false));
+    ) -> Pin<Box<dyn Stream<Item = io::Result<BbiQueryType>> + 'a>> {
 
         if bin_size != 0 {
             let from = (from / bin_size) * bin_size;
@@ -2207,11 +2184,26 @@ impl BbiFile {
             }
 
             if zoom_idx != -1 {
-                return self.query_zoom::<E, R>(reader, channel, quit, zoom_idx as usize, chrom_id, from, to, bin_size);
+                return Box::pin(self.query_zoom::<E, R>(reader, zoom_idx as usize, chrom_id, from, to, bin_size));
             }
         }
+        Box::pin(self.query_raw::<E, R>(reader, chrom_id, from, to, bin_size))
+    }
 
-        self.query_raw::<E, R>(reader, channel, quit, chrom_id, from, to, bin_size)
+    pub fn query_iterator<'a, E: ByteOrder, R: Read + Seek + Send>(
+        &'a mut self,
+        reader  : &'a mut R,
+        chrom_id: u32,
+        from    : u32,
+        to      : u32,
+        bin_size: u32,
+    ) -> BlockingStream<Pin<Box<dyn Stream<Item = io::Result<BbiQueryType>> + 'a>>> {
+
+        let s = self.query::<E, R>(reader, chrom_id, from, to, bin_size);
+        //pin_mut!(s);
+    
+        block_on_stream(s)
+    
     }
 }
 
@@ -2220,11 +2212,11 @@ impl BbiFile {
 impl BbiFile {
     pub fn open<E: ByteOrder, R: Read + Seek>(&mut self, reader: &mut R, magic: u32) -> io::Result<()> {
         // parse header
-        self.header.read::<E, R>(&mut reader, magic)?;
+        self.header.read::<E, R>(reader, magic)?;
 
         // parse chromosome list
         reader.seek(SeekFrom::Start(self.header.ct_offset))?;
-        self.chrom_data.read::<E, R>(&mut reader)?;
+        self.chrom_data.read::<E, R>(reader)?;
 
         // Initialize index_zoom based on zoom levels from header
         self.index_zoom = vec![RTree::default(); self.header.zoom_levels as usize];
