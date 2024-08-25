@@ -304,7 +304,13 @@ impl<R: Read + Seek> BigWigReader<R> {
         Ok(())
     }
     */
-    fn query<'a>(&'a mut self, seq_regex: &'a str, from: usize, to: usize, bin_size: usize) -> impl Stream<Item = io::Result<BbiQueryType>> + 'a {
+    fn query<'a>(
+        &'a mut self,
+        seq_regex: &'a str,
+        from     : usize,
+        to       : usize,
+        bin_size : usize
+    ) -> impl Stream<Item = io::Result<BbiQueryType>> + 'a {
 
         stream! {
 
@@ -328,5 +334,20 @@ impl<R: Read + Seek> BigWigReader<R> {
                 }
             }
         }
+    }
+
+    pub fn query_iterator<'a>(
+        &'a mut self,
+        seq_regex: &'a str,
+        from     : usize,
+        to       : usize,
+        bin_size : usize,
+    ) -> BlockingStream<impl Stream<Item = io::Result<BbiQueryType>> + 'a> {
+
+        let s = Box::pin(self.query(seq_regex, from, to, bin_size));
+        //pin_mut!(s);
+
+        block_on_stream(s)
+
     }
 }
