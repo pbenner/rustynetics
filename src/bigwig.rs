@@ -22,8 +22,14 @@ use std::result::Result;
 use std::io;
 use std::thread;
 use std::sync::mpsc::{channel, Sender};
-
 use std::ops::Range;
+
+use async_stream::stream;
+use futures::executor::block_on_stream;
+use futures::executor::BlockingStream;
+use futures_core::stream::Stream;
+use futures_util::pin_mut;
+
 use reqwest::blocking::{Client, Response};
 use byteorder::{ByteOrder, ReadBytesExt, WriteBytesExt, BigEndian, LittleEndian};
 
@@ -205,12 +211,12 @@ struct BigWigReader<R: Read + Seek> {
 
 impl<R: Read + Seek> BigWigReader<R> {
 
-    fn open(mut reader: R) -> io::Result<(BbiFile, BigWigOrder)> {
+    fn open(reader: &mut R) -> io::Result<(BbiFile, BigWigOrder)> {
 
         let mut bwf = BbiFile::new();
 
         // Try to open with little endian
-        let r1 = bwf.open::<LittleEndian, R>(&mut reader, BIGWIG_MAGIC);
+        let r1 = bwf.open::<LittleEndian, R>(reader, BIGWIG_MAGIC);
 
         if let Err(err) = r1 {
             if err.kind() != io::ErrorKind::InvalidData || err.to_string() != "Invalid magic number" {
@@ -220,9 +226,9 @@ impl<R: Read + Seek> BigWigReader<R> {
             return Ok((bwf, BigWigOrder::LE))
         }
 
-        let r2 = bwf.open::<BigEndian, R>(&mut reader, BIGWIG_MAGIC);
+        let r2 = bwf.open::<BigEndian, R>(reader, BIGWIG_MAGIC);
 
-        if let Err(err) = r1 {
+        if let Err(err) = r2 {
             return Err(err)
         } else {
             return Ok((bwf, BigWigOrder::BE))
@@ -231,7 +237,7 @@ impl<R: Read + Seek> BigWigReader<R> {
 
     fn new(mut reader: R) -> Result<Self, Box<dyn Error>> {
 
-        let (mut bwf, mut order) = BigWigReader::<R>::open(reader)?;
+        let (mut bwf, mut order) = BigWigReader::<R>::open(&mut reader)?;
     
         let mut seqnames = vec![String::new(); bwf.chrom_data.keys.len()];
         let mut lengths  = vec![0; bwf.chrom_data.keys.len()];
@@ -269,7 +275,7 @@ impl<R: Read + Seek> BigWigReader<R> {
             order,
         })
     }
-
+    /*
     fn read_blocks(&mut self) -> std::sync::mpsc::Receiver<BigWigReaderType> {
         let (tx, rx) = channel();
         let bwf = self.bwf.clone();
@@ -297,55 +303,30 @@ impl<R: Read + Seek> BigWigReader<R> {
         }
         Ok(())
     }
+    */
+    fn query<'a>(&'a mut self, seq_regex: &'a str, from: usize, to: usize, bin_size: usize) -> impl Stream<Item = io::Result<BbiQueryType>> + 'a {
 
-    fn query(&mut self, seq_regex: &str, from: usize, to: usize, bin_size: usize) -> std::sync::mpsc::Receiver<BbiQueryType> {
-        let (tx, rx) = channel();
-        let genome   = self.genome.clone();
-        let bwf      = self.bwf.clone();
+        stream! {
 
-        let re = regex::Regex::new(&format!("^{}$", seq_regex)).unwrap();
-        let done_tx = tx.clone();
+            let re = regex::Regex::new(&format!("^{}$", seq_regex)).unwrap();
 
-        thread::spawn(move || {
-            for seqname in &genome.seqnames {
+            for seqname in &self.genome.seqnames {
                 if !re.is_match(seqname) {
                     continue;
                 }
-                if let Some(idx) = genome.get_idx(seqname) {
-                    if !bwf.query(&mut self.reader, tx.clone(), idx as u32, from as u32, to as u32, bin_size as u32) {
-                        break;
+                if let Some(idx) = self.genome.get_idx(seqname) {
+
+                    let mut iterator = match self.order {
+                        BigWigOrder::LE => self.bwf.query_iterator::<LittleEndian, R>(&mut self.reader, idx as u32, from as u32, to as u32, bin_size as u32),
+                        BigWigOrder::BE => self.bwf.query_iterator::<BigEndian   , R>(&mut self.reader, idx as u32, from as u32, to as u32, bin_size as u32),
+                    };
+                    while let Some(item) = iterator.next() {
+
+                        yield item;
+
                     }
                 }
             }
-            drop(done_tx);
-        });
-
-        rx
-    }
-}
-
-/* -------------------------------------------------------------------------- */
-
-struct BigWigIterator<R: Read + Seek> {
-    reader    : BigWigReader<R>
-    seqname_i : usize
-}
-
-/* -------------------------------------------------------------------------- */
-
-struct BigWigReaderType {
-    block: Option<Vec<u8>>,
-    error: Option<Box<dyn Error>>,
-}
-/* -------------------------------------------------------------------------- */
-
-impl<R: Read + Seek> Iterator for BigWigIterator<R> {
-
-    type Item = BigWigReaderType;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.sequname_i >= self.genome.seqnames.len() {
-            return None;
         }
     }
 }

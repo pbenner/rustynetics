@@ -2190,7 +2190,7 @@ impl BbiFile {
         Box::pin(self.query_raw::<E, R>(reader, chrom_id, from, to, bin_size))
     }
 
-    pub fn query_iterator<'a, E: ByteOrder, R: Read + Seek + Send>(
+    pub fn query_iterator<'a, E: ByteOrder, R: Read + Seek>(
         &'a mut self,
         reader  : &'a mut R,
         chrom_id: u32,
