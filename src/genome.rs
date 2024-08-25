@@ -23,7 +23,7 @@ use std::path::Path;
 
 /* -------------------------------------------------------------------------- */
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct Genome {
     pub seqnames: Vec<String>,
     pub lengths : Vec<usize>

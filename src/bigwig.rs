@@ -235,45 +235,48 @@ impl<R: Read + Seek> BigWigReader<R> {
         }
     }
 
-    fn new(mut reader: R) -> Result<Self, Box<dyn Error>> {
+    fn initialize<E: ByteOrder>(mut self) -> io::Result<Self> {
 
-        let (mut bwf, mut order) = BigWigReader::<R>::open(&mut reader)?;
-    
-        let mut seqnames = vec![String::new(); bwf.chrom_data.keys.len()];
-        let mut lengths  = vec![0; bwf.chrom_data.keys.len()];
+        self.genome.seqnames = vec![String::new(); self.bwf.chrom_data.keys.len()];
+        self.genome.lengths  = vec![0; self.bwf.chrom_data.keys.len()];
 
-        for i in 0..bwf.chrom_data.keys.len() {
-            if bwf.chrom_data.values[i].len() != 8 {
-                return Err(Box::new(std::io::Error::new(
+        for i in 0..self.bwf.chrom_data.keys.len() {
+            if self.bwf.chrom_data.values[i].len() != 8 {
+                return Err(std::io::Error::new(
                     std::io::ErrorKind::InvalidData,
                     "invalid chromosome list",
-                )));
+                ));
             }
-            let idx = match order {
-                BigWigOrder::LE => (&bwf.chrom_data.values[i][0..4]).read_u32::<LittleEndian>()? as usize,
-                BigWigOrder::BE => (&bwf.chrom_data.values[i][0..4]).read_u32::<BigEndian>()? as usize,
-            };
-            if idx >= bwf.chrom_data.keys.len() {
-                return Err(Box::new(std::io::Error::new(
+
+            let idx = (&self.bwf.chrom_data.values[i][0..4]).read_u32::<E>()? as usize;
+             
+            if idx >= self.bwf.chrom_data.keys.len() {
+                return Err(std::io::Error::new(
                     std::io::ErrorKind::InvalidData,
                     "invalid chromosome index",
-                )));
+                ));
             }
-            seqnames[idx] = String::from_utf8_lossy(&bwf.chrom_data.keys[i]).trim_end_matches('\x00').to_string();
-            lengths [idx] = match order {
-                BigWigOrder::LE => (&bwf.chrom_data.values[i][4..8]).read_u32::<LittleEndian>()? as usize,
-                BigWigOrder::BE => (&bwf.chrom_data.values[i][4..8]).read_u32::<BigEndian>()? as usize
-            };
+            self.genome.seqnames[idx] = String::from_utf8_lossy(&self.bwf.chrom_data.keys[i]).trim_end_matches('\x00').to_string();
+            self.genome.lengths [idx] = (&self.bwf.chrom_data.values[i][4..8]).read_u32::<E>()? as usize;
         }
 
-        let genome = Genome::new(seqnames, lengths);
+        Ok(self)
+    }
 
-        Ok(BigWigReader {
-            reader,
-            bwf,
-            genome,
-            order,
-        })
+    fn new(mut reader: R) -> io::Result<Self> {
+        let (bwf, order) = BigWigReader::<R>::open(&mut reader)?;
+
+        let r = BigWigReader {
+            reader: reader,
+            bwf   : bwf,
+            genome: Genome::default(),
+            order : order,
+        };
+
+        match r.order {
+            BigWigOrder::LE => r.initialize::<LittleEndian>(),
+            BigWigOrder::BE => r.initialize::<BigEndian   >(),
+        }
     }
     /*
     fn read_blocks(&mut self) -> std::sync::mpsc::Receiver<BigWigReaderType> {
