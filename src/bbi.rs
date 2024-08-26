@@ -1312,7 +1312,7 @@ impl BbiHeader {
             self.sum_squares     = file.read_f64::<E>()?;
         }
 
-        let mut buf = [0u8; 4];
+        let mut buf = [0u8; 8];
 
         file_read_at(file, self.data_offset, &mut buf)?;
         self.n_blocks = E::read_u64(&buf);
