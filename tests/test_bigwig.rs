@@ -25,9 +25,17 @@ mod tests {
     fn test_bigwig_1() {
 
         match BigWigFile::open("tests/test_bigwig_1.bw") {
-        Ok(bw) => println!("Genome: {}", bw.genome()),
-        Err(err) => println!("Err: {}", err)
+        Err(err) => println!("Err: {}", err),
+        Ok (mut bw) => {
+                println!("Genome: {}", bw.genome());
 
+                for result in bw.query_iterator("test1", 0, 100, 1) {
+                    if let Ok(item) = result {
+                        println!("result {}", item);
+                    }
+                }
+
+            }
         }
 
     }

@@ -14,6 +14,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+use std::fmt;
 use std::io::{self, Cursor, Read, Seek, SeekFrom, Write};
 use std::sync::mpsc::{channel, Receiver, Sender};
 
@@ -141,7 +142,7 @@ impl BbiZoomRecord {
 
 /* -------------------------------------------------------------------------- */
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct BbiSummaryStatistics {
     valid      : f64,
     min        : f64,
@@ -184,17 +185,30 @@ impl BbiSummaryStatistics {
     }
 
     fn add(&mut self, other: &BbiSummaryStatistics) {
-        self.valid += other.valid;
-        self.min = self.min.min(other.min);
-        self.max = self.max.max(other.max);
-        self.sum += other.sum;
+        self.valid       += other.valid;
+        self.min          = self.min.min(other.min);
+        self.max          = self.max.max(other.max);
+        self.sum         += other.sum;
         self.sum_squares += other.sum_squares;
     }
 }
 
 /* -------------------------------------------------------------------------- */
 
-#[derive(Debug)]
+impl fmt::Display for BbiSummaryStatistics {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "(valid={}, min={}, max={}, sum={}, sum_squares={})",
+            self.valid,
+            self.min,
+            self.max,
+            self.sum,
+            self.sum_squares)
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+
+#[derive(Clone, Debug)]
 pub struct BbiSummaryRecord {
     chrom_id  : i32,
     from      : i32,
@@ -216,8 +230,8 @@ impl BbiSummaryRecord {
 
     fn reset(&mut self) {
         self.chrom_id = -1;
-        self.from     = 0;
-        self.to       = 0;
+        self.from     =  0;
+        self.to       =  0;
         self.statistics.reset();
     }
 
@@ -238,6 +252,18 @@ impl BbiSummaryRecord {
         }
         self.to = other.to;
         self.statistics.add(&other.statistics);
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+
+impl fmt::Display for BbiSummaryRecord {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "(chrom_id={}, from={}, to={}, statistics={})",
+            self.chrom_id,
+            self.from,
+            self.to,
+            self.statistics)
     }
 }
 
@@ -1937,9 +1963,20 @@ impl<'a> Iterator for RTreeTraverser<'a> {
 
 /* -------------------------------------------------------------------------- */
 
+#[derive(Clone, Debug)]
 pub struct BbiQueryType {
     bbi_summary_record: BbiSummaryRecord,
     data_type         : u8,
+}
+
+/* -------------------------------------------------------------------------- */
+
+impl fmt::Display for BbiQueryType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "(data={}, type={})",
+            self.bbi_summary_record,
+            self.data_type)
+    }
 }
 
 /* -------------------------------------------------------------------------- */
