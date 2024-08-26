@@ -242,4 +242,8 @@ impl<R: Read + Seek> BigWigReader<R> {
         block_on_stream(s)
 
     }
+
+    pub fn genome(&self) -> Genome {
+        self.genome.clone()
+    }
 }
