@@ -200,7 +200,7 @@ enum BigWigOrder {
 
 /* -------------------------------------------------------------------------- */
 
-struct BigWigReader<R: Read + Seek> {
+pub struct BigWigReader<R: Read + Seek> {
     reader: R,
     bwf   : BbiFile,
     genome: Genome,
@@ -263,7 +263,7 @@ impl<R: Read + Seek> BigWigReader<R> {
         Ok(self)
     }
 
-    fn new(mut reader: R) -> io::Result<Self> {
+    pub fn new(mut reader: R) -> io::Result<Self> {
         let (bwf, order) = BigWigReader::<R>::open(&mut reader)?;
 
         let r = BigWigReader {
@@ -307,7 +307,7 @@ impl<R: Read + Seek> BigWigReader<R> {
         Ok(())
     }
     */
-    fn query<'a>(
+    pub fn query<'a>(
         &'a mut self,
         seq_regex: &'a str,
         from     : usize,
