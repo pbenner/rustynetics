@@ -1,4 +1,3 @@
-
 /* Copyright (C) 2024 Philipp Benner
  *
  * This program is free software: you can redistribute it and/or modify
