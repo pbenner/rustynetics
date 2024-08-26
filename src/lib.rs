@@ -45,4 +45,5 @@ mod meta_pretty;
 mod meta_table;
 mod meta_table_reader;
 mod meta_table_writer;
+mod netfile;
 mod utility;
