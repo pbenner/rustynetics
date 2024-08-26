@@ -14,8 +14,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-use std::io::{Read, Seek};
-use std::io;
+use std::io::{self, Read, Seek, SeekFrom};
+use std::error::Error;
 
 use async_stream::stream;
 use futures::executor::block_on_stream;
@@ -28,6 +28,7 @@ use crate::genome::Genome;
 use crate::bbi::RVertex;
 use crate::bbi::BbiQueryType;
 use crate::bbi::BbiFile;
+use crate::netfile::NetFile;
 
 /* -------------------------------------------------------------------------- */
 
@@ -75,11 +76,43 @@ pub struct BigWigReader<R: Read + Seek> {
 
 /* -------------------------------------------------------------------------- */
 
+impl BigWigReader<NetFile> {
+
+    pub fn open(filename: &str) -> Result<Self, Box<dyn Error>> {
+
+        let file = NetFile::open(filename)?;
+
+        BigWigReader::new(file)
+
+    }
+
+}
+
+/* -------------------------------------------------------------------------- */
+
 impl<R: Read + Seek> BigWigReader<R> {
 
-    fn open(reader: &mut R) -> io::Result<(BbiFile, BigWigOrder)> {
+    pub fn new(mut reader: R) -> Result<Self, Box<dyn Error>> {
+        let (bwf, order) = BigWigReader::<R>::open_bwf(&mut reader)?;
+
+        let r = BigWigReader {
+            reader: reader,
+            bwf   : bwf,
+            genome: Genome::default(),
+            order : order,
+        };
+
+        match r.order {
+            BigWigOrder::LE => Ok(r.initialize::<LittleEndian>()?),
+            BigWigOrder::BE => Ok(r.initialize::<BigEndian   >()?),
+        }
+    }
+
+    fn open_bwf(reader: &mut R) -> io::Result<(BbiFile, BigWigOrder)> {
 
         let mut bwf = BbiFile::new();
+
+        reader.seek(SeekFrom::Start(0))?;
 
         // Try to open with little endian
         let r1 = bwf.open::<LittleEndian, R>(reader, BIGWIG_MAGIC);
@@ -91,6 +124,7 @@ impl<R: Read + Seek> BigWigReader<R> {
         } else {
             return Ok((bwf, BigWigOrder::LE))
         }
+        reader.seek(SeekFrom::Start(0))?;
 
         let r2 = bwf.open::<BigEndian, R>(reader, BIGWIG_MAGIC);
 
@@ -129,21 +163,6 @@ impl<R: Read + Seek> BigWigReader<R> {
         Ok(self)
     }
 
-    pub fn new(mut reader: R) -> io::Result<Self> {
-        let (bwf, order) = BigWigReader::<R>::open(&mut reader)?;
-
-        let r = BigWigReader {
-            reader: reader,
-            bwf   : bwf,
-            genome: Genome::default(),
-            order : order,
-        };
-
-        match r.order {
-            BigWigOrder::LE => r.initialize::<LittleEndian>(),
-            BigWigOrder::BE => r.initialize::<BigEndian   >(),
-        }
-    }
     /*
     fn read_blocks(&mut self) -> std::sync::mpsc::Receiver<BigWigReaderType> {
         let (tx, rx) = channel();

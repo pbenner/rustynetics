@@ -18,7 +18,7 @@ use std::io;
 use std::error::Error;
 use std::path::Path;
 use std::result::Result;
-use std::io::{Read, Write, Seek, SeekFrom};
+use std::io::{Read, Seek, SeekFrom};
 use std::fs::File;
 use std::ops::Range;
 
@@ -32,45 +32,67 @@ enum NetFileStream {
     Http(HttpSeekableReader),
 }
 
-pub struct NetFileFile {
+pub struct NetFile {
     stream: NetFileStream,
 }
 
-impl NetFileFile {
+impl NetFile {
     fn new(stream: NetFileStream) -> Self {
-        NetFileFile { stream }
+        NetFile { stream }
     }
 
-    fn open_file(filename: &str) -> Result<NetFileFile, Box<dyn Error>> {
+    fn open_file(filename: &str) -> Result<NetFile, Box<dyn Error>> {
         let path = Path::new(filename);
 
         if path.exists() && path.is_file() {
             let file = File::open(path)?;
-            Ok(NetFileFile::new(NetFileStream::File(file)))
+            Ok(NetFile::new(NetFileStream::File(file)))
         } else {
             Err(Box::new(io::Error::new(io::ErrorKind::NotFound, "File not found")))
         }
     }
 
-    fn open_http(url: &str) -> Result<NetFileFile, Box<dyn Error>> {
+    fn open_http(url: &str) -> Result<NetFile, Box<dyn Error>> {
         let client = Client::new();
         let head_resp = client.head(url).send()?;
         
         if head_resp.status().is_success() {
             if let Some(content_length) = head_resp.content_length() {
                 let http_reader = HttpSeekableReader::new(client, url.to_string(), content_length);
-                return Ok(NetFileFile::new(NetFileStream::Http(http_reader)));
+                return Ok(NetFile::new(NetFileStream::Http(http_reader)));
             }
         }
 
         Err(Box::new(io::Error::new(io::ErrorKind::InvalidInput, "HTTP request failed")))
     }
 
-    pub fn open(filename: &str) -> Result<NetFileFile, Box<dyn Error>> {
+    pub fn open(filename: &str) -> Result<NetFile, Box<dyn Error>> {
         if filename.starts_with("http://") || filename.starts_with("https://") {
-            NetFileFile::open_http(filename)
+            NetFile::open_http(filename)
         } else {
-            NetFileFile::open_file(filename)
+            NetFile::open_file(filename)
+        }
+    }
+
+}
+
+impl Read for NetFile {
+
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        match &mut self.stream {
+            NetFileStream::File(file) => file.read(buf),
+            NetFileStream::Http(file) => file.read(buf)
+        }
+    }
+
+}
+
+impl Seek for NetFile {
+
+    fn seek(&mut self, pos: SeekFrom) -> io::Result<u64> {
+        match &mut self.stream {
+            NetFileStream::File(file) => file.seek(pos),
+            NetFileStream::Http(file) => file.seek(pos)
         }
     }
 
@@ -87,6 +109,7 @@ struct HttpSeekableReader {
 }
 
 impl HttpSeekableReader {
+
     fn new(client: Client, url: String, content_length: u64) -> Self {
         HttpSeekableReader {
             client,
@@ -103,9 +126,11 @@ impl HttpSeekableReader {
             .header("Range", range_header)
             .send()
     }
+
 }
 
 impl Read for HttpSeekableReader {
+
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         let range_end = (self.current_pos + buf.len() as u64).min(self.content_length);
         let response = self
@@ -118,9 +143,11 @@ impl Read for HttpSeekableReader {
         self.current_pos += bytes_read as u64;
         Ok(bytes_read)
     }
+
 }
 
 impl Seek for HttpSeekableReader {
+
     fn seek(&mut self, pos: SeekFrom) -> io::Result<u64> {
         let new_pos = match pos {
             SeekFrom::Start(p) => p,
@@ -147,4 +174,5 @@ impl Seek for HttpSeekableReader {
             Err(io::Error::new(io::ErrorKind::InvalidInput, "Seek position out of bounds"))
         }
     }
+
 }

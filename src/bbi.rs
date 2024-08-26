@@ -31,7 +31,6 @@ use core::pin::Pin;
 use futures::executor::block_on_stream;
 use futures::executor::BlockingStream;
 use futures_core::stream::Stream;
-use futures_util::pin_mut;
 
 /* -------------------------------------------------------------------------- */
 
