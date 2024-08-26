@@ -76,7 +76,11 @@ pub struct BigWigReader<R: Read + Seek> {
 
 /* -------------------------------------------------------------------------- */
 
-impl BigWigReader<NetFile> {
+pub type BigWigFile = BigWigReader<NetFile>;
+
+/* -------------------------------------------------------------------------- */
+
+impl BigWigFile {
 
     pub fn open(filename: &str) -> Result<Self, Box<dyn Error>> {
 
