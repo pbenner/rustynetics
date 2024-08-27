@@ -60,7 +60,7 @@ impl BigWigParameters {
 /* -------------------------------------------------------------------------- */
 
 #[derive(PartialEq)]
-enum BigWigOrder {
+pub enum BigWigOrder {
     LE,
     BE,
 }
@@ -68,10 +68,10 @@ enum BigWigOrder {
 /* -------------------------------------------------------------------------- */
 
 pub struct BigWigReader<R: Read + Seek> {
-    reader: R,
-    bwf   : BbiFile,
+    pub reader: R,
+    pub bwf   : BbiFile,
     genome: Genome,
-    order : BigWigOrder
+    pub order : BigWigOrder
 }
 
 /* -------------------------------------------------------------------------- */

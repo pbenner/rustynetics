@@ -1662,7 +1662,7 @@ impl RVertex {
         self.ptr_data_offset.resize(self.n_children as usize, 0);
 
         if self.is_leaf != 0 {
-            self.sizes.resize(self.n_children as usize, 0);
+            self.sizes    .resize(self.n_children as usize, 0);
             self.ptr_sizes.resize(self.n_children as usize, 0);
         }
 
@@ -1690,8 +1690,8 @@ impl RVertex {
                 child.read::<E, R>(file)?;
                 self.children.push(child);
             }
+            assert_eq!(self.children.len(), self.n_children as usize);
         }
-        assert_eq!(self.children.len(), self.n_children as usize);
 
         Ok(())
     }
@@ -2071,7 +2071,7 @@ impl BbiFile {
     ) -> impl Stream<Item = io::Result<BbiQueryType>> + 'a {
 
         stream! {
-            if self.index_zoom[zoom_idx].is_nil() {
+            if self.index_zoom[zoom_idx].root.is_none() {
                 if let Err(err) = self.read_zoom_index::<E, R>(reader, zoom_idx) {
                     yield Err(err); return ();
                 }
@@ -2141,7 +2141,7 @@ impl BbiFile {
 
         stream! {
 
-            if self.index.is_nil() {
+            if self.index.root.is_none() {
                 if let Err(err) = self.read_index::<E, R>(reader) {
                     yield Err(err); return ();
                 }
