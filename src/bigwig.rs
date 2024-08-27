@@ -197,7 +197,7 @@ impl<R: Read + Seek> BigWigReader<R> {
         Ok(())
     }
     */
-    pub fn query<'a>(
+    pub fn query_stream<'a>(
         &'a mut self,
         seq_regex: &'a str,
         from     : usize,
@@ -216,8 +216,8 @@ impl<R: Read + Seek> BigWigReader<R> {
                 if let Some(idx) = self.genome.get_idx(seqname) {
 
                     let mut iterator = match self.order {
-                        BigWigOrder::LE => self.bwf.query::<LittleEndian, R>(&mut self.reader, idx as u32, from as u32, to as u32, bin_size as u32),
-                        BigWigOrder::BE => self.bwf.query::<BigEndian   , R>(&mut self.reader, idx as u32, from as u32, to as u32, bin_size as u32),
+                        BigWigOrder::LE => self.bwf.query_stream::<LittleEndian, R>(&mut self.reader, idx as u32, from as u32, to as u32, bin_size as u32),
+                        BigWigOrder::BE => self.bwf.query_stream::<BigEndian   , R>(&mut self.reader, idx as u32, from as u32, to as u32, bin_size as u32),
                     };
 
                     while let Some(item) = iterator.next().await {
@@ -230,7 +230,7 @@ impl<R: Read + Seek> BigWigReader<R> {
         }
     }
 
-    pub fn query_iterator<'a>(
+    pub fn query<'a>(
         &'a mut self,
         seq_regex: &'a str,
         from     : usize,
@@ -238,11 +238,9 @@ impl<R: Read + Seek> BigWigReader<R> {
         bin_size : usize,
     ) -> BlockingStream<impl Stream<Item = io::Result<BbiQueryType>> + 'a> {
 
-        let s = Box::pin(self.query(seq_regex, from, to, bin_size));
-        //pin_mut!(s);
+        let s = Box::pin(self.query_stream(seq_regex, from, to, bin_size));
 
         block_on_stream(s)
-
     }
 
     pub fn genome(&self) -> Genome {

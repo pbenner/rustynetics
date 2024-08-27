@@ -2196,7 +2196,7 @@ impl BbiFile {
         }
     }
 
-    pub fn query<'a, E: ByteOrder, R: Read + Seek>(
+    pub fn query_stream<'a, E: ByteOrder, R: Read + Seek>(
         &'a mut self,
         reader  : &'a mut R,
         chrom_id: u32,
@@ -2226,7 +2226,7 @@ impl BbiFile {
         Box::pin(self.query_raw::<E, R>(reader, chrom_id, from, to, bin_size))
     }
 
-    pub fn query_iterator<'a, E: ByteOrder, R: Read + Seek>(
+    pub fn query<'a, E: ByteOrder, R: Read + Seek>(
         &'a mut self,
         reader  : &'a mut R,
         chrom_id: u32,
@@ -2235,8 +2235,7 @@ impl BbiFile {
         bin_size: u32,
     ) -> BlockingStream<Pin<Box<dyn Stream<Item = io::Result<BbiQueryType>> + 'a>>> {
 
-        let s = self.query::<E, R>(reader, chrom_id, from, to, bin_size);
-        //pin_mut!(s);
+        let s = self.query_stream::<E, R>(reader, chrom_id, from, to, bin_size);
     
         block_on_stream(s)
     

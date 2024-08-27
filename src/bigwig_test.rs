@@ -44,7 +44,7 @@ mod tests {
             let mut sum_min  = 0.0;
             let mut sum_max  = 0.0;
 
-            for result in bw.bwf.query_iterator::<LittleEndian, NetFile>(&mut bw.reader, 0, 0, 100, 1) {
+            for result in bw.bwf.query::<LittleEndian, NetFile>(&mut bw.reader, 0, 0, 100, 1) {
                 if let Ok(item) = result {
                     sum_id   += item.data.chrom_id;
                     sum_from += item.data.from;
