@@ -30,6 +30,7 @@ pub mod range;
 pub mod error;
 pub mod options_print;
 pub mod track;
+pub mod track_simple;
 
 mod granges_find_endpoint;
 mod granges_find_nearest;
