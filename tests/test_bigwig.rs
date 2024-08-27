@@ -19,25 +19,46 @@
 #[cfg(test)]
 mod tests {
 
+    use approx::assert_relative_eq;
+
     use rustynetics::bigwig::BigWigFile;
 
     #[test]
     fn bigwig_test_1() {
 
-        match BigWigFile::open("tests/test_bigwig_1.bw") {
-        Err(err) => println!("Err: {}", err),
-        Ok (mut bw) => {
-                println!("Genome: {}", bw.genome());
+        let result =  BigWigFile::open("tests/test_bigwig_1.bw");
 
-                for result in bw.query_iterator("test1", 0, 100, 1) {
-                    if let Ok(item) = result {
-                        println!("result {}", item);
-                    }
+        assert!(result.is_ok());
+
+        if let Ok(mut bw) = result {
+
+            assert_eq!(bw.genome().length(), 2);
+
+            assert_eq!(bw.genome().seqnames[0], "test1");
+            assert_eq!(bw.genome().seqnames[1], "test2");
+
+            let mut sum_id   = 0;
+            let mut sum_from = 0;
+            let mut sum_to   = 0;
+            let mut sum_min  = 0.0;
+            let mut sum_max  = 0.0;
+
+            for result in bw.query_iterator("test1", 0, 100, 1) {
+                if let Ok(item) = result {
+                    sum_id   += item.data.chrom_id;
+                    sum_from += item.data.from;
+                    sum_to   += item.data.to;
+                    sum_min  += item.data.statistics.min;
+                    sum_max  += item.data.statistics.max;
                 }
-
             }
+
+            assert_eq!(sum_id  ,   0);
+            assert_eq!(sum_from, 450);
+            assert_eq!(sum_to  , 550);
+
+            assert_relative_eq!(sum_min, 7.0, epsilon = f32::EPSILON as f64);
+            assert_relative_eq!(sum_max, 7.0, epsilon = f32::EPSILON as f64);
         }
-
     }
-
 }

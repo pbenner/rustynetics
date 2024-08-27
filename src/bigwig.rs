@@ -21,6 +21,7 @@ use async_stream::stream;
 use futures::executor::block_on_stream;
 use futures::executor::BlockingStream;
 use futures_core::stream::Stream;
+use futures::StreamExt;
 
 use byteorder::{ByteOrder, ReadBytesExt, BigEndian, LittleEndian};
 
@@ -215,10 +216,11 @@ impl<R: Read + Seek> BigWigReader<R> {
                 if let Some(idx) = self.genome.get_idx(seqname) {
 
                     let mut iterator = match self.order {
-                        BigWigOrder::LE => self.bwf.query_iterator::<LittleEndian, R>(&mut self.reader, idx as u32, from as u32, to as u32, bin_size as u32),
-                        BigWigOrder::BE => self.bwf.query_iterator::<BigEndian   , R>(&mut self.reader, idx as u32, from as u32, to as u32, bin_size as u32),
+                        BigWigOrder::LE => self.bwf.query::<LittleEndian, R>(&mut self.reader, idx as u32, from as u32, to as u32, bin_size as u32),
+                        BigWigOrder::BE => self.bwf.query::<BigEndian   , R>(&mut self.reader, idx as u32, from as u32, to as u32, bin_size as u32),
                     };
-                    while let Some(item) = iterator.next() {
+
+                    while let Some(item) = iterator.next().await {
 
                         yield item;
 
