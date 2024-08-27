@@ -143,12 +143,12 @@ impl BbiZoomRecord {
 /* -------------------------------------------------------------------------- */
 
 #[derive(Clone, Debug)]
-struct BbiSummaryStatistics {
-    valid      : f64,
-    min        : f64,
-    max        : f64,
-    sum        : f64,
-    sum_squares: f64,
+pub struct BbiSummaryStatistics {
+    pub valid      : f64,
+    pub min        : f64,
+    pub max        : f64,
+    pub sum        : f64,
+    pub sum_squares: f64,
 }
 
 /* -------------------------------------------------------------------------- */
@@ -197,7 +197,7 @@ impl BbiSummaryStatistics {
 
 impl fmt::Display for BbiSummaryStatistics {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "(valid={}, min={}, max={}, sum={}, sum_squares={})",
+        write!(f, "(valid={}, min={:.4}, max={:.4}, sum={:.4}, sum_squares={:.4})",
             self.valid,
             self.min,
             self.max,
@@ -210,10 +210,10 @@ impl fmt::Display for BbiSummaryStatistics {
 
 #[derive(Clone, Debug)]
 pub struct BbiSummaryRecord {
-    chrom_id  : i32,
-    from      : i32,
-    to        : i32,
-    statistics: BbiSummaryStatistics,
+    pub chrom_id  : i32,
+    pub from      : i32,
+    pub to        : i32,
+    pub statistics: BbiSummaryStatistics,
 }
 
 /* -------------------------------------------------------------------------- */
@@ -1443,7 +1443,7 @@ pub struct RTree {
     pub idx_size        : u64,
     pub n_items_per_slot: u32,
     pub root            : Option<Box<RVertex>>,
-    ptr_idx_size    : i64,
+    ptr_idx_size        : i64,
 }
 
 /* -------------------------------------------------------------------------- */
@@ -1599,8 +1599,8 @@ pub struct RVertex {
     pub data_offset    : Vec<u64>,
     pub sizes          : Vec<u64>,
     pub children       : Vec<Box<RVertex>>,
-    ptr_data_offset: Vec<i64>,
-    ptr_sizes      : Vec<i64>,
+    ptr_data_offset    : Vec<i64>,
+    ptr_sizes          : Vec<i64>,
 }
 
 /* -------------------------------------------------------------------------- */
@@ -1883,7 +1883,7 @@ struct RTreeTraverser<'a> {
 #[derive(Debug)]
 struct RTreeTraverserType<'a> {
     vertex: &'a RVertex,  // A reference to the current vertex
-    idx: usize,           // Index within the vertex
+    idx   : usize,        // Index within the vertex
 }
 
 /* -------------------------------------------------------------------------- */
@@ -1965,8 +1965,8 @@ impl<'a> Iterator for RTreeTraverser<'a> {
 
 #[derive(Clone, Debug)]
 pub struct BbiQueryType {
-    bbi_summary_record: BbiSummaryRecord,
-    data_type         : u8,
+    pub data     : BbiSummaryRecord,
+    pub data_type: u8,
 }
 
 /* -------------------------------------------------------------------------- */
@@ -1974,7 +1974,7 @@ pub struct BbiQueryType {
 impl fmt::Display for BbiQueryType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "(data={}, type={})",
-            self.bbi_summary_record,
+            self.data,
             self.data_type)
     }
 }
@@ -1984,8 +1984,8 @@ impl fmt::Display for BbiQueryType {
 impl BbiQueryType {
     pub fn new() -> Self {
         BbiQueryType {
-            bbi_summary_record: BbiSummaryRecord::new(),
-            data_type         : 0,
+            data     : BbiSummaryRecord::new(),
+            data_type: 0,
         }
     }
 }
@@ -2100,23 +2100,23 @@ impl BbiFile {
                                         continue;
                                     }
             
-                                    if result.bbi_summary_record.chrom_id == -1 {
-                                        result.bbi_summary_record.chrom_id = record.chrom_id;
-                                        result.bbi_summary_record.from     = record.from;
-                                        result.bbi_summary_record.to       = record.from;
-                                        result.data_type                   = BBI_TYPE_BED_GRAPH;
+                                    if result.data.chrom_id == -1 {
+                                        result.data.chrom_id = record.chrom_id;
+                                        result.data.from     = record.from;
+                                        result.data.to       = record.from;
+                                        result.data_type     = BBI_TYPE_BED_GRAPH;
                                     }
             
-                                    if result.bbi_summary_record.to - result.bbi_summary_record.from >= bin_size as i32
-                                        || result.bbi_summary_record.from + (bin_size as i32) < record.from
+                                    if result.data.to - result.data.from >= bin_size as i32
+                                        || result.data.from + (bin_size as i32) < record.from
                                     {
-                                        if result.bbi_summary_record.from != result.bbi_summary_record.to {
+                                        if result.data.from != result.data.to {
                                             yield Ok(result);
                                             result = BbiQueryType::new();
                                         }
                                     }
             
-                                    result.bbi_summary_record.add_record(&record);        
+                                    result.data.add_record(&record);        
                                 }
                             }
                         }
@@ -2124,7 +2124,7 @@ impl BbiFile {
                 }
             }
 
-            if result.bbi_summary_record.chrom_id != -1 {
+            if result.data.chrom_id != -1 {
                 yield Ok(result);
             }
         }
@@ -2168,29 +2168,29 @@ impl BbiFile {
                                 continue;
                             }
 
-                            if result.bbi_summary_record.chrom_id == -1 {
-                                result.bbi_summary_record.chrom_id = record.chrom_id;
-                                result.bbi_summary_record.from     = record.from;
-                                result.bbi_summary_record.to       = record.from;
-                                result.data_type                   = decoder.header.kind;
+                            if result.data.chrom_id == -1 {
+                                result.data.chrom_id = record.chrom_id;
+                                result.data.from     = record.from;
+                                result.data.to       = record.from;
+                                result.data_type     = decoder.header.kind;
                             }
 
-                            if result.bbi_summary_record.to - result.bbi_summary_record.from >= bin_size as i32
-                                || result.bbi_summary_record.from + (bin_size as i32) < record.from
+                            if result.data.to - result.data.from >= bin_size as i32
+                                || result.data.from + (bin_size as i32) < record.from
                             {
-                                if result.bbi_summary_record.from != result.bbi_summary_record.to {
+                                if result.data.from != result.data.to {
                                     yield Ok(result);
                                     result = BbiQueryType::new();
                                 }
                             }
 
-                            result.bbi_summary_record.add_record(&record);
+                            result.data.add_record(&record);
                         }
                     }
                 }
             }
 
-            if result.bbi_summary_record.chrom_id != -1 {
+            if result.data.chrom_id != -1 {
                 yield Ok(result);
             }
         }

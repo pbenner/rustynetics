@@ -22,7 +22,7 @@ mod tests {
     use rustynetics::bigwig::BigWigFile;
 
     #[test]
-    fn test_bigwig_1() {
+    fn bigwig_test_1() {
 
         match BigWigFile::open("tests/test_bigwig_1.bw") {
         Err(err) => println!("Err: {}", err),
@@ -39,6 +39,5 @@ mod tests {
         }
 
     }
-
 
 }

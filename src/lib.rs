@@ -47,3 +47,8 @@ mod meta_table_reader;
 mod meta_table_writer;
 mod netfile;
 mod utility;
+
+mod bigwig_test;
+
+#[macro_use]
+extern crate approx;

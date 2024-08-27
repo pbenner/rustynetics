@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2018"
 
 [dependencies]
+approx = "0.5.1"
 flate2 = "1.0"
 regex = "1.10"
 list_comprehension_macro = "0.1"
