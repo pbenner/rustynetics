@@ -29,6 +29,7 @@ pub mod meta;
 pub mod range;
 pub mod error;
 pub mod options_print;
+pub mod track;
 
 mod granges_find_endpoint;
 mod granges_find_nearest;
