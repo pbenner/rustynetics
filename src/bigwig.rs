@@ -46,9 +46,9 @@ struct BigWigParameters {
 
 /* -------------------------------------------------------------------------- */
 
-impl BigWigParameters {
+impl Default for BigWigParameters {
     // Default constructor for BigWigParameters
-    pub fn default() -> Self {
+    fn default() -> Self {
         BigWigParameters {
             block_size      : 256,
             items_per_slot  : 1024,

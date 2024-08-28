@@ -88,9 +88,6 @@ impl SimpleTrack {
     }
 
     pub fn index(&self, position: usize) -> usize {
-        if position < 0 {
-            panic!("negative position");
-        }
         position / self.bin_size
     }
 
@@ -172,9 +169,6 @@ impl Track for SimpleTrack {
         let to   = r.range().to   / self.bin_size;
 
         if from >= seq.len() {
-            return Ok(vec![]);
-        }
-        if to < 0 {
             return Ok(vec![]);
         }
 
