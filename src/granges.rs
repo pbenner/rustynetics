@@ -22,36 +22,11 @@ use std::collections::HashMap;
 
 use crate::range::Range;
 use crate::genome::Genome;
+use crate::granges_row::GRangesRow;
 use crate::granges_find_overlaps::find_overlaps;
 use crate::meta::Meta;
 use crate::error::Error;
 use crate::utility::remove_duplicates_int;
-
-/* -------------------------------------------------------------------------- */
-
-pub struct GRangesRow<'a> {
-    granges: &'a GRanges,
-    row    : usize,
-}
-
-impl<'a> GRangesRow<'a> {
-    fn new(granges: &'a GRanges, row: usize) -> Self {
-        GRangesRow { granges, row }
-    }
-}
-
-impl<'a> fmt::Display for GRangesRow<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "GRangesRow(seqname={}, range=({}, {}), strand={})",
-            self.granges.seqnames[self.row],
-            self.granges.ranges  [self.row].from,
-            self.granges.ranges  [self.row].to,
-            self.granges.strand  [self.row] as char
-        )
-    }
-}
 
 /* -------------------------------------------------------------------------- */
 

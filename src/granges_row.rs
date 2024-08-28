@@ -18,6 +18,7 @@
 
 use std::fmt;
 
+use crate::range::Range;
 use crate::granges::GRanges;
 
 /* -------------------------------------------------------------------------- */
@@ -32,6 +33,18 @@ pub struct GRangesRow<'a> {
 impl<'a> GRangesRow<'a> {
     pub fn new(granges: &'a GRanges, row: usize) -> Self {
         GRangesRow { granges, row }
+    }
+
+    pub fn seqname(&self) -> &String {
+        &self.granges.seqnames[self.row]
+    }
+
+    pub fn range(&self) -> &Range {
+        &self.granges.ranges[self.row]
+    }
+
+    pub fn strand(&self) -> char {
+        self.granges.strand[self.row]
     }
 }
 

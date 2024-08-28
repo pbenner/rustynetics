@@ -15,7 +15,7 @@
  */
 
 use crate::genome::Genome;
-use crate::granges::GRangesRow;
+use crate::granges_row::GRangesRow;
 
 /* -------------------------------------------------------------------------- */
 

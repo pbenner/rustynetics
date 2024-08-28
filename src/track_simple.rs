@@ -18,13 +18,12 @@ use std::collections::HashMap;
 use std::string::String;
 
 use crate::genome::Genome;
-use crate::granges::GRangesRow;
+use crate::granges_row::GRangesRow;
 
 use crate::track::Track;
 use crate::track::MutableTrack;
 use crate::track::TrackSequence;
 use crate::track::TrackMutableSequence;
-
 /* -------------------------------------------------------------------------- */
 
 pub type TMapType = HashMap<String, Vec<f64>>;
@@ -97,7 +96,7 @@ impl SimpleTrack {
 
     pub fn filter_genome<F>(&mut self, f: F)
     where
-        F: Fn(&str, usize) -> bool,
+        F: Fn(&String, usize) -> bool,
     {
         self.data.retain(|seqname, _| {
             let idx = self.genome.seqnames.iter().position(|x| x == seqname).unwrap();
@@ -157,13 +156,13 @@ impl Track for SimpleTrack {
     }
 
     fn get_slice(&self, r: &GRangesRow) -> Result<Vec<f64>, String> {
-        let seq = match self.data.get(&r.seqname) {
+        let seq = match self.data.get(&r.seqname()) {
             Some(seq) => seq,
-            None => return Err(format!("GetSlice(): invalid seqname `{}`", r.seqname)),
+            None => return Err(format!("GetSlice(): invalid seqname `{}`", r.seqname())),
         };
 
-        let from = r.range.from / self.bin_size;
-        let to   = r.range.to   / self.bin_size;
+        let from = r.range().from / self.bin_size;
+        let to   = r.range().to   / self.bin_size;
 
         if from >= seq.len() {
             return Ok(vec![]);
