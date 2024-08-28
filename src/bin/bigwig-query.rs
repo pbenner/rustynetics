@@ -19,7 +19,6 @@ use std::process;
 use clap::{Arg, Command};
 
 use rustynetics::bigwig::BigWigFile;
-use rustynetics::bigwig::BigWigReader;
 
 /* -------------------------------------------------------------------------- */
 
