@@ -1223,7 +1223,7 @@ impl BbiHeaderZoom {
         Ok(())
     }
 
-    fn write_offsets<E: ByteOrder, W: Write + Seek>(&self, file: &mut W) -> io::Result<()> {
+    pub fn write_offsets<E: ByteOrder, W: Write + Seek>(&self, file: &mut W) -> io::Result<()> {
         let mut buf = [0u8; 8];
 
         if self.ptr_data_offset != 0 {
@@ -1491,6 +1491,16 @@ impl BbiHeader {
             file.write_f64::<E>(self.sum_data)?;
             file.write_f64::<E>(self.sum_squares)?;
         }
+        Ok(())
+    }
+
+    pub fn write_n_blocks<E: ByteOrder, W: Write + Seek>(&mut self, file: &mut W) -> std::io::Result<()> {
+
+        let mut buf = [0u8; 8];
+        E::write_u64(&mut buf, self.n_blocks);
+
+        file_write_at(file, self.data_offset, &buf)?;
+
         Ok(())
     }
 }

@@ -269,7 +269,9 @@ impl<W: Write + Seek> BigWigWriter<W> {
     }
 
     pub fn write_sequence(&mut self, seqname: &str, sequence: Vec<f64>, bin_size: usize) -> Result<(), Box<dyn Error>> {
-        let idx = self.genome.get_idx(seqname)?;
+        let idx = self.genome.get_idx(seqname).ok_or(
+            std::io::Error::new(std::io::ErrorKind::InvalidData, format!("Sequence '{}' not found", seqname))
+        )?;
         let n = self.write(idx, sequence, bin_size)?;
         self.bwf.header.n_blocks += n as u64;
         Ok(())
@@ -290,7 +292,9 @@ impl<W: Write + Seek> BigWigWriter<W> {
     }
 
     pub fn write_zoom_sequence(&mut self, seqname: &str, sequence: Vec<f64>, bin_size: usize, reduction_level: usize, i: usize) -> Result<(), Box<dyn Error>> {
-        let idx = self.genome.get_idx(seqname)?;
+        let idx = self.genome.get_idx(seqname).ok_or(
+            std::io::Error::new(std::io::ErrorKind::InvalidData, format!("Sequence '{}' not found", seqname))
+        )?;
         let n = self.write_zoom(idx, sequence, bin_size, reduction_level)?;
         self.bwf.header.zoom_headers[i].n_blocks += n as u32;
         Ok(())
@@ -338,7 +342,7 @@ impl<W: Write + Seek> BigWigWriter<W> {
         self.bwf.header.zoom_headers[i].data_offset = offset as u64;
 
         self.writer.write_all(&self.bwf.header.zoom_headers[i].n_blocks.to_le_bytes())?;
-        self.bwf.header.zoom_headers[i].write_offsets(&mut self.writer)?;
+        self.bwf.header.zoom_headers[i].write_offsets::<LittleEndian, W>(&mut self.writer)?;
 
         Ok(())
     }
@@ -355,22 +359,24 @@ impl<W: Write + Seek> BigWigWriter<W> {
             let mut value = vec![0; self.bwf.chrom_data.value_size as usize];
             key[..name.len()].copy_from_slice(name.as_bytes());
 
-            let idx = self.genome.get_idx(name)?;
+            let idx = self.genome.get_idx(name).ok_or(
+                std::io::Error::new(std::io::ErrorKind::InvalidData, format!("Sequence '{}' not found", name))
+            )?;
             value[ ..4].copy_from_slice(&(idx as u32).to_le_bytes());
             value[4..8].copy_from_slice(&(self.genome.lengths[idx as usize] as u32).to_le_bytes());
 
             self.bwf.chrom_data.add(key, value)?;
         }
 
-        self.bwf.write_chrom_list(&mut self.writer)?;
-        self.bwf.header.write_n_blocks(&mut self.writer)?;
+        self.bwf.write_chrom_list::<LittleEndian, W>(&mut self.writer)?;
+        self.bwf.header.write_n_blocks::<LittleEndian, W>(&mut self.writer)?;
 
         for i in 0..self.bwf.header.zoom_headers.len() {
-            self.bwf.header.zoom_headers[i].write_n_blocks(&mut self.writer)?;
+            self.bwf.header.zoom_headers[i].write_n_blocks::<LittleEndian, W>(&mut self.writer)?;
         }
 
         self.writer.seek(SeekFrom::End(0))?;
-        self.bwf.header.write_summary(&mut self.writer)?;
+        self.bwf.header.write_summary::<LittleEndian, W>(&mut self.writer)?;
         self.writer.write_all(&self.bwf.header.magic.to_le_bytes())?;
 
         Ok(())
