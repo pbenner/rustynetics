@@ -28,7 +28,7 @@ use futures::StreamExt;
 use byteorder::{ByteOrder, ReadBytesExt, LittleEndian};
 
 use crate::genome::Genome;
-use crate::bbi::{BbiFile, BbiQueryType, RTree, RVertex, RVertexGenerator};
+use crate::bbi::{BbiFile, BbiQueryType, BbiHeaderZoom, RTree, RVertex, RVertexGenerator};
 use crate::netfile::NetFile;
 
 /* -------------------------------------------------------------------------- */
@@ -222,20 +222,22 @@ impl<W: Write + Seek> BigWigWriter<W> {
             bwf,
             genome,
             parameters: parameters.clone(),
-            generator: RVertexGenerator::new(parameters.block_size, parameters.items_per_slot, bwf.order)?,
+            generator: RVertexGenerator::new(parameters.block_size, parameters.items_per_slot)?,
             leaves: BTreeMap::new(),
         };
 
         for reduction_level in &parameters.reduction_levels {
-            bwf.header.zoom_headers.push(BbiHeaderZoom {
-                reduction_level: *reduction_level as u32,
-            });
+
+            let mut header = BbiHeaderZoom::default();
+            header.reduction_level = *reduction_level as u32;
+
+            bwf.header.zoom_headers.push(header);
         }
 
-        bwf.header.zoom_levels = parameters.reduction_levels.len() as u16;
-        bwf.index_zoom = vec![RTree::new(); parameters.reduction_levels.len()];
+        bwf.header.zoom_levels         = parameters.reduction_levels.len() as u16;
+        bwf.index_zoom                 = vec![RTree::new(); parameters.reduction_levels.len()];
         bwf.header.uncompress_buf_size = 1;
-        bwf.chrom_data.value_size = 8;
+        bwf.chrom_data.value_size      = 8;
 
         bwf.create(&mut bww.writer)?;
 
@@ -354,7 +356,7 @@ impl<W: Write + Seek> BigWigWriter<W> {
             key[..name.len()].copy_from_slice(name.as_bytes());
 
             let idx = self.genome.get_idx(name)?;
-            value[..4].copy_from_slice(&(idx as u32).to_le_bytes());
+            value[ ..4].copy_from_slice(&(idx as u32).to_le_bytes());
             value[4..8].copy_from_slice(&(self.genome.lengths[idx as usize] as u32).to_le_bytes());
 
             self.bwf.chrom_data.add(&key, &value)?;

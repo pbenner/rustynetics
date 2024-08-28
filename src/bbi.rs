@@ -1179,14 +1179,14 @@ impl BData {
 /* -------------------------------------------------------------------------- */
 
 #[derive(Clone, Copy, Debug, Default)]
-struct BbiHeaderZoom {
-    reduction_level : u32,
-    reserved        : u32,
-    data_offset     : u64,
-    index_offset    : u64,
-    n_blocks        : u32,
-    ptr_data_offset : u64,
-    ptr_index_offset: u64,
+pub struct BbiHeaderZoom {
+    pub reduction_level : u32,
+    pub reserved        : u32,
+    pub data_offset     : u64,
+    pub index_offset    : u64,
+    pub n_blocks        : u32,
+    ptr_data_offset     : u64,
+    ptr_index_offset    : u64,
 }
 
 /* -------------------------------------------------------------------------- */
@@ -1252,32 +1252,32 @@ impl BbiHeaderZoom {
 
 #[derive(Clone, Debug)]
 pub struct BbiHeader {
-    magic                  : u32,
-    version                : u16,
-    zoom_levels            : u16,
-    ct_offset              : u64,
-    data_offset            : u64,
-    index_offset           : u64,
-    field_count            : u16,
-    defined_field_count    : u16,
-    sql_offset             : u64,
-    summary_offset         : u64,
-    uncompress_buf_size    : u32,
-    extension_offset       : u64,
-    n_bases_covered        : u64,
-    min_val                : f64,
-    max_val                : f64,
-    sum_data               : f64,
-    sum_squares            : f64,
-    zoom_headers           : Vec<BbiHeaderZoom>,
-    n_blocks               : u64,
-    ptr_ct_offset          : u64,
-    ptr_data_offset        : u64,
-    ptr_index_offset       : u64,
-    ptr_sql_offset         : u64,
-    ptr_summary_offset     : u64,
-    ptr_uncompress_buf_size: u64,
-    ptr_extension_offset   : u64,
+    pub magic                  : u32,
+    pub version                : u16,
+    pub zoom_levels            : u16,
+    pub ct_offset              : u64,
+    pub data_offset            : u64,
+    pub index_offset           : u64,
+    pub field_count            : u16,
+    pub defined_field_count    : u16,
+    pub sql_offset             : u64,
+    pub summary_offset         : u64,
+    pub uncompress_buf_size    : u32,
+    pub extension_offset       : u64,
+    pub n_bases_covered        : u64,
+    pub min_val                : f64,
+    pub max_val                : f64,
+    pub sum_data               : f64,
+    pub sum_squares            : f64,
+    pub zoom_headers           : Vec<BbiHeaderZoom>,
+    pub n_blocks               : u64,
+    ptr_ct_offset              : u64,
+    ptr_data_offset            : u64,
+    ptr_index_offset           : u64,
+    ptr_sql_offset             : u64,
+    ptr_summary_offset         : u64,
+    ptr_uncompress_buf_size    : u64,
+    ptr_extension_offset       : u64,
 }
 
 /* -------------------------------------------------------------------------- */
