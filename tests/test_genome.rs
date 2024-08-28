@@ -29,6 +29,6 @@ mod tests {
 
         assert_eq!(r.is_ok(), true);
 
-        assert_eq!(genome.length(), 25)
+        assert_eq!(genome.len(), 25)
     }
 }

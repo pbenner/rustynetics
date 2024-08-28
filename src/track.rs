@@ -25,6 +25,14 @@ pub struct TrackSequence {
 }
 
 impl TrackSequence {
+
+    pub fn new(sequence: &Vec<f64>, bin_size: usize) -> TrackSequence {
+        TrackSequence {
+            sequence: sequence.clone(),
+            bin_size: bin_size,
+        }
+    }
+
     pub fn at(&self, i: usize) -> f64 {
         self.sequence[i / self.bin_size]
     }
@@ -49,6 +57,13 @@ pub struct TrackMutableSequence {
 }
 
 impl TrackMutableSequence {
+
+    pub fn new(sequence: &Vec<f64>, bin_size: usize) -> TrackMutableSequence {
+        TrackMutableSequence {
+            track_sequence: TrackSequence::new(sequence, bin_size)
+        }
+    }
+
     pub fn set(&mut self, i: usize, v: f64) {
         self.track_sequence.sequence[i / self.track_sequence.bin_size] = v;
     }

@@ -77,7 +77,7 @@ impl Genome {
 
     pub fn filter<F>(&mut self, f: F) -> Self
     where
-        F: Fn(&String, usize) -> bool,
+        F: Fn(&str, usize) -> bool,
     {
         let mut seqnames = Vec::new();
         let mut lengths  = Vec::new();

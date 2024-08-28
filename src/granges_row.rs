@@ -35,7 +35,7 @@ impl<'a> GRangesRow<'a> {
         GRangesRow { granges, row }
     }
 
-    pub fn seqname(&self) -> &String {
+    pub fn seqname(&self) -> &str {
         &self.granges.seqnames[self.row]
     }
 

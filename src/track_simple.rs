@@ -96,12 +96,22 @@ impl SimpleTrack {
 
     pub fn filter_genome<F>(&mut self, f: F)
     where
-        F: Fn(&String, usize) -> bool,
+        F: Fn(&str, usize) -> bool,
     {
-        self.data.retain(|seqname, _| {
-            let idx = self.genome.seqnames.iter().position(|x| x == seqname).unwrap();
-            f(seqname, self.genome.lengths[idx])
-        });
+        let retain_seqnames: Vec<String> = self
+            .data
+            .keys()
+            .filter(|seqname| {
+                let idx = self.genome.seqnames.iter().position(|x| x == *seqname).unwrap();
+                f(seqname, self.genome.lengths[idx])
+            })
+            .cloned()
+            .collect();
+
+        // Retain the seqnames in self.data
+        self.data.retain(|seqname, _| retain_seqnames.contains(seqname));
+
+        // Perform the filtering on genome
         self.genome.filter(f);
     }
 }
@@ -134,7 +144,7 @@ impl Track for SimpleTrack {
     }
 
     fn get_name(&self) -> String {
-        String::from(self.name)
+        String::from(&self.name)
     }
 
     fn get_seq_names(&self) -> Vec<String> {
@@ -147,16 +157,13 @@ impl Track for SimpleTrack {
 
     fn get_sequence(&self, query: &str) -> Result<TrackSequence, String> {
         match self.data.get(query) {
-            Some(seq) => Ok(TrackSequence {
-                sequence: seq.clone(),
-                bin_size: self.bin_size,
-            }),
-            None => Err(format!("sequence `{}` not found", query)),
+            Some(seq) => Ok(TrackSequence::new(seq, self.bin_size)),
+            None      => Err(format!("sequence `{}` not found", query)),
         }
     }
 
     fn get_slice(&self, r: &GRangesRow) -> Result<Vec<f64>, String> {
-        let seq = match self.data.get(&r.seqname()) {
+        let seq = match self.data.get(r.seqname()) {
             Some(seq) => seq,
             None => return Err(format!("GetSlice(): invalid seqname `{}`", r.seqname())),
         };
@@ -185,13 +192,8 @@ impl MutableTrack for SimpleTrack {
 
     fn get_mutable_sequence(&self, query: &str) -> Result<TrackMutableSequence, String> {
         match self.data.get(query) {
-            Some(seq) => Ok(TrackMutableSequence {
-                track_sequence: TrackSequence {
-                    sequence: seq.clone(),
-                    bin_size: self.bin_size,
-                },
-            }),
-            None => Err(format!("sequence `{}` not found", query)),
+            Some(seq) => Ok(TrackMutableSequence::new(seq, self.bin_size)),
+            None      => Err(format!("sequence `{}` not found", query)),
         }
     }
 }
