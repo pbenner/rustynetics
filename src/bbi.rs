@@ -153,9 +153,9 @@ pub struct BbiSummaryStatistics {
 
 /* -------------------------------------------------------------------------- */
 
-impl BbiSummaryStatistics {
+impl Default for BbiSummaryStatistics {
 
-    fn new() -> Self {
+    fn default() -> Self {
         BbiSummaryStatistics {
             valid      : 0.0,
             min        : f64::INFINITY,
@@ -164,14 +164,11 @@ impl BbiSummaryStatistics {
             sum_squares: 0.0,
         }
     }
+}
 
-    fn reset(&mut self) {
-        self.valid       = 0.0;
-        self.min         = f64::INFINITY;
-        self.max         = f64::NEG_INFINITY;
-        self.sum         = 0.0;
-        self.sum_squares = 0.0;
-    }
+/* -------------------------------------------------------------------------- */
+
+impl BbiSummaryStatistics {
 
     fn add_value(&mut self, x: f64) {
         if x.is_nan() {
@@ -218,22 +215,20 @@ pub struct BbiSummaryRecord {
 
 /* -------------------------------------------------------------------------- */
 
-impl BbiSummaryRecord {
-    fn new() -> BbiSummaryRecord {
+impl Default for BbiSummaryRecord {
+    fn default() -> Self {
         BbiSummaryRecord {
             chrom_id  : -1,
             from      :  0,
             to        :  0,
-            statistics: BbiSummaryStatistics::new(),
+            statistics: BbiSummaryStatistics::default(),
         }
     }
+}
 
-    fn reset(&mut self) {
-        self.chrom_id = -1;
-        self.from     =  0;
-        self.to       =  0;
-        self.statistics.reset();
-    }
+/* -------------------------------------------------------------------------- */
+
+impl BbiSummaryRecord {
 
     fn add_record(&mut self, other: &BbiSummaryRecord) {
         if self.chrom_id == -1 {
@@ -283,9 +278,9 @@ struct BbiDataHeader {
 
 /* -------------------------------------------------------------------------- */
 
-impl BbiDataHeader {
+impl Default for BbiDataHeader {
 
-    fn new() -> Self {
+    fn default() -> Self {
         BbiDataHeader {
             chrom_id  : 0,
             start     : 0,
@@ -297,6 +292,11 @@ impl BbiDataHeader {
             item_count: 0,
         }
     }
+}
+
+/* -------------------------------------------------------------------------- */
+
+impl BbiDataHeader {
 
     fn read_buffer<E: ByteOrder>(&mut self, buffer: &[u8]) {
         let mut cursor = Cursor::new(buffer);
@@ -339,7 +339,7 @@ impl<'a> BbiRawBlockDecoderIterator<'a> {
  
     fn read<E: ByteOrder>(&self) -> BbiRawBlockDecoderType { 
 
-        let mut r = BbiRawBlockDecoderType::new();
+        let mut r = BbiRawBlockDecoderType::default();
 
         match self.decoder.header.kind {
             BBI_TYPE_BED_GRAPH => {
@@ -390,13 +390,18 @@ struct BbiRawBlockDecoderType(BbiSummaryRecord);
 
 /* -------------------------------------------------------------------------- */
 
-impl BbiRawBlockDecoderType {
+impl Default for BbiRawBlockDecoderType {
 
-    fn new() -> BbiRawBlockDecoderType {
+    fn default() -> Self {
         BbiRawBlockDecoderType(
-            BbiSummaryRecord::new()
+            BbiSummaryRecord::default()
         )
     }
+}
+
+/* -------------------------------------------------------------------------- */
+
+impl BbiRawBlockDecoderType {
 
     fn read_fixed<E: ByteOrder>(&mut self, header: &BbiDataHeader, buffer: &[u8], i: usize) -> () {
         self.chrom_id               = header.chrom_id as i32;
@@ -461,7 +466,7 @@ impl<'a> BbiRawBlockDecoder<'a> {
             return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "block length is shorter than 24 bytes"));
         }
         let mut decoder = BbiRawBlockDecoder {
-            header: BbiDataHeader::new(),
+            header: BbiDataHeader::default(),
             buffer,
         }; 
         decoder.header.read_buffer::<E>(buffer);
@@ -500,15 +505,20 @@ struct BbiZoomBlockDecoderType(BbiSummaryRecord);
 
 /* -------------------------------------------------------------------------- */
 
+impl Default for BbiZoomBlockDecoderType {
+
+    fn default() -> Self {
+        BbiZoomBlockDecoderType(
+            BbiSummaryRecord::default()
+        )
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+
 impl BbiZoomBlockDecoderType {
 
     const LENGTH : usize = 52;
-
-    fn new() -> BbiZoomBlockDecoderType {
-        BbiZoomBlockDecoderType(
-            BbiSummaryRecord::new()
-        )
-    }
 
     fn read_buffer<E: ByteOrder>(&mut self, buffer : &[u8]) -> io::Result<()> {
         let mut cursor = Cursor::new(buffer);
@@ -577,7 +587,7 @@ impl<'a> BbiZoomBlockDecoderIterator<'a> {
 
     fn read<E: ByteOrder>(&mut self) -> io::Result<BbiZoomBlockDecoderType> {
 
-        let mut r = BbiZoomBlockDecoderType::new();
+        let mut r = BbiZoomBlockDecoderType::default();
 
         let start = self.position - BbiZoomBlockDecoderType::LENGTH;
         let end   = self.position;
@@ -653,7 +663,7 @@ impl BbiRawBlockEncoder {
             bin_size,
             position: 0,
             seqbuf  : Vec::new(),
-            header  : BbiDataHeader::new(),
+            header  : BbiDataHeader::default(),
         }
     }
 }
@@ -1064,8 +1074,8 @@ pub struct BData {
 
 /* -------------------------------------------------------------------------- */
 
-impl BData {
-    pub fn new() -> Self {
+impl Default for BData {
+    fn default() -> Self {
         BData {
             key_size        : 0,
             value_size      : 0,
@@ -1077,6 +1087,11 @@ impl BData {
             ptr_values      : Vec::new(),
         }
     }
+}
+
+/* -------------------------------------------------------------------------- */
+
+impl BData {
 
     fn add(&mut self, key: Vec<u8>, value: Vec<u8>) -> Result<(), String> {
         if key.len() as u32 != self.key_size {
@@ -1235,7 +1250,7 @@ impl BbiHeaderZoom {
 
 /* -------------------------------------------------------------------------- */
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct BbiHeader {
     magic                  : u32,
     version                : u16,
@@ -1267,15 +1282,42 @@ pub struct BbiHeader {
 
 /* -------------------------------------------------------------------------- */
 
-impl BbiHeader {
-    pub fn new() -> Self {
-        BbiHeader {
-            version: 4,
-            min_val: f64::NAN,
-            max_val: f64::NAN,
-            ..Default::default()
+impl Default for BbiHeader {
+    fn default() -> Self {
+        Self {
+            magic                  : 0,
+            version                : 4,
+            zoom_levels            : 0,
+            ct_offset              : 0,
+            data_offset            : 0,
+            index_offset           : 0,
+            field_count            : 0,
+            defined_field_count    : 0,
+            sql_offset             : 0,
+            summary_offset         : 0,
+            uncompress_buf_size    : 0,
+            extension_offset       : 0,
+            n_bases_covered        : 0,
+            min_val                : f64::NAN,
+            max_val                : f64::NAN,
+            sum_data               : 0.0,
+            sum_squares            : 0.0,
+            zoom_headers           : Vec::new(),
+            n_blocks               : 0,
+            ptr_ct_offset          : 0,
+            ptr_data_offset        : 0,
+            ptr_index_offset       : 0,
+            ptr_sql_offset         : 0,
+            ptr_summary_offset     : 0,
+            ptr_uncompress_buf_size: 0,
+            ptr_extension_offset   : 0,
         }
     }
+}
+
+/* -------------------------------------------------------------------------- */
+
+impl BbiHeader {
 
     fn summary_add_value(&mut self, x: f64, n: i32) {
         if x.is_nan() {
@@ -1432,7 +1474,7 @@ impl BbiHeader {
 
 /* -------------------------------------------------------------------------- */
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct RTree {
     pub block_size      : u32,
     pub n_items         : u64,
@@ -1448,14 +1490,26 @@ pub struct RTree {
 
 /* -------------------------------------------------------------------------- */
 
-impl RTree {
-    fn new() -> Self {
+impl Default for RTree {
+    fn default() -> Self {
         RTree {
-            block_size: 256,
+            block_size      : 256,
+            n_items         : 0,
+            chr_idx_start   : 0,
+            base_start      : 0,
+            chr_idx_end     : 0,
+            base_end        : 0,
+            idx_size        : 0,
             n_items_per_slot: 1024,
-            ..Default::default()
+            root            : None,
+            ptr_idx_size    : 0,
         }
     }
+}
+
+/* -------------------------------------------------------------------------- */
+
+impl RTree {
 
     fn is_nil(&self) -> bool {
         self.block_size == 0
@@ -1748,7 +1802,7 @@ impl RVertex {
 /* -------------------------------------------------------------------------- */
 
 pub struct RVertexGenerator {
-    block_size: usize,
+    block_size    : usize,
     items_per_slot: usize,
 }
 
@@ -1982,9 +2036,9 @@ impl fmt::Display for BbiQueryType {
 /* -------------------------------------------------------------------------- */
 
 impl BbiQueryType {
-    pub fn new() -> Self {
+    fn default() -> Self {
         BbiQueryType {
-            data     : BbiSummaryRecord::new(),
+            data     : BbiSummaryRecord::default(),
             data_type: 0,
         }
     }
@@ -2002,15 +2056,20 @@ pub struct BbiFile {
 
 /* -------------------------------------------------------------------------- */
 
-impl BbiFile {
-    pub fn new() -> Self {
+impl Default for BbiFile {
+    fn default() -> Self {
         BbiFile {
-            header    : BbiHeader::new(),
-            chrom_data: BData::new(),
-            index     : RTree::new(),
+            header    : BbiHeader::default(),
+            chrom_data: BData::default(),
+            index     : RTree::default(),
             index_zoom: vec![],
         }
     }
+}
+
+/* -------------------------------------------------------------------------- */
+
+impl BbiFile {
 
     pub fn estimate_size(&self, offset: i64, init: usize) -> usize {
         let mut n = i64::MAX;
@@ -2078,7 +2137,7 @@ impl BbiFile {
             }
 
             let traverser = RTreeTraverser::new(&self.index_zoom[zoom_idx], chrom_id, from, to);
-            let mut result = BbiQueryType::new();
+            let mut result = BbiQueryType::default();
 
             for r in traverser {
 
@@ -2112,8 +2171,8 @@ impl BbiFile {
                                     {
                                         if result.data.from != result.data.to {
                                             yield Ok(result);
-                                            result = BbiQueryType::new();
                                         }
+                                        result = BbiQueryType::default();
                                     }
             
                                     result.data.add_record(&record);        
@@ -2148,7 +2207,7 @@ impl BbiFile {
             }
 
             let traverser = RTreeTraverser::new(&self.index, chrom_id, from, to);
-            let mut result = BbiQueryType::new();
+            let mut result = BbiQueryType::default();
 
             for r in traverser {
 
@@ -2180,8 +2239,8 @@ impl BbiFile {
                             {
                                 if result.data.from != result.data.to {
                                     yield Ok(result);
-                                    result = BbiQueryType::new();
                                 }
+                                result = BbiQueryType::default();
                             }
 
                             result.data.add_record(&record);

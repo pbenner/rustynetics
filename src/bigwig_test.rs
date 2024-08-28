@@ -20,8 +20,9 @@
 mod tests {
 
     use byteorder::LittleEndian;
+    use approx::assert_relative_eq;
 
-    use crate::bigwig::{BigWigFile, BigWigOrder};
+    use crate::bigwig::BigWigFile;
     use crate::netfile::NetFile;
 
     #[test]

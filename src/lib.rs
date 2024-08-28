@@ -32,6 +32,7 @@ pub mod options_print;
 pub mod track;
 pub mod track_simple;
 
+// Private crates
 mod granges_find_endpoint;
 mod granges_find_nearest;
 mod granges_find_overlaps;
@@ -50,7 +51,8 @@ mod meta_table_writer;
 mod netfile;
 mod utility;
 
+// Tests
 mod bigwig_test;
 
-#[macro_use]
+// Macros
 extern crate approx;

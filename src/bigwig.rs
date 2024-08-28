@@ -26,7 +26,6 @@ use futures::StreamExt;
 use byteorder::{ByteOrder, ReadBytesExt, BigEndian, LittleEndian};
 
 use crate::genome::Genome;
-use crate::bbi::RVertex;
 use crate::bbi::BbiQueryType;
 use crate::bbi::BbiFile;
 use crate::netfile::NetFile;
@@ -115,7 +114,7 @@ impl<R: Read + Seek> BigWigReader<R> {
 
     fn open_bwf(reader: &mut R) -> io::Result<(BbiFile, BigWigOrder)> {
 
-        let mut bwf = BbiFile::new();
+        let mut bwf = BbiFile::default();
 
         reader.seek(SeekFrom::Start(0))?;
 
