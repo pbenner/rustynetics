@@ -167,35 +167,6 @@ impl<R: Read + Seek> BigWigReader<R> {
         Ok(self)
     }
 
-    /*
-    fn read_blocks(&mut self) -> std::sync::mpsc::Receiver<BigWigReaderType> {
-        let (tx, rx) = channel();
-        let bwf = self.bwf.clone();
-        let mut reader = self.reader.clone();
-
-        thread::spawn(move || {
-            Self::fill_channel(tx, &mut reader, &bwf.index.root).unwrap();
-        });
-
-        rx
-    }
-
-    fn fill_channel(tx: Sender<BigWigReaderType>, reader: &mut R, vertex: &RVertex) -> Result<(), Box<dyn Error>> {
-        if vertex.is_leaf != 0 {
-            for i in 0..vertex.n_children as usize {
-                match vertex.read_block(reader, i) {
-                    Ok(block) => tx.send(BigWigReaderType { block: Some(block), error: None }).unwrap(),
-                    Err(err)  => tx.send(BigWigReaderType { block: None, error: Some(Box::new(err)) }).unwrap(),
-                }
-            }
-        } else {
-            for i in 0..vertex.n_children as usize {
-                Self::fill_channel(tx.clone(), reader, &vertex.children[i])?;
-            }
-        }
-        Ok(())
-    }
-    */
     pub fn query_stream<'a>(
         &'a mut self,
         seq_regex: &'a str,
@@ -242,7 +213,7 @@ impl<R: Read + Seek> BigWigReader<R> {
         block_on_stream(s)
     }
 
-    pub fn genome(&self) -> Genome {
-        self.genome.clone()
+    pub fn genome(&self) -> &Genome {
+        &self.genome
     }
 }
