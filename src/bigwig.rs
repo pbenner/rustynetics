@@ -275,12 +275,12 @@ impl<W: Write + Seek> BigWigWriter<W> {
         Ok(())
     }
 
-    fn write_zoom(&mut self, idx: usize, sequence: &[f64], bin_size: i32, reduction_level: i32) -> Result<i32, Box<dyn Error>> {
+    fn write_zoom(&mut self, idx: usize, sequence: Vec<f64>, bin_size: usize, reduction_level: usize) -> Result<i32, Box<dyn Error>> {
         let mut n = 0;
 
-        for tmp in self.generator.generate::<LittleEndian, W>(idx, sequence, bin_size, reduction_level, true) {
+        for tmp in self.generator.generate::<LittleEndian>(idx, sequence, bin_size, reduction_level, true) {
             for i in 0..tmp.vertex.n_children as usize {
-                tmp.vertex.write_block(&mut self.writer, &self.bwf, i, tmp.blocks[i])?;
+                tmp.vertex.write_block::<LittleEndian, W>(&mut self.writer, &mut self.bwf, i, tmp.blocks[i])?;
                 n += 1;
             }
             self.leaves.entry(idx).or_default().push(tmp.vertex);
@@ -289,7 +289,7 @@ impl<W: Write + Seek> BigWigWriter<W> {
         Ok(n)
     }
 
-    pub fn write_zoom_sequence(&mut self, seqname: &str, sequence: &[f64], bin_size: i32, reduction_level: i32, i: usize) -> Result<(), Box<dyn Error>> {
+    pub fn write_zoom_sequence(&mut self, seqname: &str, sequence: Vec<f64>, bin_size: usize, reduction_level: usize, i: usize) -> Result<(), Box<dyn Error>> {
         let idx = self.genome.get_idx(seqname)?;
         let n = self.write_zoom(idx, sequence, bin_size, reduction_level)?;
         self.bwf.header.zoom_headers[i].n_blocks += n as u32;
@@ -308,7 +308,7 @@ impl<W: Write + Seek> BigWigWriter<W> {
     }
 
     pub fn write_index(&mut self) -> Result<(), Box<dyn Error>> {
-        let mut tree = RTree::new();
+        let mut tree = RTree::default();
         tree.block_size = self.parameters.block_size as u32;
         tree.n_items_per_slot = self.parameters.items_per_slot as u32;
         
@@ -317,11 +317,11 @@ impl<W: Write + Seek> BigWigWriter<W> {
 
         self.reset_leaf_map();
         self.bwf.index = tree;
-        self.bwf.write_index(&mut self.writer)
+        Ok(self.bwf.write_index(&mut self.writer)?)
     }
 
     pub fn write_index_zoom(&mut self, i: usize) -> Result<(), Box<dyn Error>> {
-        let mut tree = RTree::new();
+        let mut tree = RTree::default();
         tree.block_size = self.parameters.block_size as u32;
         tree.n_items_per_slot = self.parameters.items_per_slot as u32;
 
@@ -330,7 +330,7 @@ impl<W: Write + Seek> BigWigWriter<W> {
 
         self.reset_leaf_map();
         self.bwf.index_zoom[i] = tree;
-        self.bwf.write_index_zoom(&mut self.writer, i)
+        Ok(self.bwf.write_index_zoom(&mut self.writer, i)?)
     }
 
     pub fn start_zoom_data(&mut self, i: usize) -> Result<(), Box<dyn Error>> {
@@ -338,7 +338,7 @@ impl<W: Write + Seek> BigWigWriter<W> {
         self.bwf.header.zoom_headers[i].data_offset = offset as u64;
 
         self.writer.write_all(&self.bwf.header.zoom_headers[i].n_blocks.to_le_bytes())?;
-        self.bwf.header.zoom_headers[i].write_offsets(&mut self.writer, self.bwf.order)?;
+        self.bwf.header.zoom_headers[i].write_offsets(&mut self.writer)?;
 
         Ok(())
     }
@@ -359,7 +359,7 @@ impl<W: Write + Seek> BigWigWriter<W> {
             value[ ..4].copy_from_slice(&(idx as u32).to_le_bytes());
             value[4..8].copy_from_slice(&(self.genome.lengths[idx as usize] as u32).to_le_bytes());
 
-            self.bwf.chrom_data.add(&key, &value)?;
+            self.bwf.chrom_data.add(key, value)?;
         }
 
         self.bwf.write_chrom_list(&mut self.writer)?;

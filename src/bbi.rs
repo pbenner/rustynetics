@@ -1093,7 +1093,7 @@ impl Default for BData {
 
 impl BData {
 
-    fn add(&mut self, key: Vec<u8>, value: Vec<u8>) -> Result<(), String> {
+    pub fn add(&mut self, key: Vec<u8>, value: Vec<u8>) -> Result<(), String> {
         if key.len() as u32 != self.key_size {
             return Err("BData.Add(): key has invalid length".to_string());
         }
@@ -1239,7 +1239,7 @@ impl BbiHeaderZoom {
         Ok(())
     }
 
-    fn write_n_blocks<E: ByteOrder, W: Write + Seek>(&self, file: &mut W) -> io::Result<()> {
+    pub fn write_n_blocks<E: ByteOrder, W: Write + Seek>(&self, file: &mut W) -> io::Result<()> {
         let mut buf = [0u8; 4];
 
         E::write_u32(&mut buf, self.n_blocks);
@@ -1470,6 +1470,29 @@ impl BbiHeader {
 
         Ok(())
     }
+
+    pub fn write_summary<E: ByteOrder, W: Write + Seek>(&mut self, file: &mut W) -> std::io::Result<()> {
+        // Check if summary information needs to be written
+        if self.n_bases_covered > 0 {
+            // Get the current offset
+            let offset = file.seek(SeekFrom::Current(0))?;
+            self.summary_offset = offset;
+            
+            // Write the current offset to the position of summary_offset
+            let mut buf = [0u8; 8];
+            E::write_u64(&mut buf, self.summary_offset);
+
+            file_write_at(file, self.ptr_summary_offset, &buf)?;
+
+            // Write the summary values in the specified byte order
+            file.write_u64::<E>(self.n_bases_covered)?;
+            file.write_f64::<E>(self.min_val)?;
+            file.write_f64::<E>(self.max_val)?;
+            file.write_f64::<E>(self.sum_data)?;
+            file.write_f64::<E>(self.sum_squares)?;
+        }
+        Ok(())
+    }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -1611,7 +1634,7 @@ impl RTree {
         (Some(v), leaves)
     }
 
-    fn build_tree(&mut self, leaves: Vec<Box<RVertex>>) -> io::Result<()> {
+    pub fn build_tree(&mut self, leaves: Vec<Box<RVertex>>) -> io::Result<()> {
         if leaves.is_empty() {
             return Ok(());
         }
@@ -2334,7 +2357,7 @@ impl BbiFile {
         Ok(())
     }
 
-    fn write_chrom_list<E: ByteOrder, W: Write + Seek>(&mut self, writer: &mut W) -> io::Result<()> {
+    pub fn write_chrom_list<E: ByteOrder, W: Write + Seek>(&mut self, writer: &mut W) -> io::Result<()> {
         // write chromosome list
         let offset = writer.seek(SeekFrom::Current(0))?;
         self.header.ct_offset = offset as u64;
@@ -2346,7 +2369,7 @@ impl BbiFile {
         Ok(())
     }
 
-    fn write_index<E: ByteOrder, W: Write + Seek>(&mut self, writer: &mut W) -> io::Result<()> {
+    pub fn write_index<E: ByteOrder, W: Write + Seek>(&mut self, writer: &mut W) -> io::Result<()> {
         // write data index offset
         let offset = writer.seek(SeekFrom::Current(0))?;
         self.header.index_offset = offset as u64;
@@ -2359,7 +2382,7 @@ impl BbiFile {
         Ok(())
     }
 
-    fn write_index_zoom<E: ByteOrder, W: Write + Seek>(&mut self, writer: &mut W, i: usize) -> io::Result<()> {
+    pub fn write_index_zoom<E: ByteOrder, W: Write + Seek>(&mut self, writer: &mut W, i: usize) -> io::Result<()> {
         // write data index zoom offset
         let offset = writer.seek(SeekFrom::Current(0))?;
         self.header.zoom_headers[i].index_offset = offset as u64;
