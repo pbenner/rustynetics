@@ -238,7 +238,7 @@ impl GRanges {
     pub fn filter_genome(&self, genome: &Genome) -> Self {
         let mut idx = Vec::new();
         let mut seqnames = HashMap::new();
-        for i in 0..genome.length() {
+        for i in 0..genome.len() {
             seqnames.insert(genome.seqnames[i].clone(), genome.lengths[i]);
         }
         for i in 0..self.num_rows() {

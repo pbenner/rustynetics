@@ -64,15 +64,13 @@ pub trait Track {
     fn get_name(&self) -> String;
     fn get_bin_size(&self) -> usize;
     fn get_sequence(&self, seqname: &str) -> Result<TrackSequence, String>;
-    fn get_genome(&self) -> Genome;
+    fn get_genome(&self) -> &Genome;
     fn get_seq_names(&self) -> Vec<String>;
     fn get_slice(&self, r: &GRangesRow) -> Result<Vec<f64>, String>;
-    fn clone_track(&self) -> Box<dyn Track>;
 }
 
 pub trait MutableTrack: Track {
     fn get_mutable_sequence(&self, seqname: &str) -> Result<TrackMutableSequence, String>;
-    fn clone_mutable_track(&self) -> Box<dyn MutableTrack>;
 }
 
 /* -------------------------------------------------------------------------- */

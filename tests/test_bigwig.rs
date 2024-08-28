@@ -32,7 +32,7 @@ mod tests {
 
         if let Ok(mut bw) = result {
 
-            assert_eq!(bw.genome().length(), 2);
+            assert_eq!(bw.genome().len(), 2);
 
             assert_eq!(bw.genome().seqnames[0], "test1");
             assert_eq!(bw.genome().seqnames[1], "test2");

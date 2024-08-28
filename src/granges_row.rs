@@ -27,11 +27,15 @@ pub struct GRangesRow<'a> {
     row    : usize,
 }
 
+/* -------------------------------------------------------------------------- */
+
 impl<'a> GRangesRow<'a> {
     pub fn new(granges: &'a GRanges, row: usize) -> Self {
         GRangesRow { granges, row }
     }
 }
+
+/* -------------------------------------------------------------------------- */
 
 impl<'a> fmt::Display for GRangesRow<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

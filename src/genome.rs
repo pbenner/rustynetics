@@ -39,7 +39,7 @@ impl Genome {
         Genome { seqnames, lengths }
     }
 
-    pub fn length(&self) -> usize {
+    pub fn len(&self) -> usize {
         self.seqnames.len()
     }
 
@@ -61,7 +61,7 @@ impl Genome {
         Err(format!("sequence `{}` not found in genome", seqname))
     }
 
-    pub fn sum_lengths(&self) -> usize {
+    pub fn sum_seq_length(&self) -> usize {
         self.lengths.iter().sum()
     }
 
@@ -71,7 +71,7 @@ impl Genome {
         } else {
             self.seqnames.push(seqname);
             self.lengths .push(length);
-            Ok(self.length() - 1)
+            Ok(self.len() - 1)
         }
     }
 
@@ -126,7 +126,7 @@ impl Genome {
 
 impl PartialEq for Genome {
     fn eq(&self, other: &Self) -> bool {
-        if self.length() != other.length() {
+        if self.len() != other.len() {
             return false
         }
         for (seqname, l1) in self.seqnames.iter().zip(self.lengths.iter()) {
