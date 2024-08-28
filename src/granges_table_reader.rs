@@ -40,7 +40,7 @@ impl GRangesTableReader {
             col_from   : -1,
             col_to     : -1,
             col_strand : -1,
-            granges    : GRanges::new_empty(),
+            granges    : GRanges::default(),
         }
     }
 

@@ -30,13 +30,31 @@ use crate::utility::remove_duplicates_int;
 
 /* -------------------------------------------------------------------------- */
 
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug)]
 pub struct GRanges {
     pub seqnames: Vec<String>,
     pub ranges  : Vec<Range>,
     pub strand  : Vec<char>,
     pub meta    : Meta,
 }
+
+/* -------------------------------------------------------------------------- */
+
+impl Default for GRanges {
+    fn default() -> Self {
+        let seqnames = vec!["".to_string(); 0];
+        let ranges   = vec![Range::new(0, 0); 0];
+        let strand   = vec!['*'; 0];
+        GRanges {
+            seqnames,
+            ranges,
+            strand,
+            meta: Meta::default(),
+        }
+    }
+}
+
+/* -------------------------------------------------------------------------- */
 
 impl GRanges {
     pub fn new(seqnames: Vec<String>, from: Vec<usize>, to: Vec<usize>, strand: Vec<char>) -> Self {
@@ -58,32 +76,7 @@ impl GRanges {
             seqnames,
             ranges,
             strand,
-            meta: Meta::new_empty(),
-        }
-    }
-
-    pub fn new_empty() -> Self {
-        let seqnames = vec!["".to_string(); 0];
-        let ranges   = vec![Range::new(0, 0); 0];
-        let strand   = vec!['*'; 0];
-        GRanges {
-            seqnames,
-            ranges,
-            strand,
-            meta: Meta::new_empty(),
-        }
-    }
-
-    pub fn clone(&self) -> Self {
-        let seqnames = self.seqnames.clone();
-        let ranges   = self.ranges.clone();
-        let strand   = self.strand.clone();
-        let meta     = self.meta.clone();
-        GRanges {
-            seqnames,
-            ranges,
-            strand,
-            meta,
+            meta: Meta::default(),
         }
     }
 

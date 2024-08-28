@@ -93,7 +93,7 @@ impl GRanges {
         for _ in 0..n {
             let (j, position) = match gnome_rng.draw(wsize) {
                 Some(v) => v,
-                None    => return GRanges::new_empty()
+                None    => return GRanges::default()
             };
             seqnames.push(genome.seqnames[j].clone());
             from    .push(position);

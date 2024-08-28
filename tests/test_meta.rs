@@ -47,7 +47,7 @@ mod tests {
                 (0..n).map(|_| (0..5).map(|_| rng.gen_range(0.0..1000.0)).collect()).collect())
         ];
 
-        let mut granges1 = GRanges::new_empty();
+        let mut granges1 = GRanges::default();
         
         assert!(
             granges1.import_bed("tests/test_meta.bed", 3, false).is_ok());
@@ -75,8 +75,8 @@ mod tests {
     #[test]
     fn test_meta_bed6() {
 
-        let mut granges1 = GRanges::new_empty();
-        let mut granges2 = GRanges::new_empty();
+        let mut granges1 = GRanges::default();
+        let mut granges2 = GRanges::default();
 
         assert!(
             granges1.import_bed("tests/test_meta.bed", 6, false).is_ok());

@@ -173,6 +173,18 @@ pub struct Meta {
 
 /* -------------------------------------------------------------------------- */
 
+impl Default for Meta {
+    fn default() -> Meta {
+        Self {
+            meta_name: Vec::new(),
+            meta_data: Vec::new(),
+            rows: 0,
+        }
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+
 impl Meta {
     pub fn new(names: Vec<&str>, data: Vec<MetaData>) -> Result<Self, Error> {
         if names.len() != data.len() {
@@ -187,16 +199,6 @@ impl Meta {
             meta.add_meta(names[i], data[i].clone())?;
         }
         Ok(meta)
-    }
-
-    pub fn new_empty() -> Meta {
-
-        let meta = Meta {
-            meta_name: Vec::new(),
-            meta_data: Vec::new(),
-            rows: 0,
-        };
-        meta
     }
 
     pub fn num_rows(&self) -> usize {

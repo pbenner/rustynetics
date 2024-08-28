@@ -63,7 +63,7 @@ impl GRanges {
 
     pub fn merge(granges: &[GRanges]) -> GRanges {
 
-        let mut r = GRanges::new_empty();
+        let mut r = GRanges::default();
         let mut rmap: HashMap<String, EndPointList> = HashMap::new();
 
         for g in granges.iter() {
