@@ -6,6 +6,7 @@ edition = "2018"
 [dependencies]
 approx = "0.5.1"
 flate2 = "1.0"
+clap = { version = "4.3", features = ["derive"] }
 regex = "1.10"
 list_comprehension_macro = "0.1"
 rand = "0.8.5"
