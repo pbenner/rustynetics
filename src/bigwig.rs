@@ -15,6 +15,7 @@
  */
 
 use std::io::{self, Read, Seek, SeekFrom};
+use std::result::Result;
 use std::error::Error;
 
 use async_stream::stream;
@@ -33,6 +34,18 @@ use crate::netfile::NetFile;
 /* -------------------------------------------------------------------------- */
 
 const BIGWIG_MAGIC : u32 = 0x888FFC26;
+
+/* -------------------------------------------------------------------------- */
+
+pub fn is_bigwig_file(filename: &str) -> Result<bool, Box<dyn Error>> {
+
+    let mut file = NetFile::open(filename)?;
+
+    let magic = file.read_u32::<LittleEndian>()?;
+
+    Ok(BIGWIG_MAGIC == magic)
+
+}
 
 /* -------------------------------------------------------------------------- */
 
