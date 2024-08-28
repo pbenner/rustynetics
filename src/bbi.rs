@@ -1319,7 +1319,7 @@ impl Default for BbiHeader {
 
 impl BbiHeader {
 
-    fn summary_add_value(&mut self, x: f64, n: i32) {
+    pub fn summary_add_value(&mut self, x: f64, n: u64) {
         if x.is_nan() {
             return;
         }
@@ -1332,7 +1332,7 @@ impl BbiHeader {
             self.max_val = x;
         }
 
-        self.n_bases_covered += n as u64;
+        self.n_bases_covered += n;
         self.sum_data        += x;
         self.sum_squares     += x * x;
     }
@@ -1802,13 +1802,13 @@ impl RVertex {
 /* -------------------------------------------------------------------------- */
 
 pub struct RVertexGenerator {
-    block_size    : usize,
-    items_per_slot: usize,
+    pub block_size    : usize,
+    pub items_per_slot: usize,
 }
 
 pub struct RVertexGeneratorType {
-    vertex: RVertex,
-    blocks: Vec<Vec<u8>>,
+    pub vertex: RVertex,
+    pub blocks: Vec<Vec<u8>>,
 }
 
 impl RVertexGenerator {

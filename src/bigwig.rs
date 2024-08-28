@@ -54,7 +54,7 @@ pub fn is_bigwig_file(filename: &str) -> Result<bool, Box<dyn Error>> {
 pub struct BigWigParameters {
     pub block_size      : usize,
     pub items_per_slot  : usize,
-    pub reduction_levels: Option<Vec<i32>>,
+    pub reduction_levels: Vec<i32>,
 }
 
 /* -------------------------------------------------------------------------- */
@@ -65,7 +65,7 @@ impl Default for BigWigParameters {
         BigWigParameters {
             block_size      : 256,
             items_per_slot  : 1024,
-            reduction_levels: None,
+            reduction_levels: vec![],
         }
     }
 }
@@ -207,7 +207,7 @@ struct BigWigWriter<W: Write + Seek> {
     genome    : Genome,
     parameters: BigWigParameters,
     generator : RVertexGenerator,
-    leaves    : BTreeMap<i32, Vec<RVertex>>,
+    leaves    : BTreeMap<usize, Vec<RVertex>>,
 }
 
 /* -------------------------------------------------------------------------- */
@@ -235,52 +235,52 @@ impl<W: Write + Seek> BigWigWriter<W> {
         }
 
         bwf.header.zoom_levels         = parameters.reduction_levels.len() as u16;
-        bwf.index_zoom                 = vec![RTree::new(); parameters.reduction_levels.len()];
+        bwf.index_zoom                 = vec![RTree::default(); parameters.reduction_levels.len()];
         bwf.header.uncompress_buf_size = 1;
         bwf.chrom_data.value_size      = 8;
 
-        bwf.create(&mut bww.writer)?;
+        bwf.create::<LittleEndian, W>(&mut bww.writer)?;
 
         Ok(bww)
     }
 
-    fn use_fixed_step(&self, sequence: &[f64]) -> bool {
+    fn use_fixed_step(&self, sequence: Vec<f64>) -> bool {
         let n = sequence.iter().filter(|&&x| x.is_nan()).count();
         n < sequence.len() / 2
     }
 
-    fn write(&mut self, idx: i32, sequence: &[f64], bin_size: i32) -> Result<i32, Box<dyn Error>> {
+    fn write(&mut self, idx: usize, sequence: Vec<f64>, bin_size: usize) -> Result<i32, Box<dyn Error>> {
         let mut n = 0;
         let fixed_step = self.use_fixed_step(sequence);
 
-        for tmp in self.generator.generate(idx, sequence, bin_size, 0, fixed_step) {
+        for tmp in self.generator.generate::<LittleEndian>(idx, sequence, bin_size, 0, fixed_step) {
             for i in 0..tmp.vertex.n_children as usize {
-                tmp.vertex.write_block(&mut self.writer, &self.bwf, i, &tmp.blocks[i])?;
+                tmp.vertex.write_block::<LittleEndian, W>(&mut self.writer, &mut self.bwf, i, tmp.blocks[i])?;
                 n += 1;
             }
             self.leaves.entry(idx).or_default().push(tmp.vertex);
         }
 
-        for &v in sequence {
-            self.bwf.header.summary_add_value(v, bin_size);
+        for v in sequence {
+            self.bwf.header.summary_add_value(v, bin_size as u64);
         }
 
         Ok(n)
     }
 
-    pub fn write_sequence(&mut self, seqname: &str, sequence: &[f64], bin_size: i32) -> Result<(), Box<dyn Error>> {
+    pub fn write_sequence(&mut self, seqname: &str, sequence: Vec<f64>, bin_size: usize) -> Result<(), Box<dyn Error>> {
         let idx = self.genome.get_idx(seqname)?;
         let n = self.write(idx, sequence, bin_size)?;
         self.bwf.header.n_blocks += n as u64;
         Ok(())
     }
 
-    fn write_zoom(&mut self, idx: i32, sequence: &[f64], bin_size: i32, reduction_level: i32) -> Result<i32, Box<dyn Error>> {
+    fn write_zoom(&mut self, idx: usize, sequence: &[f64], bin_size: i32, reduction_level: i32) -> Result<i32, Box<dyn Error>> {
         let mut n = 0;
 
-        for tmp in self.generator.generate(idx, sequence, bin_size, reduction_level, true) {
+        for tmp in self.generator.generate::<LittleEndian, W>(idx, sequence, bin_size, reduction_level, true) {
             for i in 0..tmp.vertex.n_children as usize {
-                tmp.vertex.write_block(&mut self.writer, &self.bwf, i, &tmp.blocks[i])?;
+                tmp.vertex.write_block(&mut self.writer, &self.bwf, i, tmp.blocks[i])?;
                 n += 1;
             }
             self.leaves.entry(idx).or_default().push(tmp.vertex);
@@ -363,14 +363,14 @@ impl<W: Write + Seek> BigWigWriter<W> {
         }
 
         self.bwf.write_chrom_list(&mut self.writer)?;
-        self.bwf.header.write_n_blocks(&mut self.writer, self.bwf.order)?;
+        self.bwf.header.write_n_blocks(&mut self.writer)?;
 
         for i in 0..self.bwf.header.zoom_headers.len() {
-            self.bwf.header.zoom_headers[i].write_n_blocks(&mut self.writer, self.bwf.order)?;
+            self.bwf.header.zoom_headers[i].write_n_blocks(&mut self.writer)?;
         }
 
         self.writer.seek(SeekFrom::End(0))?;
-        self.bwf.header.write_summary(&mut self.writer, self.bwf.order)?;
+        self.bwf.header.write_summary(&mut self.writer)?;
         self.writer.write_all(&self.bwf.header.magic.to_le_bytes())?;
 
         Ok(())
