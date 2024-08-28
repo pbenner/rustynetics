@@ -37,11 +37,11 @@ const BIGWIG_MAGIC : u32 = 0x888FFC26;
 /* -------------------------------------------------------------------------- */
 
 // Struct for BigWigParameters
-#[derive(Debug)]
-struct BigWigParameters {
-    block_size      : usize,
-    items_per_slot  : usize,
-    reduction_levels: Option<Vec<i32>>,
+#[derive(Clone, Debug)]
+pub struct BigWigParameters {
+    pub block_size      : usize,
+    pub items_per_slot  : usize,
+    pub reduction_levels: Option<Vec<i32>>,
 }
 
 /* -------------------------------------------------------------------------- */
@@ -60,7 +60,7 @@ impl Default for BigWigParameters {
 /* -------------------------------------------------------------------------- */
 
 #[derive(PartialEq)]
-pub enum BigWigOrder {
+enum BigWigOrder {
     LE,
     BE,
 }
