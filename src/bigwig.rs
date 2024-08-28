@@ -14,9 +14,10 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-use std::io::{self, Read, Seek, SeekFrom};
+use std::io::{self, Read, Write, Seek, SeekFrom};
 use std::result::Result;
 use std::error::Error;
+use std::collections::BTreeMap;
 
 use async_stream::stream;
 use futures::executor::block_on_stream;
@@ -27,8 +28,7 @@ use futures::StreamExt;
 use byteorder::{ByteOrder, ReadBytesExt, LittleEndian};
 
 use crate::genome::Genome;
-use crate::bbi::BbiQueryType;
-use crate::bbi::BbiFile;
+use crate::bbi::{BbiFile, BbiQueryType, RTree, RVertex, RVertexGenerator};
 use crate::netfile::NetFile;
 
 /* -------------------------------------------------------------------------- */
@@ -196,6 +196,182 @@ impl<R: Read + Seek> BigWigReader<R> {
 
     pub fn genome(&self) -> &Genome {
         &self.genome
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+
+struct BigWigWriter<W: Write + Seek> {
+    writer    : W,
+    bwf       : BbiFile,
+    genome    : Genome,
+    parameters: BigWigParameters,
+    generator : RVertexGenerator,
+    leaves    : BTreeMap<i32, Vec<RVertex>>,
+}
+
+/* -------------------------------------------------------------------------- */
+
+impl<W: Write + Seek> BigWigWriter<W> {
+    pub fn new(writer: W, genome: Genome, parameters: BigWigParameters) -> Result<Self, Box<dyn Error>> {
+        let mut bwf = BbiFile::default();
+        bwf.header.magic = BIGWIG_MAGIC;
+
+        let mut bww = BigWigWriter {
+            writer,
+            bwf,
+            genome,
+            parameters: parameters.clone(),
+            generator: RVertexGenerator::new(parameters.block_size, parameters.items_per_slot, bwf.order)?,
+            leaves: BTreeMap::new(),
+        };
+
+        for reduction_level in &parameters.reduction_levels {
+            bwf.header.zoom_headers.push(BbiHeaderZoom {
+                reduction_level: *reduction_level as u32,
+            });
+        }
+
+        bwf.header.zoom_levels = parameters.reduction_levels.len() as u16;
+        bwf.index_zoom = vec![RTree::new(); parameters.reduction_levels.len()];
+        bwf.header.uncompress_buf_size = 1;
+        bwf.chrom_data.value_size = 8;
+
+        bwf.create(&mut bww.writer)?;
+
+        Ok(bww)
+    }
+
+    fn use_fixed_step(&self, sequence: &[f64]) -> bool {
+        let n = sequence.iter().filter(|&&x| x.is_nan()).count();
+        n < sequence.len() / 2
+    }
+
+    fn write(&mut self, idx: i32, sequence: &[f64], bin_size: i32) -> Result<i32, Box<dyn Error>> {
+        let mut n = 0;
+        let fixed_step = self.use_fixed_step(sequence);
+
+        for tmp in self.generator.generate(idx, sequence, bin_size, 0, fixed_step) {
+            for i in 0..tmp.vertex.n_children as usize {
+                tmp.vertex.write_block(&mut self.writer, &self.bwf, i, &tmp.blocks[i])?;
+                n += 1;
+            }
+            self.leaves.entry(idx).or_default().push(tmp.vertex);
+        }
+
+        for &v in sequence {
+            self.bwf.header.summary_add_value(v, bin_size);
+        }
+
+        Ok(n)
+    }
+
+    pub fn write_sequence(&mut self, seqname: &str, sequence: &[f64], bin_size: i32) -> Result<(), Box<dyn Error>> {
+        let idx = self.genome.get_idx(seqname)?;
+        let n = self.write(idx, sequence, bin_size)?;
+        self.bwf.header.n_blocks += n as u64;
+        Ok(())
+    }
+
+    fn write_zoom(&mut self, idx: i32, sequence: &[f64], bin_size: i32, reduction_level: i32) -> Result<i32, Box<dyn Error>> {
+        let mut n = 0;
+
+        for tmp in self.generator.generate(idx, sequence, bin_size, reduction_level, true) {
+            for i in 0..tmp.vertex.n_children as usize {
+                tmp.vertex.write_block(&mut self.writer, &self.bwf, i, &tmp.blocks[i])?;
+                n += 1;
+            }
+            self.leaves.entry(idx).or_default().push(tmp.vertex);
+        }
+
+        Ok(n)
+    }
+
+    pub fn write_zoom_sequence(&mut self, seqname: &str, sequence: &[f64], bin_size: i32, reduction_level: i32, i: usize) -> Result<(), Box<dyn Error>> {
+        let idx = self.genome.get_idx(seqname)?;
+        let n = self.write_zoom(idx, sequence, bin_size, reduction_level)?;
+        self.bwf.header.zoom_headers[i].n_blocks += n as u32;
+        Ok(())
+    }
+
+    fn get_leaves_sorted(&self) -> Vec<&RVertex> {
+        let mut indices: Vec<_> = self.leaves.keys().cloned().collect();
+        indices.sort_unstable();
+        
+        indices.iter().flat_map(|idx| self.leaves.get(idx).unwrap()).collect()
+    }
+
+    fn reset_leaf_map(&mut self) {
+        self.leaves.clear();
+    }
+
+    pub fn write_index(&mut self) -> Result<(), Box<dyn Error>> {
+        let mut tree = RTree::new();
+        tree.block_size = self.parameters.block_size as u32;
+        tree.n_items_per_slot = self.parameters.items_per_slot as u32;
+        
+        let leaves = self.get_leaves_sorted();
+        tree.build_tree(&leaves)?;
+
+        self.reset_leaf_map();
+        self.bwf.index = tree;
+        self.bwf.write_index(&mut self.writer)
+    }
+
+    pub fn write_index_zoom(&mut self, i: usize) -> Result<(), Box<dyn Error>> {
+        let mut tree = RTree::new();
+        tree.block_size = self.parameters.block_size as u32;
+        tree.n_items_per_slot = self.parameters.items_per_slot as u32;
+
+        let leaves = self.get_leaves_sorted();
+        tree.build_tree(&leaves)?;
+
+        self.reset_leaf_map();
+        self.bwf.index_zoom[i] = tree;
+        self.bwf.write_index_zoom(&mut self.writer, i)
+    }
+
+    pub fn start_zoom_data(&mut self, i: usize) -> Result<(), Box<dyn Error>> {
+        let offset = self.writer.seek(SeekFrom::Current(0))?;
+        self.bwf.header.zoom_headers[i].data_offset = offset as u64;
+
+        self.writer.write_all(&self.bwf.header.zoom_headers[i].n_blocks.to_le_bytes())?;
+        self.bwf.header.zoom_headers[i].write_offsets(&mut self.writer, self.bwf.order)?;
+
+        Ok(())
+    }
+
+    pub fn close(&mut self) -> Result<(), Box<dyn Error>> {
+        for name in &self.genome.seqnames {
+            if self.bwf.chrom_data.key_size < (name.len() + 1) as u32 {
+                self.bwf.chrom_data.key_size = (name.len() + 1) as u32;
+            }
+        }
+
+        for name in &self.genome.seqnames {
+            let mut key = vec![0; self.bwf.chrom_data.key_size as usize];
+            let mut value = vec![0; self.bwf.chrom_data.value_size as usize];
+            key[..name.len()].copy_from_slice(name.as_bytes());
+
+            let idx = self.genome.get_idx(name)?;
+            value[..4].copy_from_slice(&(idx as u32).to_le_bytes());
+            value[4..8].copy_from_slice(&(self.genome.lengths[idx as usize] as u32).to_le_bytes());
+
+            self.bwf.chrom_data.add(&key, &value)?;
+        }
+
+        self.bwf.write_chrom_list(&mut self.writer)?;
+        self.bwf.header.write_n_blocks(&mut self.writer, self.bwf.order)?;
+
+        for i in 0..self.bwf.header.zoom_headers.len() {
+            self.bwf.header.zoom_headers[i].write_n_blocks(&mut self.writer, self.bwf.order)?;
+        }
+
+        self.writer.seek(SeekFrom::End(0))?;
+        self.bwf.header.write_summary(&mut self.writer, self.bwf.order)?;
+        self.writer.write_all(&self.bwf.header.magic.to_le_bytes())?;
+
+        Ok(())
     }
 }
 
