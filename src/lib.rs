@@ -17,6 +17,7 @@
 
 /* -------------------------------------------------------------------------- */
 
+// Public crates
 pub mod alphabet;
 pub mod bbi;
 pub mod bigwig;
@@ -50,9 +51,6 @@ mod meta_table_reader;
 mod meta_table_writer;
 mod netfile;
 mod utility;
-
-// Tests
-mod bigwig_test;
 
 // Macros
 extern crate approx;
