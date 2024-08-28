@@ -26,7 +26,7 @@ mod tests {
     #[test]
     fn bigwig_test_1() {
 
-        let result =  BigWigFile::open("tests/test_bigwig_1.bw");
+        let result =  BigWigFile::new_reader("tests/test_bigwig_1.bw");
 
         assert!(result.is_ok());
 

@@ -18,14 +18,14 @@ use std::process;
 
 use clap::{Arg, Command};
 
-use rustynetics::bigwig::BigWigReader;
 use rustynetics::bigwig::BigWigFile;
+use rustynetics::bigwig::BigWigReader;
 
 /* -------------------------------------------------------------------------- */
 
 fn query(filename_in: &str, chrom: &str, from: usize, to: usize, bin_size: usize) {
     // Open the BigWig file
-    let mut reader = BigWigFile::open(filename_in).unwrap_or_else(|err| {
+    let mut reader = BigWigFile::new_reader(filename_in).unwrap_or_else(|err| {
         eprintln!("Error opening file: {}", err);
         process::exit(1);
     });

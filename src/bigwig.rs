@@ -80,13 +80,13 @@ pub struct BigWigReader<R: Read + Seek> {
 
 /* -------------------------------------------------------------------------- */
 
-pub type BigWigFile = BigWigReader<NetFile>;
+pub type BigWigFile = NetFile;
 
 /* -------------------------------------------------------------------------- */
 
 impl BigWigFile {
 
-    pub fn open(filename: &str) -> Result<Self, Box<dyn Error>> {
+    pub fn new_reader(filename : &str) -> Result<BigWigReader<Self>, Box<dyn Error>> {
 
         let file = NetFile::open(filename)?;
 
@@ -214,7 +214,7 @@ mod tests {
     #[test]
     fn test_bigwig_1() {
 
-        let result =  BigWigFile::open("tests/test_bigwig_1.bw");
+        let result =  BigWigFile::new_reader("tests/test_bigwig_1.bw");
 
         assert!(result.is_ok());
 
