@@ -23,7 +23,7 @@ use futures::executor::BlockingStream;
 use futures_core::stream::Stream;
 use futures::StreamExt;
 
-use byteorder::{ByteOrder, ReadBytesExt, BigEndian, LittleEndian};
+use byteorder::{ByteOrder, ReadBytesExt, LittleEndian};
 
 use crate::genome::Genome;
 use crate::bbi::BbiQueryType;
@@ -59,19 +59,10 @@ impl Default for BigWigParameters {
 
 /* -------------------------------------------------------------------------- */
 
-#[derive(PartialEq)]
-enum BigWigOrder {
-    LE,
-    BE,
-}
-
-/* -------------------------------------------------------------------------- */
-
 pub struct BigWigReader<R: Read + Seek> {
     reader: R,
     bwf   : BbiFile,
     genome: Genome,
-    order : BigWigOrder
 }
 
 /* -------------------------------------------------------------------------- */
@@ -97,46 +88,26 @@ impl BigWigFile {
 impl<R: Read + Seek> BigWigReader<R> {
 
     pub fn new(mut reader: R) -> Result<Self, Box<dyn Error>> {
-        let (bwf, order) = BigWigReader::<R>::open_bwf(&mut reader)?;
+        let bwf = BigWigReader::<R>::open_bwf(&mut reader)?;
 
         let r = BigWigReader {
             reader: reader,
             bwf   : bwf,
             genome: Genome::default(),
-            order : order,
         };
 
-        match r.order {
-            BigWigOrder::LE => Ok(r.initialize::<LittleEndian>()?),
-            BigWigOrder::BE => Ok(r.initialize::<BigEndian   >()?),
-        }
+        Ok(r.initialize::<LittleEndian>()?)
     }
 
-    fn open_bwf(reader: &mut R) -> io::Result<(BbiFile, BigWigOrder)> {
+    fn open_bwf(reader: &mut R) -> io::Result<BbiFile> {
 
         let mut bwf = BbiFile::default();
 
         reader.seek(SeekFrom::Start(0))?;
 
-        // Try to open with little endian
-        let r1 = bwf.open::<LittleEndian, R>(reader, BIGWIG_MAGIC);
+        bwf.open::<LittleEndian, R>(reader, BIGWIG_MAGIC)?;
 
-        if let Err(err) = r1 {
-            if err.kind() != io::ErrorKind::InvalidData || err.to_string() != "Invalid magic number" {
-                return Err(err)
-            }
-        } else {
-            return Ok((bwf, BigWigOrder::LE))
-        }
-        reader.seek(SeekFrom::Start(0))?;
-
-        let r2 = bwf.open::<BigEndian, R>(reader, BIGWIG_MAGIC);
-
-        if let Err(err) = r2 {
-            return Err(err)
-        } else {
-            return Ok((bwf, BigWigOrder::BE))
-        }
+        Ok(bwf)
     }
 
     fn initialize<E: ByteOrder>(mut self) -> io::Result<Self> {
@@ -185,10 +156,7 @@ impl<R: Read + Seek> BigWigReader<R> {
                 }
                 if let Some(idx) = self.genome.get_idx(seqname) {
 
-                    let mut iterator = match self.order {
-                        BigWigOrder::LE => self.bwf.query_stream::<LittleEndian, R>(&mut self.reader, idx as u32, from as u32, to as u32, bin_size as u32),
-                        BigWigOrder::BE => self.bwf.query_stream::<BigEndian   , R>(&mut self.reader, idx as u32, from as u32, to as u32, bin_size as u32),
-                    };
+                    let mut iterator = self.bwf.query_stream::<LittleEndian, R>(&mut self.reader, idx as u32, from as u32, to as u32, bin_size as u32);
 
                     while let Some(item) = iterator.next().await {
 
