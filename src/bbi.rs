@@ -1706,13 +1706,17 @@ impl RVertex {
         Ok(block)
     }
 
-    pub fn write_block<E: ByteOrder, W: Write + Seek>(&mut self, writer: &mut W, bwf: &mut BbiFile, i: usize, mut block: &Vec<u8>) -> io::Result<()> {
+    pub fn write_block<E: ByteOrder, W: Write + Seek>(&mut self, writer: &mut W, bwf: &mut BbiFile, i: usize, block_ref: &Vec<u8>) -> io::Result<()> {
+        let block_buf : Vec<u8>;
+        let mut block = block_ref;
+
         if bwf.header.uncompress_buf_size != 0 {
             if block.len() as u32 > bwf.header.uncompress_buf_size {
                 bwf.header.uncompress_buf_size = block.len() as u32;
                 bwf.header.write_uncompress_buf_size::<E, W>(writer)?;
             }
-            block = &compress_slice(&block)?;
+            block_buf = compress_slice(&block)?;
+            block     = &block_buf;
         }
 
         let offset = writer.seek(SeekFrom::Current(0))?;
@@ -1723,7 +1727,7 @@ impl RVertex {
         }
 
         writer.seek(SeekFrom::Start(offset))?;
-        writer.write_all(&block)?;
+        writer.write_all(block)?;
 
         self.sizes[i] = block.len() as u64;
         if self.ptr_sizes[i] != 0 {

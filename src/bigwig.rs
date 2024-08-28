@@ -304,7 +304,7 @@ impl<W: Write + Seek> BigWigWriter<W> {
         let mut indices: Vec<_> = self.leaves.keys().cloned().collect();
         indices.sort_unstable();
         
-        indices.iter().flat_map(|idx| *self.leaves.get(idx).unwrap()).collect()
+        indices.iter().flat_map(|idx| self.leaves.get(idx).unwrap().clone()).collect()
     }
 
     fn reset_leaf_map(&mut self) {
