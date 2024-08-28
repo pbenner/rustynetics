@@ -655,11 +655,11 @@ impl BbiRawBlockEncoder {
         E::write_u32(buffer, value.to_bits() as u32);
     }
 
-    fn encode(&self, chrom_id: usize, sequence: Vec<f64>, bin_size: usize) -> BbiRawBlockEncoderIterator {
+    fn encode(&self, chrom_id: usize, sequence: &Vec<f64>, bin_size: usize) -> BbiRawBlockEncoderIterator {
         BbiRawBlockEncoderIterator {
             encoder: Box::new(self.clone()),
             chrom_id,
-            sequence,
+            sequence: sequence.to_vec(),
             bin_size,
             position: 0,
             seqbuf  : Vec::new(),
@@ -816,11 +816,11 @@ impl BbiZoomBlockEncoder {
         }
     }
 
-    fn encode(&self, chrom_id: usize, sequence: Vec<f64>, bin_size: usize) -> BbiZoomBlockEncoderIterator {
+    fn encode(&self, chrom_id: usize, sequence: &Vec<f64>, bin_size: usize) -> BbiZoomBlockEncoderIterator {
         BbiZoomBlockEncoderIterator {
             encoder  : Box::new(self.clone()),
             chrom_id : chrom_id,
-            sequence : sequence,
+            sequence : sequence.to_vec(),
             bin_size : bin_size,
             position : 0,
             records  : vec![],
@@ -1517,7 +1517,7 @@ pub struct RTree {
     pub base_end        : u32,
     pub idx_size        : u64,
     pub n_items_per_slot: u32,
-    pub root            : Option<Box<RVertex>>,
+    pub root            : Option<RVertex>,
     ptr_idx_size        : i64,
 }
 
@@ -1566,7 +1566,7 @@ impl RTree {
 
         file.read_u32::<E>()?; // Padding
 
-        let mut root = Box::new(RVertex::default());
+        let mut root = RVertex::default();
         root.read::<E, W>(file)?;
         self.root = Some(root);
 
@@ -1608,8 +1608,8 @@ impl RTree {
         Ok(())
     }
 
-    fn build_tree_rec(&self, mut leaves: Vec<Box<RVertex>>, level: usize) -> (Option<Box<RVertex>>, Vec<Box<RVertex>>) {
-        let mut v = Box::new(RVertex::default());
+    fn build_tree_rec(&self, mut leaves: Vec<RVertex>, level: usize) -> (Option<RVertex>, Vec<RVertex>) {
+        let mut v = RVertex::default();
         let n = leaves.len();
 
         if n == 0 {
@@ -1644,7 +1644,7 @@ impl RTree {
         (Some(v), leaves)
     }
 
-    pub fn build_tree(&mut self, leaves: Vec<Box<RVertex>>) -> io::Result<()> {
+    pub fn build_tree(&mut self, leaves: Vec<RVertex>) -> io::Result<()> {
         if leaves.is_empty() {
             return Ok(());
         }
@@ -1685,7 +1685,7 @@ pub struct RVertex {
     pub base_end       : Vec<u32>,
     pub data_offset    : Vec<u64>,
     pub sizes          : Vec<u64>,
-    pub children       : Vec<Box<RVertex>>,
+    pub children       : Vec<RVertex>,
     ptr_data_offset    : Vec<i64>,
     ptr_sizes          : Vec<i64>,
 }
@@ -1706,13 +1706,13 @@ impl RVertex {
         Ok(block)
     }
 
-    pub fn write_block<E: ByteOrder, W: Write + Seek>(&mut self, writer: &mut W, bwf: &mut BbiFile, i: usize, mut block: Vec<u8>) -> io::Result<()> {
+    pub fn write_block<E: ByteOrder, W: Write + Seek>(&mut self, writer: &mut W, bwf: &mut BbiFile, i: usize, mut block: &Vec<u8>) -> io::Result<()> {
         if bwf.header.uncompress_buf_size != 0 {
             if block.len() as u32 > bwf.header.uncompress_buf_size {
                 bwf.header.uncompress_buf_size = block.len() as u32;
                 bwf.header.write_uncompress_buf_size::<E, W>(writer)?;
             }
-            block = compress_slice(&block)?;
+            block = &compress_slice(&block)?;
         }
 
         let offset = writer.seek(SeekFrom::Current(0))?;
@@ -1773,7 +1773,7 @@ impl RVertex {
         if self.is_leaf == 0 {
             for i in 0..self.n_children as usize {
                 file.seek(SeekFrom::Start(self.data_offset[i]))?;
-                let mut child = Box::new(RVertex::default());
+                let mut child = RVertex::default();
                 child.read::<E, R>(file)?;
                 self.children.push(child);
             }
@@ -1858,7 +1858,7 @@ impl RVertexGenerator {
         })
     }
 
-    pub fn generate<E: ByteOrder>(self, chrom_id: usize, sequence: Vec<f64>, bin_size: usize, reduction_level: usize, fixed_step: bool) -> Receiver<RVertexGeneratorType> {
+    pub fn generate<E: ByteOrder>(self, chrom_id: usize, sequence: &Vec<f64>, bin_size: usize, reduction_level: usize, fixed_step: bool) -> Receiver<RVertexGeneratorType> {
         let (tx, rx) = channel();
 
         std::thread::spawn(move || {
@@ -1868,7 +1868,7 @@ impl RVertexGenerator {
         rx
     }
 
-    fn generate_zoom<E: ByteOrder>(&self, tx: Sender<RVertexGeneratorType>, chrom_id: usize, sequence: Vec<f64>, bin_size: usize, reduction_level: usize) -> Result<(), String> {
+    fn generate_zoom<E: ByteOrder>(&self, tx: Sender<RVertexGeneratorType>, chrom_id: usize, sequence: &Vec<f64>, bin_size: usize, reduction_level: usize) -> Result<(), String> {
 
         let encoder = BbiZoomBlockEncoder::new(
             self.items_per_slot, reduction_level
@@ -1907,7 +1907,7 @@ impl RVertexGenerator {
         Ok(())
     }
 
-    fn generate_raw<E: ByteOrder>(&self, tx: Sender<RVertexGeneratorType>, chrom_id: usize, sequence: Vec<f64>, bin_size: usize, fixed_step: bool) -> Result<(), String> {
+    fn generate_raw<E: ByteOrder>(&self, tx: Sender<RVertexGeneratorType>, chrom_id: usize, sequence: &Vec<f64>, bin_size: usize, fixed_step: bool) -> Result<(), String> {
 
         let encoder = BbiRawBlockEncoder::new(
             self.items_per_slot, fixed_step
@@ -1946,7 +1946,7 @@ impl RVertexGenerator {
         Ok(())
     }
 
-    fn generate_impl<E: ByteOrder>(&self, tx: Sender<RVertexGeneratorType>, chrom_id: usize, sequence: Vec<f64>, bin_size: usize, reduction_level: usize, fixed_step: bool) -> Result<(), String> {
+    fn generate_impl<E: ByteOrder>(&self, tx: Sender<RVertexGeneratorType>, chrom_id: usize, sequence: &Vec<f64>, bin_size: usize, reduction_level: usize, fixed_step: bool) -> Result<(), String> {
         if reduction_level > bin_size {
             self.generate_zoom::<E>(tx, chrom_id, sequence, bin_size, reduction_level)
         } else {
