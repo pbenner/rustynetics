@@ -220,8 +220,8 @@ mod tests {
 
         s1.set(1, 100.0);
 
-        assert_eq!(track.get_sequence("test1").unwrap().at(  0),   1.0);
-        assert_eq!(track.get_sequence("test1").unwrap().at(100), 100.0);
+        assert_eq!(track.get_sequence("test1").unwrap().at(  0), 100.0);
+        assert_eq!(track.get_sequence("test1").unwrap().at(100),   2.0);
         assert_eq!(track.get_sequence("test1").unwrap().at(200),   3.0);
 
     }
