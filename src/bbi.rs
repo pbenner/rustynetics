@@ -172,17 +172,6 @@ impl Default for BbiSummaryStatistics {
 
 impl BbiSummaryStatistics {
 
-    fn add_value(&mut self, x: f64) {
-        if x.is_nan() {
-            return;
-        }
-        self.valid       += 1.0;
-        self.min          = self.min.min(x);
-        self.max          = self.max.max(x);
-        self.sum         += x;
-        self.sum_squares += x * x;
-    }
-
     fn add(&mut self, other: &BbiSummaryStatistics) {
         self.valid       += other.valid;
         self.min          = self.min.min(other.min);
@@ -790,7 +779,6 @@ impl Iterator for BbiRawBlockEncoderIterator {
 #[derive(Clone)]
 struct BbiZoomBlockEncoder {
     items_per_slot : usize,
-    tmp            : Vec<u8>,
     reduction_level: usize,
 }
 
@@ -816,7 +804,6 @@ impl BbiZoomBlockEncoder {
     fn new(items_per_slot: usize, reduction_level: usize) -> Self {
         BbiZoomBlockEncoder {
             items_per_slot,
-            tmp: Vec::new(),
             reduction_level,
         }
     }
