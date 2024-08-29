@@ -16,7 +16,6 @@
 
 use std::fmt;
 use std::io::{self, Cursor, Read, Seek, SeekFrom, Write};
-use std::sync::mpsc::{channel, Receiver, Sender};
 
 use std::f32;
 use std::f64;
@@ -1843,10 +1842,14 @@ pub struct RVertexGenerator {
     pub items_per_slot: usize,
 }
 
+/* -------------------------------------------------------------------------- */
+
 pub struct RVertexGeneratorType {
     pub vertex: RVertex,
     pub blocks: Vec<Vec<u8>>,
 }
+
+/* -------------------------------------------------------------------------- */
 
 impl RVertexGenerator {
     pub fn new(block_size: usize, items_per_slot: usize) -> Result<Self, String> {
@@ -1862,100 +1865,128 @@ impl RVertexGenerator {
         })
     }
 
-    pub fn generate<E: ByteOrder>(self, chrom_id: usize, sequence: &Vec<f64>, bin_size: usize, reduction_level: usize, fixed_step: bool) -> Receiver<RVertexGeneratorType> {
-        let (tx, rx) = channel();
+    fn generate_zoom<'a, E: ByteOrder>(
+        &'a self,
+        chrom_id       : usize,
+        sequence       : &'a Vec<f64>,
+        bin_size       : usize,
+        reduction_level: usize) -> impl Stream<Item = RVertexGeneratorType> + 'a
+    {
+        stream! {
+            let encoder = BbiZoomBlockEncoder::new(
+                self.items_per_slot, reduction_level
+            );
 
-        std::thread::spawn(move || {
-            self.generate_impl::<E>(tx, chrom_id, sequence, bin_size, reduction_level, fixed_step).unwrap();
-        });
+            let mut vertex = RVertex::default();
+            vertex.is_leaf = 1;
+            let mut blocks = Vec::new();
 
-        rx
-    }
+            for mut item in encoder.encode(chrom_id, sequence, bin_size) {
+                let chunk = item.write::<E>().unwrap();
 
-    fn generate_zoom<E: ByteOrder>(&self, tx: Sender<RVertexGeneratorType>, chrom_id: usize, sequence: &Vec<f64>, bin_size: usize, reduction_level: usize) -> Result<(), String> {
+                if vertex.n_children as usize == self.block_size {
 
-        let encoder = BbiZoomBlockEncoder::new(
-            self.items_per_slot, reduction_level
-        );
+                    yield RVertexGeneratorType { vertex, blocks };
 
-        let mut vertex = RVertex::default();
-        vertex.is_leaf = 1;
-        let mut blocks = Vec::new();
+                    vertex = RVertex::default();
+                    vertex.is_leaf = 1;
+                    blocks = Vec::new();
+                }
+                vertex.chr_idx_start  .push(chrom_id   as u32);
+                vertex.chr_idx_end    .push(chrom_id   as u32);
+                vertex.base_start     .push(chunk.from as u32);
+                vertex.base_end       .push(chunk.to   as u32);
+                vertex.data_offset    .push(0);
+                vertex.sizes          .push(0);
+                vertex.ptr_data_offset.push(0);
+                vertex.ptr_sizes      .push(0);
+                vertex.n_children += 1;
 
-        for mut item in encoder.encode(chrom_id, sequence, bin_size) {
-            let chunk = item.write::<E>().unwrap();
-
-            if vertex.n_children as usize == self.block_size {
-                tx.send(RVertexGeneratorType { vertex, blocks }).unwrap();
-                vertex = RVertex::default();
-                vertex.is_leaf = 1;
-                blocks = Vec::new();
+                blocks.push(chunk.block);
             }
-            vertex.chr_idx_start  .push(chrom_id   as u32);
-            vertex.chr_idx_end    .push(chrom_id   as u32);
-            vertex.base_start     .push(chunk.from as u32);
-            vertex.base_end       .push(chunk.to   as u32);
-            vertex.data_offset    .push(0);
-            vertex.sizes          .push(0);
-            vertex.ptr_data_offset.push(0);
-            vertex.ptr_sizes      .push(0);
-            vertex.n_children += 1;
 
-            blocks.push(chunk.block);
-        }
-
-        if vertex.n_children != 0 {
-            tx.send(RVertexGeneratorType { vertex, blocks }).unwrap();
-        }
-
-        Ok(())
-    }
-
-    fn generate_raw<E: ByteOrder>(&self, tx: Sender<RVertexGeneratorType>, chrom_id: usize, sequence: &Vec<f64>, bin_size: usize, fixed_step: bool) -> Result<(), String> {
-
-        let encoder = BbiRawBlockEncoder::new(
-            self.items_per_slot, fixed_step
-        );
-
-        let mut vertex = RVertex::default();
-        vertex.is_leaf = 1;
-        let mut blocks = Vec::new();
-
-        for item in encoder.encode(chrom_id, sequence, bin_size) {
-            let chunk = item.write::<E>().unwrap();
-
-            if vertex.n_children as usize == self.block_size {
-                tx.send(RVertexGeneratorType { vertex, blocks }).unwrap();
-                vertex = RVertex::default();
-                vertex.is_leaf = 1;
-                blocks = Vec::new();
+            if vertex.n_children != 0 {
+                yield RVertexGeneratorType { vertex, blocks };
             }
-            vertex.chr_idx_start  .push(chrom_id   as u32);
-            vertex.chr_idx_end    .push(chrom_id   as u32);
-            vertex.base_start     .push(chunk.from as u32);
-            vertex.base_end       .push(chunk.to   as u32);
-            vertex.data_offset    .push(0);
-            vertex.sizes          .push(0);
-            vertex.ptr_data_offset.push(0);
-            vertex.ptr_sizes      .push(0);
-            vertex.n_children += 1;
 
-            blocks.push(chunk.block);
         }
-
-        if vertex.n_children != 0 {
-            tx.send(RVertexGeneratorType { vertex, blocks }).unwrap();
-        }
-
-        Ok(())
     }
 
-    fn generate_impl<E: ByteOrder>(&self, tx: Sender<RVertexGeneratorType>, chrom_id: usize, sequence: &Vec<f64>, bin_size: usize, reduction_level: usize, fixed_step: bool) -> Result<(), String> {
+    fn generate_raw<'a, E: ByteOrder>(
+        &'a self,
+        chrom_id  : usize,
+        sequence  : &'a Vec<f64>,
+        bin_size  : usize,
+        fixed_step: bool) -> impl Stream<Item = RVertexGeneratorType> + 'a
+    {
+
+        stream! {
+            let encoder = BbiRawBlockEncoder::new(
+                self.items_per_slot, fixed_step
+            );
+
+            let mut vertex = RVertex::default();
+            vertex.is_leaf = 1;
+            let mut blocks = Vec::new();
+
+            for item in encoder.encode(chrom_id, sequence, bin_size) {
+                let chunk = item.write::<E>().unwrap();
+
+                if vertex.n_children as usize == self.block_size {
+
+                    yield RVertexGeneratorType { vertex, blocks };
+
+                    vertex = RVertex::default();
+                    vertex.is_leaf = 1;
+                    blocks = Vec::new();
+                }
+                vertex.chr_idx_start  .push(chrom_id   as u32);
+                vertex.chr_idx_end    .push(chrom_id   as u32);
+                vertex.base_start     .push(chunk.from as u32);
+                vertex.base_end       .push(chunk.to   as u32);
+                vertex.data_offset    .push(0);
+                vertex.sizes          .push(0);
+                vertex.ptr_data_offset.push(0);
+                vertex.ptr_sizes      .push(0);
+                vertex.n_children += 1;
+
+                blocks.push(chunk.block);
+            }
+
+            if vertex.n_children != 0 {
+                yield RVertexGeneratorType { vertex, blocks };
+            }
+
+        }
+    }
+
+    pub fn generate_stream<'a, E: ByteOrder>(
+        &'a self,
+        chrom_id       : usize,
+        sequence       : &'a Vec<f64>,
+        bin_size       : usize,
+        reduction_level: usize,
+        fixed_step     : bool) -> Pin<Box<dyn Stream<Item = RVertexGeneratorType> + 'a>>
+    {
         if reduction_level > bin_size {
-            self.generate_zoom::<E>(tx, chrom_id, sequence, bin_size, reduction_level)
+            Box::pin(self.generate_zoom::<E>(chrom_id, sequence, bin_size, reduction_level))
         } else {
-            self.generate_raw::<E>(tx, chrom_id, sequence, bin_size, fixed_step)
+            Box::pin(self.generate_raw::<E>(chrom_id, sequence, bin_size, fixed_step))
         }
+    }
+
+    pub fn generate<'a, E: ByteOrder>(
+        &'a self,
+        chrom_id       : usize,
+        sequence       : &'a Vec<f64>,
+        bin_size       : usize,
+        reduction_level: usize,
+        fixed_step     : bool) -> BlockingStream<Pin<Box<dyn Stream<Item = RVertexGeneratorType> + 'a>>>
+    {
+        let s = self.generate_stream::<E>(chrom_id, sequence, bin_size, reduction_level, fixed_step);
+
+        block_on_stream(s)
+
     }
 }
 
