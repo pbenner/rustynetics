@@ -19,10 +19,13 @@ use crate::granges_row::GRangesRow;
 
 /* -------------------------------------------------------------------------- */
 
+#[derive(Clone, Debug)]
 pub struct TrackSequence {
     sequence: Vec<f64>,
     bin_size: usize,
 }
+
+/* -------------------------------------------------------------------------- */
 
 impl TrackSequence {
 

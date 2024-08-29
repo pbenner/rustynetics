@@ -33,6 +33,7 @@ pub type TMapType = HashMap<String, Vec<f64>>;
 // locations. The data is binned in order to reduce memory usage.
 // The first position in a sequence is numbered 0.
 
+#[derive(Debug)]
 pub struct SimpleTrack {
     name    : String,
     genome  : Genome,
@@ -43,6 +44,7 @@ pub struct SimpleTrack {
 /* -------------------------------------------------------------------------- */
 
 impl SimpleTrack {
+
     pub fn new(name: String, sequences: Vec<Vec<f64>>, genome: Genome, bin_size: usize) -> Result<Self, String> {
         if sequences.len() != genome.len() {
             return Err("invalid arguments".to_string());
@@ -184,4 +186,38 @@ impl Track for SimpleTrack {
         Ok(seq[from..to].to_vec())
     }
 
+}
+
+/* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
+
+#[cfg(test)]
+mod tests {
+
+    use crate::track::Track;
+    use crate::track_simple::SimpleTrack;
+    use crate::genome::Genome;
+
+    #[test]
+    fn test_simple_track_1() {
+
+        let seq_1 = vec![1.0, 2.0, 3.0, 4.0];
+
+        let sequences = vec![seq_1];
+
+        let seqnames = vec!["test1"].into_iter().map(|x| { x.to_string() }).collect();
+        let lengths  = vec![400];
+        let genome   = Genome::new(seqnames, lengths);
+
+        let track    = SimpleTrack::new("track_name".to_string(), sequences, genome, 100).unwrap();
+
+        let mut s1 = track.get_sequence("test1").unwrap();
+
+        s1.set(1, 100.0);
+
+        println!("{:?}", s1);
+        println!("{:?}", track);
+
+
+    }
 }
