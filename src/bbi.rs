@@ -1624,9 +1624,9 @@ impl RTree {
 
         for child in &v.children {
             v.chr_idx_start.push(child.chr_idx_start[0]);
-            v.chr_idx_end.push(child.chr_idx_end[child.n_children as usize - 1]);
-            v.base_start.push(child.base_start[0]);
-            v.base_end.push(child.base_end[child.n_children as usize - 1]);
+            v.chr_idx_end  .push(child.chr_idx_end[child.n_children as usize - 1]);
+            v.base_start   .push(child.base_start[0]);
+            v.base_end     .push(child.base_end[child.n_children as usize - 1]);
         }
 
         (Some(v), leaves)
