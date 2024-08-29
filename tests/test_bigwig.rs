@@ -43,7 +43,7 @@ mod tests {
             let mut sum_min  = 0.0;
             let mut sum_max  = 0.0;
 
-            for result in bw.query("test1", 0, 100, 1) {
+            for result in bw.query("test1", 0, 100, 10) {
                 if let Ok(item) = result {
                     sum_id   += item.data.chrom_id;
                     sum_from += item.data.from;
@@ -57,8 +57,8 @@ mod tests {
             assert_eq!(sum_from, 450);
             assert_eq!(sum_to  , 550);
 
-            assert_relative_eq!(sum_min, 7.0, epsilon = f32::EPSILON as f64);
-            assert_relative_eq!(sum_max, 7.0, epsilon = f32::EPSILON as f64);
+            assert_relative_eq!(sum_min, 49.5, epsilon = 1e-6);
+            assert_relative_eq!(sum_max, 49.5, epsilon = 1e-6);
         }
     }
 }

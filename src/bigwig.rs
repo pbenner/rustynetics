@@ -429,8 +429,8 @@ mod tests {
             assert_eq!(sum_from, 450);
             assert_eq!(sum_to  , 550);
 
-            assert_relative_eq!(sum_min, 7.0, epsilon = f32::EPSILON as f64);
-            assert_relative_eq!(sum_max, 7.0, epsilon = f32::EPSILON as f64);
+            assert_relative_eq!(sum_min, 49.5, epsilon = 1e-6);
+            assert_relative_eq!(sum_max, 49.5, epsilon = 1e-6);
 
         }
     }

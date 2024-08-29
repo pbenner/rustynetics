@@ -377,6 +377,7 @@ impl<'a> Iterator for BbiRawBlockDecoderIterator<'a> {
 
 /* -------------------------------------------------------------------------- */
 
+#[derive(Debug)]
 struct BbiRawBlockDecoderType(BbiSummaryRecord);
 
 /* -------------------------------------------------------------------------- */
@@ -452,15 +453,18 @@ struct BbiRawBlockDecoder<'a> {
 /* -------------------------------------------------------------------------- */
 
 impl<'a> BbiRawBlockDecoder<'a> {
+
     fn new<E: ByteOrder>(buffer: &'a [u8]) -> io::Result<BbiRawBlockDecoder<'a>> {
+
         if buffer.len() < 24 {
             return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "block length is shorter than 24 bytes"));
         }
         let mut decoder = BbiRawBlockDecoder {
             header: BbiDataHeader::default(),
-            buffer,
+            buffer: &buffer[24..],
         }; 
         decoder.header.read_buffer::<E>(buffer);
+
         match decoder.header.kind {
             BBI_TYPE_BED_GRAPH => {
                 if buffer.len() % 12 != 0 {
@@ -481,12 +485,12 @@ impl<'a> BbiRawBlockDecoder<'a> {
         }
         Ok(decoder)
     }
+
     fn decode(&self) -> BbiRawBlockDecoderIterator {
-        let iterator = BbiRawBlockDecoderIterator {
+        BbiRawBlockDecoderIterator {
             decoder : self,
             position: 0
-        };
-        iterator
+        }
     }
 }
 
