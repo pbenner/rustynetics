@@ -20,8 +20,8 @@ use std::string::String;
 use crate::genome::Genome;
 use crate::granges_row::GRangesRow;
 
-use crate::track::Track;
-use crate::track::TrackSequence;
+use crate::track::{Track, MutableTrack};
+use crate::track::{TrackSequence, TrackMutableSequence};
 
 /* -------------------------------------------------------------------------- */
 
@@ -80,10 +80,10 @@ impl SimpleTrack {
     }
 
     pub fn shallow_clone(&self) -> Self {
-        let name = self.name.clone();
+        let name     = self.name.clone();
         let bin_size = self.bin_size;
-        let data = self.data.clone();
-        let genome = self.genome.clone();
+        let data     = self.data.clone();
+        let genome   = self.genome.clone();
 
         SimpleTrack { name, genome, data, bin_size }
     }
@@ -160,13 +160,6 @@ impl Track for SimpleTrack {
         }
     }
 
-    fn get_sequence_mut(&mut self, query: &str) -> Result<TrackSequence, String> {
-        match self.data.get(query) {
-            Some(seq) => Ok(TrackSequence::new(seq, self.bin_size)),
-            None      => Err(format!("sequence `{}` not found", query)),
-        }
-    }
-
     fn get_slice(&self, r: &GRangesRow) -> Result<Vec<f64>, String> {
         let seq = match self.data.get(r.seqname()) {
             Some(seq) => seq,
@@ -189,12 +182,25 @@ impl Track for SimpleTrack {
 }
 
 /* -------------------------------------------------------------------------- */
+
+impl MutableTrack for SimpleTrack {
+
+    fn get_sequence_mut(&mut self, query: &str) -> Result<TrackMutableSequence, String> {
+        match self.data.get_mut(query) {
+            Some(seq) => Ok(TrackMutableSequence::new(seq, self.bin_size)),
+            None      => Err(format!("sequence `{}` not found", query)),
+        }
+    }
+
+}
+
+/* -------------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------- */
 
 #[cfg(test)]
 mod tests {
 
-    use crate::track::Track;
+    use crate::track::{Track, MutableTrack};
     use crate::track_simple::SimpleTrack;
     use crate::genome::Genome;
 
@@ -203,21 +209,20 @@ mod tests {
 
         let seq_1 = vec![1.0, 2.0, 3.0, 4.0];
 
-        let sequences = vec![seq_1];
+        let sequences  = vec![seq_1];
 
-        let seqnames = vec!["test1"].into_iter().map(|x| { x.to_string() }).collect();
-        let lengths  = vec![400];
-        let genome   = Genome::new(seqnames, lengths);
+        let seqnames  = vec!["test1"].into_iter().map(|x| { x.to_string() }).collect();
+        let lengths   = vec![400];
+        let genome    = Genome::new(seqnames, lengths);
 
-        let track    = SimpleTrack::new("track_name".to_string(), sequences, genome, 100).unwrap();
-
-        let mut s1 = track.get_sequence("test1").unwrap();
+        let mut track = SimpleTrack::new("track_name".to_string(), sequences, genome, 100).unwrap();
+        let mut s1    = track.get_sequence_mut("test1").unwrap();
 
         s1.set(1, 100.0);
 
-        println!("{:?}", s1);
-        println!("{:?}", track);
-
+        assert_eq!(track.get_sequence("test1").unwrap().at(  0),   1.0);
+        assert_eq!(track.get_sequence("test1").unwrap().at(100), 100.0);
+        assert_eq!(track.get_sequence("test1").unwrap().at(200),   3.0);
 
     }
 }

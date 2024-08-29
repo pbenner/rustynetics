@@ -20,18 +20,55 @@ use crate::granges_row::GRangesRow;
 /* -------------------------------------------------------------------------- */
 
 #[derive(Clone, Debug)]
-pub struct TrackSequence {
-    sequence: Vec<f64>,
+pub struct TrackSequence<'a> {
+    sequence: &'a Vec<f64>,
     bin_size: usize,
 }
 
 /* -------------------------------------------------------------------------- */
 
-impl TrackSequence {
+impl<'a> TrackSequence<'a> {
 
-    pub fn new(sequence: &Vec<f64>, bin_size: usize) -> TrackSequence {
-        TrackSequence {
-            sequence: sequence.clone(),
+    pub fn new(sequence: &'a Vec<f64>, bin_size: usize) -> Self {
+        Self {
+            sequence: sequence,
+            bin_size: bin_size,
+        }
+    }
+
+    pub fn at(&self, i: usize) -> f64 {
+        self.sequence[i / self.bin_size]
+    }
+
+    pub fn at_bin(&self, i: usize) -> f64 {
+        self.sequence[i]
+    }
+
+    pub fn n_bins(&self) -> usize {
+        self.sequence.len()
+    }
+
+    pub fn get_bin_size(&self) -> usize {
+        self.bin_size
+    }
+
+}
+
+/* -------------------------------------------------------------------------- */
+
+#[derive(Debug)]
+pub struct TrackMutableSequence<'a> {
+    sequence: &'a mut Vec<f64>,
+    bin_size: usize,
+}
+
+/* -------------------------------------------------------------------------- */
+
+impl<'a> TrackMutableSequence<'a> {
+
+    pub fn new(sequence: &'a mut Vec<f64>, bin_size: usize) -> Self {
+        Self {
+            sequence: sequence,
             bin_size: bin_size,
         }
     }
@@ -59,7 +96,6 @@ impl TrackSequence {
     pub fn set_bin(&mut self, i: usize, v: f64) {
         self.sequence[i] = v;
     }
-
 }
 
 /* -------------------------------------------------------------------------- */
@@ -68,8 +104,13 @@ pub trait Track {
     fn get_name(&self) -> String;
     fn get_bin_size(&self) -> usize;
     fn get_sequence(&self, seqname: &str) -> Result<TrackSequence, String>;
-    fn get_sequence_mut(&mut self, seqname: &str) -> Result<TrackSequence, String>;
     fn get_genome(&self) -> &Genome;
     fn get_seq_names(&self) -> Vec<String>;
     fn get_slice(&self, r: &GRangesRow) -> Result<Vec<f64>, String>;
+}
+
+/* -------------------------------------------------------------------------- */
+
+pub trait MutableTrack : Track {
+    fn get_sequence_mut(&mut self, seqname: &str) -> Result<TrackMutableSequence, String>;
 }
