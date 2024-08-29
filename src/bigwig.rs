@@ -72,14 +72,6 @@ impl Default for BigWigParameters {
 
 /* -------------------------------------------------------------------------- */
 
-pub struct BigWigReader<R: Read + Seek> {
-    reader: R,
-    bwf   : BbiFile,
-    genome: Genome,
-}
-
-/* -------------------------------------------------------------------------- */
-
 pub type BigWigFile = NetFile;
 
 /* -------------------------------------------------------------------------- */
@@ -94,6 +86,14 @@ impl BigWigFile {
 
     }
 
+}
+
+/* -------------------------------------------------------------------------- */
+
+pub struct BigWigReader<R: Read + Seek> {
+    reader: R,
+    bwf   : BbiFile,
+    genome: Genome,
 }
 
 /* -------------------------------------------------------------------------- */
@@ -201,7 +201,7 @@ impl<R: Read + Seek> BigWigReader<R> {
 
 /* -------------------------------------------------------------------------- */
 
-struct BigWigWriter<W: Write + Seek> {
+pub struct BigWigWriter<W: Write + Seek> {
     writer    : W,
     bwf       : BbiFile,
     genome    : Genome,

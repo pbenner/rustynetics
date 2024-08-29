@@ -524,15 +524,18 @@ impl BbiZoomBlockDecoderType {
 
     fn read_buffer<E: ByteOrder>(&mut self, buffer : &[u8]) -> io::Result<()> {
         let mut cursor = Cursor::new(buffer);
+        let mut result = BbiZoomRecord::default();
 
-        self.chrom_id               = cursor.read_i32::<E>()?;
-        self.from                   = cursor.read_i32::<E>()?;
-        self.to                     = cursor.read_i32::<E>()?;
-        self.statistics.valid       = cursor.read_f64::<E>()?;
-        self.statistics.min         = cursor.read_f64::<E>()?;
-        self.statistics.max         = cursor.read_f64::<E>()?;
-        self.statistics.sum         = cursor.read_f64::<E>()?;
-        self.statistics.sum_squares = cursor.read_f64::<E>()?;
+        result.read::<E, Cursor<&[u8]>>(&mut cursor)?;
+
+        self.chrom_id               = result.chrom_id as i32;
+        self.from                   = result.start    as i32;
+        self.to                     = result.end      as i32;
+        self.statistics.valid       = result.valid.into();
+        self.statistics.min         = result.min         as f64;
+        self.statistics.max         = result.max         as f64;
+        self.statistics.sum         = result.sum         as f64;
+        self.statistics.sum_squares = result.sum_squares as f64;
         Ok(())
     }
 }
