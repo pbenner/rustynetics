@@ -144,7 +144,7 @@ impl BbiZoomRecord {
 
 /* -------------------------------------------------------------------------- */
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct BbiSummaryStatistics {
     pub valid      : f64,
     pub min        : f64,
@@ -179,6 +179,10 @@ impl BbiSummaryStatistics {
         self.sum         += other.sum;
         self.sum_squares += other.sum_squares;
     }
+
+    fn reset(&mut self) {
+        *self = Self::default();
+    }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -196,7 +200,7 @@ impl fmt::Display for BbiSummaryStatistics {
 
 /* -------------------------------------------------------------------------- */
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct BbiSummaryRecord {
     pub chrom_id  : i32,
     pub from      : i32,
@@ -238,6 +242,13 @@ impl BbiSummaryRecord {
         }
         self.to = other.to;
         self.statistics.add(&other.statistics);
+    }
+
+    fn reset(&mut self) {
+        self.chrom_id = -1;
+        self.from     =  0;
+        self.to       =  0;
+        self.statistics.reset();
     }
 }
 
@@ -2078,7 +2089,7 @@ impl<'a> Iterator for RTreeTraverser<'a> {
 
 /* -------------------------------------------------------------------------- */
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct BbiQueryType {
     pub data     : BbiSummaryRecord,
     pub data_type: u8,
@@ -2195,7 +2206,7 @@ impl BbiFile {
                                         if result.data.from != result.data.to {
                                             yield Ok(result);
                                         }
-                                        result = BbiQueryType::default();
+                                        result.data.reset();
                                     }
             
                                     result.data.add_record(&record);        
@@ -2263,7 +2274,7 @@ impl BbiFile {
                                 if result.data.from != result.data.to {
                                     yield Ok(result);
                                 }
-                                result = BbiQueryType::default();
+                                result.data.reset();
                             }
 
                             result.data.add_record(&record);
