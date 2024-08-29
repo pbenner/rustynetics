@@ -48,7 +48,7 @@ fn query(filename_in: &str, chrom: &str, from: usize, to: usize, bin_size: usize
 fn main() {
     let matches = Command::new("BigWig Query")
         .version("1.0")
-        .author("Your Name <your.email@example.com>")
+        .author("Philipp Benner [https://github.com/pbenner]")
         .about("Query BigWig files")
         .arg(
             Arg::new("input")

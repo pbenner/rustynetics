@@ -383,6 +383,21 @@ impl<W: Write + Seek> BigWigWriter<W> {
     }
 }
 
+/* Utility functions
+ * -------------------------------------------------------------------------- */
+
+pub fn bigwig_read_genome<R: Read + Seek>(file: R) -> Result<Genome, Box<dyn Error>> {
+    let reader = BigWigReader::new(file)?;
+    Ok(reader.genome().clone())
+}
+
+pub fn bigwig_import_genome(filename: &str) -> Result<Genome, Box<dyn Error>> {
+    let file = NetFile::open(filename)?;
+    let genome = bigwig_read_genome(file)
+        .map_err(|err| format!("Importing genome from `{}` failed: {}", filename, err))?;
+    Ok(genome)
+}
+
 /* -------------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------- */
 
