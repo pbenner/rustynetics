@@ -37,11 +37,14 @@ use futures_core::stream::Stream;
 const CIRTREE_MAGIC      : u32   = 0x78ca8c91;
 const IDX_MAGIC          : u32   = 0x2468ace0;
 
-const BBI_MAX_ZOOM_LEVELS: usize = 10;
-const BBI_RES_INCREMENT  : u32   = 4;
 const BBI_TYPE_FIXED     : u8    = 3;
 const BBI_TYPE_VARIABLE  : u8    = 2;
 const BBI_TYPE_BED_GRAPH : u8    = 1;
+
+/* -------------------------------------------------------------------------- */
+
+pub const BBI_MAX_ZOOM_LEVELS: usize = 10;
+pub const BBI_RES_INCREMENT  : u32   = 4;
 
 /* -------------------------------------------------------------------------- */
 
@@ -1542,10 +1545,6 @@ impl Default for RTree {
 /* -------------------------------------------------------------------------- */
 
 impl RTree {
-
-    fn is_nil(&self) -> bool {
-        self.block_size == 0
-    }
 
     fn read<E: ByteOrder, W: Read + Seek>(&mut self, file: &mut W) -> io::Result<()> {
         let magic = file.read_u32::<E>()?;
