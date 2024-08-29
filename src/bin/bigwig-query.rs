@@ -33,7 +33,7 @@ fn query(filename_in: &str, chrom: &str, from: usize, to: usize, bin_size: usize
     for result in reader.query(chrom, from, to, bin_size) {
         match result {
             Ok(record) => {
-                println!("{}", record);
+                println!("{}", record.data);
             }
             Err(err) => {
                 eprintln!("Error querying BigWig file: {}", err);
