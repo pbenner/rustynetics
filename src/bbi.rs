@@ -2128,44 +2128,6 @@ impl Default for BbiFile {
 
 impl BbiFile {
 
-    pub fn estimate_size(&self, offset: i64, init: usize) -> usize {
-        let mut n = i64::MAX;
-        let mut k : i64;        
-
-        k = self.header.ct_offset as i64;
-        if offset < k as i64 && k < n {
-            n = k;
-        }
-
-        k = self.header.data_offset as i64;
-        if offset < k && k < n {
-            n = k;
-        }
-
-        k = self.header.index_offset as i64;
-        if offset < k && k < n {
-            n = k;
-        }
-
-        for zoom_header in &self.header.zoom_headers {
-            k = zoom_header.index_offset as i64;
-            if offset < k && k < n {
-                n = k;
-            }
-
-            k = zoom_header.data_offset as i64;
-            if offset < k && k < n {
-                n = k;
-            }
-        }
-
-        if n == i64::MAX {
-            init
-        } else {
-            (n - offset) as usize
-        }
-    }
-
     fn read_index<E: ByteOrder, R: Read + Seek>(&mut self, reader: &mut R) -> io::Result<()> {
         reader.seek(SeekFrom::Start(self.header.index_offset))?;
         self.index.read::<E, R>(reader)

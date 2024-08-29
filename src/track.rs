@@ -48,29 +48,15 @@ impl TrackSequence {
     pub fn get_bin_size(&self) -> usize {
         self.bin_size
     }
-}
-
-/* -------------------------------------------------------------------------- */
-
-pub struct TrackMutableSequence {
-    track_sequence: TrackSequence,
-}
-
-impl TrackMutableSequence {
-
-    pub fn new(sequence: &Vec<f64>, bin_size: usize) -> TrackMutableSequence {
-        TrackMutableSequence {
-            track_sequence: TrackSequence::new(sequence, bin_size)
-        }
-    }
 
     pub fn set(&mut self, i: usize, v: f64) {
-        self.track_sequence.sequence[i / self.track_sequence.bin_size] = v;
+        self.sequence[i / self.bin_size] = v;
     }
 
     pub fn set_bin(&mut self, i: usize, v: f64) {
-        self.track_sequence.sequence[i] = v;
+        self.sequence[i] = v;
     }
+
 }
 
 /* -------------------------------------------------------------------------- */
@@ -79,21 +65,8 @@ pub trait Track {
     fn get_name(&self) -> String;
     fn get_bin_size(&self) -> usize;
     fn get_sequence(&self, seqname: &str) -> Result<TrackSequence, String>;
+    fn get_sequence_mut(&mut self, seqname: &str) -> Result<TrackSequence, String>;
     fn get_genome(&self) -> &Genome;
     fn get_seq_names(&self) -> Vec<String>;
     fn get_slice(&self, r: &GRangesRow) -> Result<Vec<f64>, String>;
-}
-
-pub trait MutableTrack: Track {
-    fn get_mutable_sequence(&self, seqname: &str) -> Result<TrackMutableSequence, String>;
-}
-
-/* -------------------------------------------------------------------------- */
-
-pub struct GenericTrack {
-    track: Box<dyn Track>,
-}
-
-pub struct GenericMutableTrack {
-    mutable_track: Box<dyn MutableTrack>,
 }

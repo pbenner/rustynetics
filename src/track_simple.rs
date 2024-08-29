@@ -21,9 +21,8 @@ use crate::genome::Genome;
 use crate::granges_row::GRangesRow;
 
 use crate::track::Track;
-use crate::track::MutableTrack;
 use crate::track::TrackSequence;
-use crate::track::TrackMutableSequence;
+
 /* -------------------------------------------------------------------------- */
 
 pub type TMapType = HashMap<String, Vec<f64>>;
@@ -159,6 +158,13 @@ impl Track for SimpleTrack {
         }
     }
 
+    fn get_sequence_mut(&mut self, query: &str) -> Result<TrackSequence, String> {
+        match self.data.get(query) {
+            Some(seq) => Ok(TrackSequence::new(seq, self.bin_size)),
+            None      => Err(format!("sequence `{}` not found", query)),
+        }
+    }
+
     fn get_slice(&self, r: &GRangesRow) -> Result<Vec<f64>, String> {
         let seq = match self.data.get(r.seqname()) {
             Some(seq) => seq,
@@ -178,16 +184,4 @@ impl Track for SimpleTrack {
         Ok(seq[from..to].to_vec())
     }
 
-}
-
-/* -------------------------------------------------------------------------- */
-
-impl MutableTrack for SimpleTrack {
-
-    fn get_mutable_sequence(&self, query: &str) -> Result<TrackMutableSequence, String> {
-        match self.data.get(query) {
-            Some(seq) => Ok(TrackMutableSequence::new(seq, self.bin_size)),
-            None      => Err(format!("sequence `{}` not found", query)),
-        }
-    }
 }
