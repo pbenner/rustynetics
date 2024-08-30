@@ -28,6 +28,7 @@ pub mod granges;
 pub mod granges_row;
 pub mod meta;
 pub mod range;
+pub mod reads;
 pub mod error;
 pub mod options_print;
 pub mod track;

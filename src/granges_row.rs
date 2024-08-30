@@ -23,6 +23,14 @@ use crate::granges::GRanges;
 
 /* -------------------------------------------------------------------------- */
 
+pub struct GRange {
+    pub seqname : String,
+    pub range   : Range,
+    pub strand  : char,
+}
+
+/* -------------------------------------------------------------------------- */
+
 pub struct GRangesRow<'a> {
     granges: &'a GRanges,
     row    : usize,
@@ -35,7 +43,7 @@ impl<'a> GRangesRow<'a> {
         GRangesRow { granges, row }
     }
 
-    pub fn seqname(&self) -> &str {
+    pub fn seqname(&self) -> &String {
         &self.granges.seqnames[self.row]
     }
 
