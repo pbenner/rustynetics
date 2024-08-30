@@ -16,9 +16,10 @@
 
 use std::f64;
 
+use crate::genome::Genome;
+use crate::reads::Read;
 use crate::track::Track;
 use crate::track_simple::SimpleTrack;
-use crate::genome::Genome;
 
 /* -------------------------------------------------------------------------- */
 
@@ -60,14 +61,14 @@ fn bin_variance(sum: f64, sum_squares: f64, _min: f64, _max: f64, n: f64) -> f64
 
 fn bin_summary_statistics_from_string(s: &str) -> Option<BinSummaryStatistics> {
     match s {
-        "mean" => Some(bin_mean),
-        "max" => Some(bin_max),
-        "min" => Some(bin_min),
+        "mean"          => Some(bin_mean),
+        "max"           => Some(bin_max),
+        "min"           => Some(bin_min),
         "discrete mean" => Some(bin_discrete_mean),
-        "discrete max" => Some(bin_discrete_max),
-        "discrete min" => Some(bin_discrete_min),
-        "variance" => Some(bin_variance),
-        _ => None,
+        "discrete max"  => Some(bin_discrete_max),
+        "discrete min"  => Some(bin_discrete_min),
+        "variance"      => Some(bin_variance),
+        _               => None,
     }
 }
 
@@ -188,11 +189,12 @@ fn track_crosscorrelation(
 
 // Function to cross-correlate reads on forward and reverse strands
 fn crosscorrelate_reads(
-    reads: ReadChannel,
-    genome: &Genome,
+    reads    : impl Iterator<Item = Read>,
+    genome   : &Genome,
     max_delay: i32,
-    bin_size: usize,
+    bin_size : usize,
 ) -> Result<(Vec<i32>, Vec<f64>, i32, u64), String> {
+
     let mut track1 = SimpleTrack::alloc("forward".to_string(), genome.clone(), bin_size);
     let mut track2 = SimpleTrack::alloc("reverse".to_string(), genome.clone(), bin_size);
     let mut n = 0_u64;
@@ -232,10 +234,10 @@ fn crosscorrelate_reads(
 
 // Function to estimate fragment length
 fn estimate_fragment_length(
-    reads: ReadChannel,
-    genome: &Genome,
-    max_delay: i32,
-    bin_size: usize,
+    reads        : impl Iterator<Item = Read>,
+    genome       : &Genome,
+    max_delay    : i32,
+    bin_size     : usize,
     fraglen_range: (i32, i32),
 ) -> Result<(i32, Vec<i32>, Vec<f64>, u64), String> {
     let (x, y, read_length, n) = crosscorrelate_reads(reads, genome, max_delay, bin_size)?;

@@ -14,12 +14,14 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-use crate::granges_row::GRange;
+use crate::range::Range;
 
 /* -------------------------------------------------------------------------- */
 
 pub struct Read {
-    pub grange    : GRange,
+    pub seqname   : String,
+    pub range     : Range,
+    pub strand    : char,
     pub mapq      : i64,
     pub duplicate : bool,
     pub paired_end: bool,

@@ -29,7 +29,6 @@ use flate2::read::ZlibDecoder;
 use async_stream::stream;
 use core::pin::Pin;
 use futures::executor::block_on_stream;
-use futures::executor::BlockingStream;
 use futures_core::stream::Stream;
 
 /* -------------------------------------------------------------------------- */
@@ -1985,7 +1984,7 @@ impl RVertexGenerator {
         sequence       : &'a Vec<f64>,
         bin_size       : usize,
         reduction_level: usize,
-        fixed_step     : bool) -> BlockingStream<Pin<Box<dyn Stream<Item = RVertexGeneratorType> + 'a>>>
+        fixed_step     : bool) -> impl Iterator<Item = RVertexGeneratorType> + 'a
     {
         let s = self.generate_stream::<E>(chrom_id, sequence, bin_size, reduction_level, fixed_step);
 
@@ -2326,7 +2325,7 @@ impl BbiFile {
         from    : u32,
         to      : u32,
         bin_size: u32,
-    ) -> BlockingStream<Pin<Box<dyn Stream<Item = io::Result<BbiQueryType>> + 'a>>> {
+    ) -> impl Iterator<Item = io::Result<BbiQueryType>> + 'a {
 
         let s = self.query_stream::<E, R>(reader, chrom_id, from, to, bin_size);
     
