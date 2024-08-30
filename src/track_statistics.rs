@@ -20,6 +20,7 @@ use crate::genome::Genome;
 use crate::reads::Read;
 use crate::track::Track;
 use crate::track_simple::SimpleTrack;
+use crate::track_generic::GenericMutableTrack;
 
 /* -------------------------------------------------------------------------- */
 
@@ -202,18 +203,18 @@ fn crosscorrelate_reads(
 
     for read in reads {
         if read.strand == '+' {
-            let mut r = read;
+            let mut r = read.clone();
             r.range.to = r.range.from + 1;
-            if track1.add_read(r, 0).is_ok() {
+            if GenericMutableTrack::wrap(&mut track1).add_read(&r, 0).is_ok() {
                 read_length += (r.range.to - r.range.from) as u64;
                 n += 1;
             }
         } else if read.strand == '-' {
-            let mut r = read;
+            let mut r = read.clone();
             r.range.from = r.range.to - 1;
             r.range.from += 1;
             r.range.to += 1;
-            if track2.add_read(r, 0).is_ok() {
+            if GenericMutableTrack::wrap(&mut track2).add_read(&r, 0).is_ok() {
                 read_length += (r.range.to - r.range.from) as u64;
                 n += 1;
             }
@@ -243,14 +244,14 @@ fn estimate_fragment_length(
     let (x, y, read_length, n) = crosscorrelate_reads(reads, genome, max_delay, bin_size)?;
 
     let mut from = (read_length + read_length / 2) as i32;
-    let to = max_delay;
+    let mut to   = max_delay;
 
     if fraglen_range.0 != -1 {
         from = fraglen_range.0;
     }
 
     if fraglen_range.1 != -1 {
-        let to = fraglen_range.1;
+        to = fraglen_range.1;
     }
 
     let mut i        = from / (bin_size as i32);

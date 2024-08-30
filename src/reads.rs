@@ -18,6 +18,7 @@ use crate::range::Range;
 
 /* -------------------------------------------------------------------------- */
 
+#[derive(Clone, Debug)]
 pub struct Read {
     pub seqname   : String,
     pub range     : Range,
