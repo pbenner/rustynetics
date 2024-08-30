@@ -14,11 +14,10 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-use std::collections::HashMap;
 use std::f64;
-use std::fmt;
 
 use crate::track::Track;
+use crate::track_simple::SimpleTrack;
 use crate::genome::Genome;
 
 /* -------------------------------------------------------------------------- */
@@ -83,8 +82,8 @@ fn div_int_up(a: i32, b: i32) -> i32 {
 
 // Function to compute the cross-correlation between two tracks
 fn track_crosscorrelation(
-    track1: &Track,
-    track2: &Track,
+    track1: &dyn Track,
+    track2: &dyn Track,
     from: i32,
     to: i32,
     normalize: bool,
@@ -103,7 +102,7 @@ fn track_crosscorrelation(
     for name in track1.get_seq_names() {
         let sequence1 = track1.get_sequence(&name)?;
         if let Ok(sequence2) = track2.get_sequence(&name) {
-            if sequence1.nb_bins() != sequence2.nb_bins() {
+            if sequence1.n_bins() != sequence2.n_bins() {
                 return Err("Crosscorrelation(): track sequence lengths do not match".to_string());
             }
         } else {
@@ -112,7 +111,7 @@ fn track_crosscorrelation(
     }
 
     let b = track1.get_bin_size();
-    let n = div_int_up(to - from, b);
+    let n = div_int_up(to - from, b as i32);
     let mut m = 0.0;
     let mut mean1 = 0.0;
     let mut mean2 = 0.0;
@@ -123,7 +122,7 @@ fn track_crosscorrelation(
     y.resize(n as usize, 0.0);
 
     for (j, l) in (from..to).step_by(b as usize).enumerate() {
-        x[j] = l / b;
+        x[j] = l / (b as i32);
     }
 
     if normalize {
@@ -132,14 +131,14 @@ fn track_crosscorrelation(
             if let Ok(sequence2) = track2.get_sequence(&name) {
                 let (mut s1, mut s2, mut t1, mut t2) = (0.0, 0.0, 0.0, 0.0);
 
-                for i in 0..sequence1.nb_bins() {
+                for i in 0..sequence1.n_bins() {
                     s1 += sequence1.at_bin(i);
                     s2 += sequence2.at_bin(i);
                     t1 += sequence1.at_bin(i) * sequence1.at_bin(i);
                     t2 += sequence2.at_bin(i) * sequence2.at_bin(i);
                 }
 
-                let k = sequence1.nb_bins() as f64;
+                let k = sequence1.n_bins() as f64;
                 mean1 = m / (m + k) * mean1 + 1.0 / (m + k) * s1;
                 mean2 = m / (m + k) * mean2 + 1.0 / (m + k) * s2;
                 variance1 = m / (m + k) * variance1 + 1.0 / (m + k) * t1;
@@ -159,15 +158,15 @@ fn track_crosscorrelation(
         if let Ok(sequence2) = track2.get_sequence(&name) {
             let mut s = vec![0.0; n as usize];
 
-            for i in 0..sequence1.nb_bins() {
+            for i in 0..sequence1.n_bins() {
                 for j in 0..n as usize {
-                    if i + (x[j] as usize) < sequence1.nb_bins() {
+                    if i + (x[j] as usize) < sequence1.n_bins() {
                         s[j] += (sequence1.at_bin(i) - mean1) * (sequence2.at_bin(i + x[j] as usize) - mean2);
                     }
                 }
             }
 
-            let k = sequence1.nb_bins() as f64;
+            let k = sequence1.n_bins() as f64;
             for j in 0..n as usize {
                 y[j] = m / (m + k) * y[j] + 1.0 / (m + k) * s[j];
             }
@@ -178,7 +177,7 @@ fn track_crosscorrelation(
     }
 
     for j in 0..n as usize {
-        x[j] *= b;
+        x[j] *= b as i32;
         y[j] /= (variance1 * variance2).sqrt();
     }
 
@@ -192,10 +191,10 @@ fn crosscorrelate_reads(
     reads: ReadChannel,
     genome: &Genome,
     max_delay: i32,
-    bin_size: i32,
+    bin_size: usize,
 ) -> Result<(Vec<i32>, Vec<f64>, i32, u64), String> {
-    let mut track1 = Track::new("forward", genome, bin_size);
-    let mut track2 = Track::new("reverse", genome, bin_size);
+    let mut track1 = SimpleTrack::alloc("forward".to_string(), genome.clone(), bin_size);
+    let mut track2 = SimpleTrack::alloc("reverse".to_string(), genome.clone(), bin_size);
     let mut n = 0_u64;
     let mut read_length = 0_u64;
 
@@ -236,7 +235,7 @@ fn estimate_fragment_length(
     reads: ReadChannel,
     genome: &Genome,
     max_delay: i32,
-    bin_size: i32,
+    bin_size: usize,
     fraglen_range: (i32, i32),
 ) -> Result<(i32, Vec<i32>, Vec<f64>, u64), String> {
     let (x, y, read_length, n) = crosscorrelate_reads(reads, genome, max_delay, bin_size)?;
@@ -252,11 +251,11 @@ fn estimate_fragment_length(
         let to = fraglen_range.1;
     }
 
-    let mut i        = from / bin_size;
+    let mut i        = from / (bin_size as i32);
     let mut max      = y[i as usize];
     let mut frag_len = x[i as usize];
 
-    while i < to / bin_size {
+    while i < to / (bin_size as i32) {
         if y[i as usize] > max {
             max = y[i as usize];
             frag_len = x[i as usize];
