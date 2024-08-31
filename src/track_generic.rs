@@ -72,7 +72,7 @@ impl<'a> GenericTrack<'a> {
         mut f: F
     ) -> Result<(), Box<dyn Error>>
     where
-        F: FnMut(String, usize, f64),
+        F: FnMut(&str, usize, f64),
     {
         let bin_size = self.track.get_bin_size();
 
@@ -82,7 +82,7 @@ impl<'a> GenericTrack<'a> {
             
             for i in 0..seq.n_bins() {
                 // Call the function `f` with name, index and value
-                f(name.clone(), i * bin_size, seq.at_bin(i));
+                f(&name, i * bin_size, seq.at_bin(i));
             }
         }
 
@@ -441,33 +441,12 @@ impl<'a> GenericMutableTrack<'a> {
         Ok(())
     }
 
-    pub fn map<F>(&mut self, mut f: F) -> Result<(), Box<dyn Error>>
-    where
-        F: FnMut(String, usize, f64) -> f64,
-    {
-        let bin_size = self.track.get_bin_size();
-
-        for name in self.track.get_seq_names() {
-
-            let mut seq = self.track.get_sequence_mut(&name)?;
-            
-            for i in 0..seq.n_bins() {
-                // Call the function `f` with name, index and value
-                let v = f(name.clone(), i * bin_size, seq.at_bin(i));
-
-                seq.set_bin(i, v);
-            }
-        }
-
-        Ok(())
-    }
-
     pub fn quantile_normalize_to_counts(&mut self, x: Vec<f64>, y: Vec<usize>) -> Result<(), Box<dyn Error>> {
         let mut map_in: HashMap<OrderedFloat, usize> = HashMap::new();
         let mut map_tr: HashMap<OrderedFloat, f64  > = HashMap::new();
 
         // Mapping values to count occurrences
-        self.map(&mut |_seqname, _position, value : f64| {
+        self.map(&mut |_seqname : &str, _position, value : f64| {
             if !value.is_nan() {
                 *map_in.entry(OrderedFloat(value)).or_insert(0) += 1;
             }
@@ -501,7 +480,7 @@ impl<'a> GenericMutableTrack<'a> {
         }
 
         // Applying the transformation
-        self.map(&mut |_seqname, _position, value : f64| {
+        self.map(&mut |_seqname : &str, _position, value : f64| {
             if value.is_nan() {
                 value
             } else {
@@ -518,14 +497,14 @@ impl<'a> GenericMutableTrack<'a> {
         let mut map_tr  = HashMap::new();
 
         // Map `track_ref` to `map_ref`
-        GenericTrack::wrap(track_ref).map(&mut |_, _, value : f64| {
+        GenericTrack::wrap(track_ref).map(&mut |_ : &str, _, value : f64| {
             if !value.is_nan() {
                 *map_ref.entry(OrderedFloat(value)).or_insert(0) += 1;
             }
         })?;
 
         // Map `self` to `map_in`
-        self.map(&mut |_, _, value : f64| {
+        self.map(&mut |_ : &str, _, value : f64| {
             if !value.is_nan() {
                 *map_in.entry(OrderedFloat(value)).or_insert(0) += 1;
             }
@@ -556,7 +535,7 @@ impl<'a> GenericMutableTrack<'a> {
         }
 
         // Apply the mapping to normalize `track`
-        self.map(&mut |_, _, value : f64| {
+        self.map(&mut |_ : &str, _, value : f64| {
             if value.is_nan() {
                 value
             } else {
@@ -631,6 +610,27 @@ impl<'a> GenericMutableTrack<'a> {
             }
         }
         
+        Ok(())
+    }
+
+    pub fn map<F>(&mut self, mut f: F) -> Result<(), Box<dyn Error>>
+    where
+        F: FnMut(&str, usize, f64) -> f64,
+    {
+        let bin_size = self.track.get_bin_size();
+
+        for name in self.track.get_seq_names() {
+
+            let mut seq = self.track.get_sequence_mut(&name)?;
+            
+            for i in 0..seq.n_bins() {
+                // Call the function `f` with name, index and value
+                let v = f(&name, i * bin_size, seq.at_bin(i));
+
+                seq.set_bin(i, v);
+            }
+        }
+
         Ok(())
     }
 
