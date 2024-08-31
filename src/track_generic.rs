@@ -200,16 +200,17 @@ impl<'a> GenericTrack<'a> {
             return Err(Box::new(InvalidWindowSizeError));
         }
     
-        let n = tracks.len();
+        let n        = tracks.len();
+        let bin_size = tracks[0].get_bin_size();
         let mut v: Vec<Vec<f64>> = vec![vec![f64::NAN; window_size]; n];
     
         // Check bin sizes
         for i in 1..n {
-            if tracks[0].get_bin_size() != tracks[i].get_bin_size() {
+            if bin_size != tracks[i].get_bin_size() {
                 return Err(Box::new(BinSizeMismatchError));
             }
         }
-        let bin_size = tracks[0].get_bin_size();
+
         for name in tracks[0].get_seq_names() {
             let mut sequences = Vec::new();
             let mut nbins     = None;
@@ -559,7 +560,7 @@ impl<'a> GenericMutableTrack<'a> {
         
         let offset1 = div_int_up  (window_sizes[0] - 1, 2);
         let offset2 = div_int_down(window_sizes[0] - 1, 2);
-        let nw = window_sizes.len(); // Number of window sizes
+        let nw      = window_sizes.len(); // Number of window sizes
         
         // Loop over sequences
         for name in self.track.get_seq_names() {
