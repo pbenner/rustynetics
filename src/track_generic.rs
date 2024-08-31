@@ -21,6 +21,7 @@ use std::error::Error;
 use crate::range::Range;
 use crate::reads::Read;
 use crate::track::{MutableTrack, Track};
+use crate::utility_cumdist::{CumDist, OrderedFloat};
 
 /* -------------------------------------------------------------------------- */
 
@@ -31,6 +32,10 @@ pub struct GenericTrack<'a> {
 /* -------------------------------------------------------------------------- */
 
 impl<'a> GenericTrack<'a> {
+
+    pub fn wrap(track : &'a dyn Track) -> Self {
+        Self{track}
+    }
 
     pub fn reduce<F>(&self, f: F, x0: f64) -> HashMap<String, f64>
     where
@@ -280,6 +285,56 @@ impl<'a> GenericMutableTrack<'a> {
                 seq.set_bin(i, v);
             }
         }
+
+        Ok(())
+    }
+
+    fn quantile_normalize_to_counts(&mut self, x: Vec<f64>, y: Vec<usize>) -> Result<(), Box<dyn Error>> {
+        let mut map_in: HashMap<OrderedFloat, usize> = HashMap::new();
+        let mut map_tr: HashMap<OrderedFloat, f64  > = HashMap::new();
+
+        // Mapping values to count occurrences
+        self.map(&|seqname, _position, value : f64| {
+            if !value.is_nan() {
+                *map_in.entry(OrderedFloat(value)).or_insert(0) += 1;
+            }
+            value
+        })?;
+
+        let dist_ref = CumDist::from_counts(x, y);
+        let dist_in  = CumDist::new(map_in);
+
+        if dist_ref.x.is_empty() {
+            return Ok(());
+        }
+
+        // Set the first value to keep data on the same range
+        map_tr.insert(OrderedFloat(dist_in.x[0]), dist_ref.x[0]);
+
+        let mut i = 1;
+        let mut j = 1;
+        while i < dist_ref.x.len() {
+            let p_ref = dist_ref.y[i] as f64 / dist_ref.num() as f64;
+            while j < dist_in.x.len() {
+                let p_in = dist_in.y[j] as f64 / dist_in.num() as f64;
+                if p_in > p_ref {
+                    break;
+                }
+                // Map input x_j to reference x_i
+                map_tr.insert(OrderedFloat(dist_in.x[j]), dist_ref.x[i]);
+                j += 1;
+            }
+            i += 1;
+        }
+
+        // Applying the transformation
+        self.map(&|seqname, _position, value : f64| {
+            if value.is_nan() {
+                value
+            } else {
+                *map_tr.get(&OrderedFloat(value)).unwrap_or(&value)
+            }
+        })?;
 
         Ok(())
     }

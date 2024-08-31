@@ -22,7 +22,7 @@ use std::cmp::Ordering;
 /* -------------------------------------------------------------------------- */
 
 #[derive(Clone, Copy)]
-pub struct OrderedFloat(f64);
+pub struct OrderedFloat(pub f64);
 
 /* -------------------------------------------------------------------------- */
 
@@ -85,7 +85,7 @@ pub struct CumDist {
 // Implement methods for CumDist
 impl CumDist {
 
-    pub fn new_from_counts(x: Vec<f64>, y: Vec<usize>) -> Self {
+    pub fn from_counts(x: Vec<f64>, y: Vec<usize>) -> Self {
         // Sort the arrays based on x values and keep y aligned with x
         let mut indices: Vec<usize> = (0..x.len()).collect();
 
@@ -114,7 +114,14 @@ impl CumDist {
             y.push(*val);
         }
 
-        Self::new_from_counts(x, y)
+        Self::from_counts(x, y)
+    }
+
+    pub fn num(&self) -> usize {
+        match self.y.len() {
+            0 => 0,
+            n => self.y[n-1],
+        }
     }
 }
 
