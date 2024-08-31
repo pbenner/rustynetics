@@ -696,7 +696,7 @@ impl<'a> GenericMutableTrack<'a> {
 
         // Check bin sizes
         for t in tracks.iter() {
-            if self.track.get_bin_size() != t.get_bin_size() {
+            if bin_size != t.get_bin_size() {
                 return Err(Box::new(BinSizeMismatchError));
             }
         }
@@ -761,8 +761,8 @@ impl<'a> GenericMutableTrack<'a> {
         let mut v: Vec<Vec<f64>> = vec![vec![f64::NAN; window_size]; n];
     
         // Check bin sizes
-        for i in 0..n {
-            if bin_size != tracks[i].get_bin_size() {
+        for t in tracks.iter() {
+            if bin_size != t.get_bin_size() {
                 return Err(Box::new(BinSizeMismatchError));
             }
         }
