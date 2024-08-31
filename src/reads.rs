@@ -18,6 +18,7 @@ use std::fmt;
 use std::error::Error;
 
 use crate::range::Range;
+use crate::granges_row::GRange;
 
 /* -------------------------------------------------------------------------- */
 
@@ -34,6 +35,14 @@ pub struct Read {
 /* -------------------------------------------------------------------------- */
 
 impl Read {
+
+    pub fn get_grange(&self) -> GRange {
+        GRange{
+            seqname: self.seqname.clone(),
+            range  : self.range,
+            strand : self.strand
+        }
+    }
 
     pub fn extend_read(&self, d: usize) -> Result<Range, Box<dyn Error>> {
         let mut from = self.range.from;
