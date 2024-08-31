@@ -40,6 +40,7 @@ pub fn div_int_up<T : PrimInt>(a: T, b: T) -> T {
     (a + b - T::one()) / b
 }
 
+// Helper function for integer division rounding down
 pub fn div_int_down<T : PrimInt>(n: T, d: T) -> T {
     n / d
 }
