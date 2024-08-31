@@ -61,6 +61,24 @@ impl<'a> GenericTrack<'a> {
         result
     }
 
+    pub fn map<F>(&self, f: F) -> Result<(), Box<dyn Error>>
+    where
+        F: Fn(&str, usize, f64),
+    {
+        let bin_size = self.track.get_bin_size();
+
+        for name in self.track.get_seq_names() {
+
+            let seq = self.track.get_sequence(&name)?;
+            
+            for i in 0..seq.n_bins() {
+                // Call the function `f` with name, index and value
+                f(&name, i * bin_size, seq.at_bin(i));
+            }
+        }
+
+        Ok(())
+    }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -245,6 +263,26 @@ impl<'a> GenericMutableTrack<'a> {
         Ok(())
     }
 
+    pub fn map<F>(&mut self, f: F) -> Result<(), Box<dyn Error>>
+    where
+        F: Fn(&str, usize, f64) -> f64,
+    {
+        let bin_size = self.track.get_bin_size();
+
+        for name in self.track.get_seq_names() {
+
+            let mut seq = self.track.get_sequence_mut(&name)?;
+            
+            for i in 0..seq.n_bins() {
+                // Call the function `f` with name, index and value
+                let v = f(&name, i * bin_size, seq.at_bin(i));
+
+                seq.set_bin(i, v);
+            }
+        }
+
+        Ok(())
+    }
 }
 
 /* -------------------------------------------------------------------------- */
