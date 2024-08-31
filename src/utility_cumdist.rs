@@ -84,25 +84,14 @@ pub struct CumDist {
 
 // Implement methods for CumDist
 impl CumDist {
-    fn len(&self) -> usize {
-        self.x.len()
-    }
-
-    fn less(&self, i: usize, j: usize) -> bool {
-        self.x[i] < self.x[j]
-    }
-
-    fn swap(&mut self, i: usize, j: usize) {
-        self.x.swap(i, j);
-        self.y.swap(i, j);
-    }
 
     pub fn new_from_counts(x: Vec<f64>, y: Vec<usize>) -> Self {
         // Sort the arrays based on x values and keep y aligned with x
         let mut indices: Vec<usize> = (0..x.len()).collect();
+
         indices.sort_by(|&i, &j| x[i].partial_cmp(&x[j]).unwrap_or(Ordering::Equal));
 
-        let sorted_x: Vec<f64> = indices.iter().map(|&i| x[i]).collect();
+        let     sorted_x: Vec<f64>   = indices.iter().map(|&i| x[i]).collect();
         let mut sorted_y: Vec<usize> = indices.iter().map(|&i| y[i]).collect();
 
         // Compute the cumulative distribution
@@ -148,6 +137,9 @@ mod tests {
         data.insert(OrderedFloat(2.0), 3);
 
         let cum_dist = CumDist::new(data);
+
+        assert_eq!(cum_dist.x, vec![1.0, 2.0, 3.0]);
+        assert_eq!(cum_dist.y, vec![2, 5, 6]);
 
         println!("{:?}", cum_dist);
     }
