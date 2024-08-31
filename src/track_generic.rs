@@ -21,6 +21,7 @@ use std::error::Error;
 use crate::range::Range;
 use crate::reads::Read;
 use crate::track::{MutableTrack, Track};
+use crate::utility::{div_int_up, div_int_down};
 use crate::utility_cumdist::{CumDist, OrderedFloat};
 
 /* -------------------------------------------------------------------------- */
@@ -391,6 +392,70 @@ impl<'a> GenericMutableTrack<'a> {
             }
         })?;
 
+        Ok(())
+    }
+
+    pub fn smoothen(&mut self, min_counts: f64, window_sizes: Vec<usize>) -> Result<(), Box<dyn Error>> {
+        if window_sizes.is_empty() {
+            return Ok(());
+        }
+        
+        let mut window_sizes = window_sizes;
+        window_sizes.sort(); // Sort window sizes in ascending order
+        
+        let offset1 = div_int_up  (window_sizes[0] - 1, 2);
+        let offset2 = div_int_down(window_sizes[0] - 1, 2);
+        let nw = window_sizes.len(); // Number of window sizes
+        
+        // Loop over sequences
+        for name in self.track.get_seq_names() {
+
+            let mut seq = self.track.get_sequence_mut(&name)?;
+            let nbins = seq.n_bins();
+            let mut rst = vec![f64::NEG_INFINITY; nbins];
+            
+            // Loop over sequence bins
+            for i in offset1..(nbins - offset2) {
+                let mut counts : f64 = f64::NEG_INFINITY;
+                let mut wsize  : i64 = -1;
+                
+                for k in 0..nw {
+                    let mut from = i as isize - div_int_up  (window_sizes[k] - 1, 2) as isize;
+                    let mut to   = i as isize + div_int_down(window_sizes[k] - 1, 2) as isize;
+                    
+                    if from < 0 {
+                        to += -from;
+                    }
+                    
+                    if to >= nbins as isize {
+                        from -= to - (nbins as isize - 1);
+                        to = nbins as isize - 1;
+                    }
+                    
+                    let from = std::cmp::max(0, from) as usize;
+                    let to   = std::cmp::min(nbins - 1, to as usize);
+                    
+                    counts = 0.0;
+                    for j in from..=to {
+                        counts += seq.at_bin(j);
+                    }
+                    wsize = (to - from + 1) as i64;
+                    
+                    if counts >= min_counts {
+                        break;
+                    }
+                }
+                
+                if wsize != -1 {
+                    rst[i] = counts / wsize as f64;
+                }
+            }
+            
+            for i in 0..nbins {
+                seq.set_bin(i, rst[i]);
+            }
+        }
+        
         Ok(())
     }
 }

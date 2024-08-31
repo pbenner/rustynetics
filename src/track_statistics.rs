@@ -21,6 +21,7 @@ use crate::reads::Read;
 use crate::track::Track;
 use crate::track_simple::SimpleTrack;
 use crate::track_generic::GenericMutableTrack;
+use crate::utility::div_int_up;
 
 /* -------------------------------------------------------------------------- */
 
@@ -71,13 +72,6 @@ pub fn bin_summary_statistics_from_string(s: &str) -> Option<BinSummaryStatistic
         "variance"      => Some(bin_variance),
         _               => None,
     }
-}
-
-/* -------------------------------------------------------------------------- */
-
-// Helper function for integer division rounding up
-fn div_int_up(a: i32, b: i32) -> i32 {
-    (a + b - 1) / b
 }
 
 /* -------------------------------------------------------------------------- */
