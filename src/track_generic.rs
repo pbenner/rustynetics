@@ -15,6 +15,7 @@
  */
 
 use std::fmt;
+use std::collections::HashMap;
 use std::error::Error;
 
 use crate::range::Range;
@@ -26,6 +27,43 @@ use crate::track::{MutableTrack, Track};
 pub struct GenericTrack<'a> {
     track : &'a dyn Track,
 }
+
+/* -------------------------------------------------------------------------- */
+
+impl<'a> GenericTrack<'a> {
+
+    pub fn reduce<F>(&self, f: F, x0: f64) -> HashMap<String, f64>
+    where
+        F: Fn(&str, usize, f64, f64) -> f64,
+    {
+        let mut result = HashMap::new();
+        let bin_size = self.track.get_bin_size();
+
+        for name in self.track.get_seq_names() {
+            let sequence = match self.track.get_sequence(&name) {
+                Ok(seq) => seq,
+                Err(_) => continue,
+            };
+
+            if sequence.n_bins() == 0 {
+                continue;
+            }
+
+            let mut tmp = f(&name, 0, x0, sequence.at_bin(0));
+
+            for i in 1..sequence.n_bins() {
+                tmp = f(&name, i * bin_size, tmp, sequence.at_bin(i));
+            }
+
+            result.insert(name, tmp);
+        }
+
+        result
+    }
+
+}
+
+/* -------------------------------------------------------------------------- */
 
 pub struct GenericMutableTrack<'a> {
     track : &'a mut dyn MutableTrack,
