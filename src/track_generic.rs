@@ -167,6 +167,46 @@ impl<'a> GenericMutableTrack<'a> {
         n
     }
 
+    // Combine treatment and control from a ChIP-seq experiment into a single track.
+    // At each genomic location, the number of binned reads from the treatment
+    // experiment is divided by the number of control reads. To avoid division by
+    // zero, a pseudocount is added to both treatment and control. The parameter
+    // d determines the extension of reads.
+    pub fn normalize(
+        &mut self,
+        treatment: &dyn Track,
+        control  : &dyn Track,
+        c1       : f64,
+        c2       : f64,
+        log_scale: bool,
+    ) -> Result<(), Box<dyn Error>> {
+
+        if c1 <= 0.0 || c2 <= 0.0 {
+            return Err("pseudocounts must be strictly positive".into());
+        }
+
+        for name in self.track.get_seq_names() {
+            let mut seq = self.track.get_sequence_mut(&name)?;
+            let seq1 = treatment.get_sequence(&name)?;
+            let seq2 = match control.get_sequence(&name) {
+                Ok(seq) => seq,
+                Err(_)  => continue,
+            };
+
+            for i in 0..seq1.n_bins() {
+                let value = if log_scale {
+                    ((seq1.at_bin(i) + c1) / (seq2.at_bin(i) + c2) * c2 / c1).ln()
+                } else {
+                    (seq1.at_bin(i) + c1) / (seq2.at_bin(i) + c2) * c2 / c1
+                };
+
+                seq.set_bin(i, value);
+            }
+        }
+
+        Ok(())
+    }
+
 }
 
 /* -------------------------------------------------------------------------- */
