@@ -184,6 +184,79 @@ impl<'a> GenericTrack<'a> {
     
         Ok(())
     }
+
+    pub fn window_map_list<F>(
+        tracks     : &[&dyn Track],
+        window_size: usize,
+        mut f      : F,
+    ) -> Result<(), Box<dyn Error>>
+    where
+        F: FnMut(&str, usize, &[Vec<f64>]) -> f64,
+    {
+        if tracks.is_empty() {
+            return Ok(());
+        }
+        if window_size == 0 {
+            return Err(Box::new(InvalidWindowSizeError));
+        }
+    
+        let n = tracks.len();
+        let mut v: Vec<Vec<f64>> = vec![vec![f64::NAN; window_size]; n];
+    
+        // Check bin sizes
+        for i in 1..n {
+            if tracks[0].get_bin_size() != tracks[i].get_bin_size() {
+                return Err(Box::new(BinSizeMismatchError));
+            }
+        }
+        let bin_size = tracks[0].get_bin_size();
+        for name in tracks[0].get_seq_names() {
+            let mut sequences = Vec::new();
+            let mut nbins     = None;
+
+            // Collect source sequences
+            for (k, t) in tracks.iter().enumerate() {
+                if let Ok(seq) = t.get_sequence(&name) {
+                    if nbins.is_none() {
+                        nbins = Some(seq.n_bins());
+                    }
+                    if seq.n_bins() != nbins.unwrap() {
+                        return Err(Box::new(SequenceLengthMismatchError(format!(
+                            "sequence `{}` in track `{}` has invalid length (`{}` instead of `{}`)",
+                            name,
+                            k,
+                            seq.n_bins(),
+                            nbins.unwrap()
+                        ))));
+                    }
+                    sequences.push(seq);
+                }
+            }
+
+            // Reduce length of v if some tracks are missing a sequence
+            let v_len = sequences.len();
+            v.truncate(v_len);
+
+            // Loop over sequence
+            for i in 0..nbins.unwrap() {
+                // Copy values to local vector
+                for (j, seq) in sequences.iter().enumerate() {
+                    for k in 0..window_size {
+                        let t = i as isize - (window_size / 2) as isize + k as isize;
+                        if t < 0 || t >= seq.n_bins() as isize {
+                            v[j][k] = f64::NAN;
+                        } else {
+                            v[j][k] = seq.at_bin(t as usize);
+                        }
+                    }
+                }
+                // Apply function
+                f(&name, i * bin_size, &v);
+            }
+        }
+    
+        Ok(())
+    }
 }
 
 /* -------------------------------------------------------------------------- */
