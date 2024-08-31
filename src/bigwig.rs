@@ -14,6 +14,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+use std::fs::File;
 use std::io::{self, Read, Write, Seek, SeekFrom};
 use std::result::Result;
 use std::error::Error;
@@ -72,17 +73,25 @@ impl Default for BigWigParameters {
 
 /* -------------------------------------------------------------------------- */
 
-pub type BigWigFile = NetFile;
+pub enum BigWigFile {}
 
 /* -------------------------------------------------------------------------- */
 
 impl BigWigFile {
 
-    pub fn new_reader(filename : &str) -> Result<BigWigReader<Self>, Box<dyn Error>> {
+    pub fn new_reader(filename : &str) -> Result<BigWigReader<NetFile>, Box<dyn Error>> {
 
         let file = NetFile::open(filename)?;
 
         BigWigReader::new(file)
+
+    }
+
+    pub fn new_writer(filename : &str, genome: Genome, parameters: BigWigParameters) -> Result<BigWigWriter<File>, Box<dyn Error>> {
+
+        let file = File::create(filename)?;
+
+        BigWigWriter::new(file, genome, parameters)
 
     }
 
