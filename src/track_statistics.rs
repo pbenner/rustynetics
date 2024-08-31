@@ -25,7 +25,7 @@ use crate::track_generic::GenericMutableTrack;
 /* -------------------------------------------------------------------------- */
 
 // Type alias for BinSummaryStatistics function
-type BinSummaryStatistics = fn(f64, f64, f64, f64, f64) -> f64;
+pub type BinSummaryStatistics = fn(f64, f64, f64, f64, f64) -> f64;
 
 /* -------------------------------------------------------------------------- */
 
@@ -60,7 +60,7 @@ fn bin_variance(sum: f64, sum_squares: f64, _min: f64, _max: f64, n: f64) -> f64
 
 /* -------------------------------------------------------------------------- */
 
-fn bin_summary_statistics_from_string(s: &str) -> Option<BinSummaryStatistics> {
+pub fn bin_summary_statistics_from_string(s: &str) -> Option<BinSummaryStatistics> {
     match s {
         "mean"          => Some(bin_mean),
         "max"           => Some(bin_max),
@@ -83,7 +83,7 @@ fn div_int_up(a: i32, b: i32) -> i32 {
 /* -------------------------------------------------------------------------- */
 
 // Function to compute the cross-correlation between two tracks
-fn track_crosscorrelation(
+pub fn track_crosscorrelation(
     track1: &dyn Track,
     track2: &dyn Track,
     from: i32,
@@ -189,7 +189,7 @@ fn track_crosscorrelation(
 /* -------------------------------------------------------------------------- */
 
 // Function to cross-correlate reads on forward and reverse strands
-fn crosscorrelate_reads(
+pub fn crosscorrelate_reads(
     reads    : impl Iterator<Item = Read>,
     genome   : &Genome,
     max_delay: i32,
@@ -234,7 +234,7 @@ fn crosscorrelate_reads(
 /* -------------------------------------------------------------------------- */
 
 // Function to estimate fragment length
-fn estimate_fragment_length(
+pub fn estimate_fragment_length(
     reads        : impl Iterator<Item = Read>,
     genome       : &Genome,
     max_delay    : i32,

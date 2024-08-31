@@ -44,11 +44,12 @@ impl<'a> GenericMutableTrack<'a> {
     // Reads are not extended if [d] is zero.
     // The function returns an error if the read's position is out of range
     pub fn add_read(&mut self, read: &Read, d: usize) -> Result<(), Box<dyn Error>> {
+
+        let bin_size = self.track.get_bin_size();
+
         let mut seq = self.track.get_sequence_mut(&read.seqname)?;
 
         let range = read.extend_read(d)?;
-
-        let bin_size = self.track.get_bin_size();
 
         if range.from / bin_size >= seq.n_bins() {
             return Err(Box::new(ReadOutOfRangeError(read.clone())));
