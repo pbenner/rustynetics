@@ -395,6 +395,9 @@ impl<'a> GenericMutableTrack<'a> {
         Ok(())
     }
 
+    // Smoothen track data with an adaptive window method. For each region the smallest window
+    // size among windowSizes is selected which contains at least minCounts counts. If the
+    // minimum number of counts is not reached, the larges window size is selected.
     pub fn smoothen(&mut self, min_counts: f64, window_sizes: Vec<usize>) -> Result<(), Box<dyn Error>> {
         if window_sizes.is_empty() {
             return Ok(());
