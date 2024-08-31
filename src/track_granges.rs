@@ -63,7 +63,7 @@ impl<'a> GenericTrack<'a> {
                     c_to   = c_from + bin_size;
                     c_val  = v;
                 } else {
-                    c_to += bin_size;
+                    c_to  += bin_size;
                 }
             }
 
@@ -74,8 +74,9 @@ impl<'a> GenericTrack<'a> {
             values  .push(c_val);
         }
 
-        let mut r = GRanges::new(seqnames, from, to, None);
-        r.meta.add_meta(name, MetaData::FloatArray(values));
+        let mut r = GRanges::new(seqnames, from, to, vec![]);
+
+        r.meta.add_meta(name, MetaData::FloatArray(values))?;
 
         Ok(r)
     }

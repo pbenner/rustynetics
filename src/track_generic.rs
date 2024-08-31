@@ -819,7 +819,7 @@ impl<'a> GenericMutableTrack<'a> {
 /* -------------------------------------------------------------------------- */
 
 #[derive(Debug)]
-struct ReadOutOfRangeError(Read);
+pub struct ReadOutOfRangeError(Read);
 
 impl fmt::Display for ReadOutOfRangeError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -832,7 +832,7 @@ impl Error for ReadOutOfRangeError {}
 /* -------------------------------------------------------------------------- */
 
 #[derive(Debug)]
-struct InvalidWindowSizeError;
+pub struct InvalidWindowSizeError;
 
 impl fmt::Display for InvalidWindowSizeError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -845,7 +845,7 @@ impl Error for InvalidWindowSizeError {}
 /* -------------------------------------------------------------------------- */
 
 #[derive(Debug)]
-struct BinSizeMismatchError;
+pub struct BinSizeMismatchError;
 
 impl fmt::Display for BinSizeMismatchError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -857,7 +857,7 @@ impl Error for BinSizeMismatchError {}
 /* -------------------------------------------------------------------------- */
 
 #[derive(Debug)]
-struct SequenceLengthMismatchError(String);
+pub struct SequenceLengthMismatchError(String);
 
 impl fmt::Display for SequenceLengthMismatchError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

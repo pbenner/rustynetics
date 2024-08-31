@@ -15,6 +15,7 @@
  */
 
 use std::f64;
+use std::error::Error;
 
 use crate::genome::Genome;
 use crate::reads::Read;
@@ -83,13 +84,13 @@ pub fn track_crosscorrelation(
     from: i32,
     to: i32,
     normalize: bool,
-) -> Result<(Vec<i32>, Vec<f64>), String> {
+) -> Result<(Vec<i32>, Vec<f64>), Box<dyn Error>> {
     if from < 0 || to < from {
-        return Err("Crosscorrelation(): invalid parameters".to_string());
+        return Err("Crosscorrelation(): invalid parameters".into());
     }
 
     if track1.get_bin_size() != track2.get_bin_size() {
-        return Err("Crosscorrelation(): track binSizes do not match".to_string());
+        return Err("Crosscorrelation(): track binSizes do not match".into());
     }
 
     let mut x = Vec::new();
@@ -99,7 +100,7 @@ pub fn track_crosscorrelation(
         let sequence1 = track1.get_sequence(&name)?;
         if let Ok(sequence2) = track2.get_sequence(&name) {
             if sequence1.n_bins() != sequence2.n_bins() {
-                return Err("Crosscorrelation(): track sequence lengths do not match".to_string());
+                return Err("Crosscorrelation(): track sequence lengths do not match".into());
             }
         } else {
             continue;
@@ -188,7 +189,7 @@ pub fn crosscorrelate_reads(
     genome   : &Genome,
     max_delay: i32,
     bin_size : usize,
-) -> Result<(Vec<i32>, Vec<f64>, i32, u64), String> {
+) -> Result<(Vec<i32>, Vec<f64>, i32, u64), Box<dyn Error>> {
 
     let mut track1 = SimpleTrack::alloc("forward".to_string(), genome.clone(), bin_size);
     let mut track2 = SimpleTrack::alloc("reverse".to_string(), genome.clone(), bin_size);
@@ -216,7 +217,7 @@ pub fn crosscorrelate_reads(
     }
 
     if n == 0 {
-        return Err("computing cross-correlation failed: no reads available".to_string());
+        return Err("computing cross-correlation failed: no reads available".into());
     }
 
     read_length /= n;
@@ -234,7 +235,7 @@ pub fn estimate_fragment_length(
     max_delay    : i32,
     bin_size     : usize,
     fraglen_range: (i32, i32),
-) -> Result<(i32, Vec<i32>, Vec<f64>, u64), String> {
+) -> Result<(i32, Vec<i32>, Vec<f64>, u64), Box<dyn Error>> {
     let (x, y, read_length, n) = crosscorrelate_reads(reads, genome, max_delay, bin_size)?;
 
     let mut from = (read_length + read_length / 2) as i32;
