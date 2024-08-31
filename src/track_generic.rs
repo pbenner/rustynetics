@@ -739,6 +739,80 @@ impl<'a> GenericMutableTrack<'a> {
     
         Ok(())
     }
+
+    pub fn window_map_list<F>(
+        &mut self,
+        tracks     : &[&dyn Track],
+        window_size: usize,
+        mut f      : F,
+    ) -> Result<(), Box<dyn Error>>
+    where
+        F: FnMut(&str, usize, &[Vec<f64>]) -> f64,
+    {
+        if tracks.is_empty() {
+            return Ok(());
+        }
+        if window_size == 0 {
+            return Err(Box::new(InvalidWindowSizeError));
+        }
+    
+        let n        = tracks.len();
+        let bin_size = self.track.get_bin_size();
+        let mut v: Vec<Vec<f64>> = vec![vec![f64::NAN; window_size]; n];
+    
+        // Check bin sizes
+        for i in 0..n {
+            if bin_size != tracks[i].get_bin_size() {
+                return Err(Box::new(BinSizeMismatchError));
+            }
+        }
+
+        for name in self.track.get_seq_names() {
+
+            let mut dst       = self.track.get_sequence_mut(&name)?;
+            let mut sequences = Vec::new();
+
+            // Collect source sequences
+            for (k, t) in tracks.iter().enumerate() {
+                if let Ok(seq) = t.get_sequence(&name) {
+                    if seq.n_bins() != dst.n_bins() {
+                        return Err(Box::new(SequenceLengthMismatchError(format!(
+                            "sequence `{}` in track `{}` has invalid length (`{}` instead of `{}`)",
+                            name,
+                            k,
+                            seq.n_bins(),
+                            dst.n_bins()
+                        ))));
+                    }
+                    sequences.push(seq);
+                }
+            }
+
+            // Reduce length of v if some tracks are missing a sequence
+            let v_len = sequences.len();
+            v.truncate(v_len);
+
+            // Loop over sequence
+            for i in 0..dst.n_bins() {
+                // Copy values to local vector
+                for (j, seq) in sequences.iter().enumerate() {
+                    for k in 0..window_size {
+                        let t = i as isize - (window_size / 2) as isize + k as isize;
+                        if t < 0 || t >= seq.n_bins() as isize {
+                            v[j][k] = f64::NAN;
+                        } else {
+                            v[j][k] = seq.at_bin(t as usize);
+                        }
+                    }
+                }
+                // Apply function
+                dst.set_bin(i, f(&name, i * bin_size, &v));
+            }
+        }
+    
+        Ok(())
+    }
+
 }
 
 /* -------------------------------------------------------------------------- */
