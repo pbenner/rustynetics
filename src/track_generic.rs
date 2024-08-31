@@ -67,7 +67,10 @@ impl<'a> GenericTrack<'a> {
         result
     }
 
-    pub fn map<F>(&self, mut f: F) -> Result<(), Box<dyn Error>>
+    pub fn map<F>(
+        &self,
+        mut f: F
+    ) -> Result<(), Box<dyn Error>>
     where
         F: FnMut(String, usize, f64),
     {
@@ -92,7 +95,7 @@ impl<'a> GenericTrack<'a> {
         mut f      : F,
     ) -> Result<(), Box<dyn Error>>
     where
-        F: FnMut(&str, usize, &[f64]) -> f64,
+        F: FnMut(&str, usize, &[f64]),
     {
         if window_size == 0 {
             return Err(Box::new(InvalidWindowSizeError));
