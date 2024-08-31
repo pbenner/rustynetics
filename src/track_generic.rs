@@ -124,7 +124,7 @@ impl<'a> GenericTrack<'a> {
 
     pub fn map_list<F>(
         tracks: &[&dyn Track],
-        mut f: F,
+        mut f : F,
     ) -> Result<(), Box<dyn Error>>
     where
         F: FnMut(&str, usize, &[f64]) -> f64,
@@ -133,8 +133,9 @@ impl<'a> GenericTrack<'a> {
             return Ok(());
         }
     
-        let n = tracks.len();
-        let mut v = vec![f64::NAN; n];
+        let n        = tracks.len();
+        let bin_size = tracks[0].get_bin_size();
+        let mut v    = vec![f64::NAN; n];
     
         // Check bin sizes
         for i in 1..n {
@@ -142,7 +143,7 @@ impl<'a> GenericTrack<'a> {
                 return Err(Box::new(BinSizeMismatchError));
             }
         }
-        let bin_size = tracks[0].get_bin_size();
+
         for name in tracks[0].get_seq_names() {
             let mut sequences = Vec::new();
             let mut nbins     = None;
@@ -601,6 +602,68 @@ impl<'a> GenericMutableTrack<'a> {
             }
         }
 
+        Ok(())
+    }
+
+    pub fn map_list<F>(
+        &mut self,
+        tracks: &[&dyn Track],
+        mut f : F,
+    ) -> Result<(), Box<dyn Error>>
+    where
+        F: FnMut(&str, usize, &[f64]) -> f64,
+    {
+        if tracks.is_empty() {
+            return Ok(());
+        }
+    
+        let n        = tracks.len();
+        let bin_size = self.track.get_bin_size();
+        let mut v    = vec![f64::NAN; n];
+
+        // Check bin sizes
+        for t in tracks.iter() {
+            if self.track.get_bin_size() != t.get_bin_size() {
+                return Err(Box::new(BinSizeMismatchError));
+            }
+        }
+
+        for name in self.track.get_seq_names() {
+
+            let mut dst       = self.track.get_sequence_mut(&name)?;
+            let mut sequences = Vec::new();
+
+            // Collect source sequences
+            for (k, t) in tracks.iter().enumerate() {
+                if let Ok(seq) = t.get_sequence(&name) {
+                    if seq.n_bins() != dst.n_bins() {
+                        return Err(Box::new(SequenceLengthMismatchError(format!(
+                            "sequence `{}` in track `{}` has invalid length (`{}` instead of `{}`)",
+                            name,
+                            k,
+                            seq.n_bins(),
+                            dst.n_bins()
+                        ))));
+                    }
+                    sequences.push(seq);
+                }
+            }
+
+            // Reduce length of v if some tracks are missing a sequence
+            let v_len = sequences.len();
+            v.truncate(v_len);
+
+            // Loop over sequence
+            for i in 0..dst.n_bins() {
+                // Copy values to local vector
+                for (j, seq) in sequences.iter().enumerate() {
+                    v[j] = seq.at_bin(i);
+                }
+                // Apply function
+                dst.set_bin(i, f(&name, i * bin_size, &v));
+            }
+        }
+    
         Ok(())
     }
 }
