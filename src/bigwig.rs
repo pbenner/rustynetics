@@ -99,6 +99,7 @@ impl BigWigFile {
 
 /* -------------------------------------------------------------------------- */
 
+#[derive(Clone, Debug)]
 pub struct BigWigReader<R: Read + Seek> {
     reader: R,
     bwf   : BbiFile,
@@ -210,6 +211,7 @@ impl<R: Read + Seek> BigWigReader<R> {
 
 /* -------------------------------------------------------------------------- */
 
+#[derive(Clone, Debug)]
 pub struct BigWigWriter<W: Write + Seek> {
     writer    : W,
     bwf       : BbiFile,

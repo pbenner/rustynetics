@@ -1840,6 +1840,7 @@ impl RVertex {
 
 /* -------------------------------------------------------------------------- */
 
+#[derive(Clone, Debug)]
 pub struct RVertexGenerator {
     pub block_size    : usize,
     pub items_per_slot: usize,
