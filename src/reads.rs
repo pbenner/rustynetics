@@ -14,6 +14,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+use std::fmt;
+use std::error::Error;
+
 use crate::range::Range;
 
 /* -------------------------------------------------------------------------- */
@@ -27,3 +30,47 @@ pub struct Read {
     pub duplicate : bool,
     pub paired_end: bool,
 }
+
+/* -------------------------------------------------------------------------- */
+
+impl Read {
+
+    pub fn extend_read(&self, d: usize) -> Result<Range, Box<dyn Error>> {
+        let mut from = self.range.from;
+        let mut to   = self.range.to;
+
+        if !self.paired_end && d > 0 {
+            // Extend read in 3' direction
+            match self.strand {
+                '+' => {
+                    to = from + d;
+                }
+                '-' => {
+                    if d > to {
+                        from = 0;
+                    } else {
+                        from = to.saturating_sub(d); // Ensure `from` doesn't go negative
+                    }
+                }
+                _ => {
+                    return Err(Box::new(StrandMissingError(self.strand)));
+                }
+            }
+        }
+
+        Ok(Range::new(from, to))
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+
+#[derive(Debug)]
+pub struct StrandMissingError(char);
+
+impl fmt::Display for StrandMissingError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "strand information is missing for read with strand `{}`", self.0)
+    }
+}
+
+impl Error for StrandMissingError {}

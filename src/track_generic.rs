@@ -38,32 +38,6 @@ impl<'a> GenericMutableTrack<'a> {
         Self{track}
     }
 
-    fn extend_read(&self, read: &Read, d: usize) -> Result<(usize, usize), Box<dyn Error>> {
-        let mut from = read.range.from;
-        let mut to = read.range.to;
-
-        if !read.paired_end && d > 0 {
-            // Extend read in 3' direction
-            match read.strand {
-                '+' => {
-                    to = from + d;
-                }
-                '-' => {
-                    if d > to {
-                        from = 0;
-                    } else {
-                        from = to.saturating_sub(d); // Ensure `from` doesn't go negative
-                    }
-                }
-                _ => {
-                    return Err(Box::new(StrandMissingError(read.strand)));
-                }
-            }
-        }
-
-        Ok((from, to))
-    }
-
     // Add a single read to the track by incrementing the value of each bin that
     // overlaps with the read. Single end reads are extended in 3' direction
     // to have a length of [d]. This is the same as the macs2 `extsize' parameter.
@@ -72,15 +46,15 @@ impl<'a> GenericMutableTrack<'a> {
     pub fn add_read(&mut self, read: &Read, d: usize) -> Result<(), Box<dyn Error>> {
         let mut seq = self.track.get_sequence_mut(&read.seqname)?;
 
-        let (from, to) = self.extend_read(&read, d)?;
+        let range = read.extend_read(d)?;
 
         let bin_size = self.track.get_bin_size();
 
-        if from / bin_size >= seq.n_bins() {
+        if range.from / bin_size >= seq.n_bins() {
             return Err(Box::new(ReadOutOfRangeError(read.clone())));
         }
 
-        for j in (from / bin_size)..=(to - 1) / bin_size {
+        for j in (range.from / bin_size)..=(range.to - 1) / bin_size {
             if j >= seq.n_bins() {
                 break;
             } else {
@@ -106,16 +80,3 @@ impl fmt::Display for ReadOutOfRangeError {
 }
 
 impl Error for ReadOutOfRangeError {}
-
-/* -------------------------------------------------------------------------- */
-
-#[derive(Debug)]
-struct StrandMissingError(char);
-
-impl fmt::Display for StrandMissingError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "strand information is missing for read with strand `{}`", self.0)
-    }
-}
-
-impl Error for StrandMissingError {}
