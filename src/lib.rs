@@ -54,6 +54,7 @@ mod meta_table_reader;
 mod meta_table_writer;
 mod netfile;
 mod utility;
+mod utility_cumdist;
 
 // Macros
 extern crate approx;
