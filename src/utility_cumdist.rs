@@ -141,6 +141,5 @@ mod tests {
         assert_eq!(cum_dist.x, vec![1.0, 2.0, 3.0]);
         assert_eq!(cum_dist.y, vec![2, 5, 6]);
 
-        println!("{:?}", cum_dist);
     }
 }

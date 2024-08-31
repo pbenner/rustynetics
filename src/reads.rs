@@ -44,7 +44,7 @@ impl Read {
         }
     }
 
-    pub fn extend_read(&self, d: usize) -> Result<Range, Box<dyn Error>> {
+    pub fn extend(&self, d: usize) -> Result<Range, Box<dyn Error>> {
         let mut from = self.range.from;
         let mut to   = self.range.to;
 
