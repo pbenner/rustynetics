@@ -121,6 +121,68 @@ impl<'a> GenericTrack<'a> {
 
         Ok(())
     }
+
+    pub fn map_list<F>(
+        tracks: &[&dyn Track],
+        mut f: F,
+    ) -> Result<(), Box<dyn Error>>
+    where
+        F: FnMut(&str, usize, &[f64]) -> f64,
+    {
+        if tracks.is_empty() {
+            return Ok(());
+        }
+    
+        let n = tracks.len();
+        let mut v = vec![f64::NAN; n];
+    
+        // Check bin sizes
+        for i in 1..n {
+            if tracks[0].get_bin_size() != tracks[i].get_bin_size() {
+                return Err(Box::new(BinSizeMismatchError));
+            }
+        }
+        let bin_size = tracks[0].get_bin_size();
+        for name in tracks[0].get_seq_names() {
+            let mut sequences = Vec::new();
+            let mut nbins     = None;
+
+            // Collect source sequences
+            for (k, t) in tracks.iter().enumerate() {
+                if let Ok(seq) = t.get_sequence(&name) {
+                    if nbins.is_none() {
+                        nbins = Some(seq.n_bins());
+                    }
+                    if seq.n_bins() != nbins.unwrap() {
+                        return Err(Box::new(SequenceLengthMismatchError(format!(
+                            "sequence `{}` in track `{}` has invalid length (`{}` instead of `{}`)",
+                            name,
+                            k,
+                            seq.n_bins(),
+                            nbins.unwrap()
+                        ))));
+                    }
+                    sequences.push(seq);
+                }
+            }
+
+            // Reduce length of v if some tracks are missing a sequence
+            let v_len = sequences.len();
+            v.truncate(v_len);
+
+            // Loop over sequence
+            for i in 0..nbins.unwrap() {
+                // Copy values to local vector
+                for (j, seq) in sequences.iter().enumerate() {
+                    v[j] = seq.at_bin(i);
+                }
+                // Apply function
+                f(&name, i * bin_size, &v);
+            }
+        }
+    
+        Ok(())
+    }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -587,8 +649,8 @@ impl Error for BinSizeMismatchError {}
 struct SequenceLengthMismatchError(String);
 
 impl fmt::Display for SequenceLengthMismatchError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "sequence lengths do not match for `{}`", self.0)
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 
