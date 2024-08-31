@@ -85,6 +85,39 @@ impl<'a> GenericTrack<'a> {
 
         Ok(())
     }
+
+    pub fn window_map<F>(
+        &self,
+        window_size: usize,
+        mut f: F,
+    ) -> Result<(), Box<dyn Error>>
+    where
+        F: FnMut(&str, usize, &[f64]) -> f64,
+    {
+        if window_size == 0 {
+            return Err(Box::new(InvalidWindowSizeError));
+        }
+
+        let mut v    = vec![f64::NAN; window_size];
+        let bin_size = self.track.get_bin_size();
+
+        for name in self.track.get_seq_names() {
+            let seq = self.track.get_sequence(&name)?;
+            for i in 0..seq.n_bins() {
+                for j in 0..window_size {
+                    let k = i as isize - (window_size / 2) as isize + j as isize;
+                    v[j] = if k < 0 || k >= seq.n_bins() as isize {
+                        f64::NAN
+                    } else {
+                        seq.at_bin(k as usize)
+                    };
+                }
+                f(&name, i * bin_size, &v);
+            }
+        }
+
+        Ok(())
+    }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -475,3 +508,41 @@ impl fmt::Display for ReadOutOfRangeError {
 }
 
 impl Error for ReadOutOfRangeError {}
+
+/* -------------------------------------------------------------------------- */
+
+#[derive(Debug)]
+struct InvalidWindowSizeError;
+
+impl fmt::Display for InvalidWindowSizeError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "invalid window size")
+    }
+}
+
+impl Error for InvalidWindowSizeError {}
+
+/* -------------------------------------------------------------------------- */
+
+#[derive(Debug)]
+struct BinSizeMismatchError;
+
+impl fmt::Display for BinSizeMismatchError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "bin sizes do not match")
+    }
+}
+impl Error for BinSizeMismatchError {}
+
+/* -------------------------------------------------------------------------- */
+
+#[derive(Debug)]
+struct SequenceLengthMismatchError(String);
+
+impl fmt::Display for SequenceLengthMismatchError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "sequence lengths do not match for `{}`", self.0)
+    }
+}
+
+impl Error for SequenceLengthMismatchError {}
