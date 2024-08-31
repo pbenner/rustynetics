@@ -338,6 +338,61 @@ impl<'a> GenericMutableTrack<'a> {
 
         Ok(())
     }
+
+    pub fn quantile_normalize(&mut self, track_ref: &dyn Track) -> Result<(), Box<dyn Error>> {
+        let mut map_ref = HashMap::new();
+        let mut map_in  = HashMap::new();
+        let mut map_tr  = HashMap::new();
+
+        // Map `track_ref` to `map_ref`
+        GenericTrack::wrap(track_ref).map(&mut |_, _, value : f64| {
+            if !value.is_nan() {
+                *map_ref.entry(OrderedFloat(value)).or_insert(0) += 1;
+            }
+        })?;
+
+        // Map `self` to `map_in`
+        self.map(&mut |_, _, value : f64| {
+            if !value.is_nan() {
+                *map_in.entry(OrderedFloat(value)).or_insert(0) += 1;
+            }
+            0.0
+        })?;
+
+        let dist_ref = CumDist::new(map_ref);
+        let dist_in  = CumDist::new(map_in);
+
+        if dist_ref.x.is_empty() {
+            return Ok(());
+        }
+
+        // Set the first value to keep data on the same range
+        map_tr.insert(OrderedFloat(dist_in.x[0]), dist_ref.x[0]);
+
+        let mut j = 1;
+        for i in 1..dist_ref.x.len() {
+            let p_ref = dist_ref.y[i] as f64 / dist_ref.num() as f64;
+            while j < dist_in.x.len() {
+                let p_in = dist_in.y[j] as f64 / dist_in.num() as f64;
+                if p_in > p_ref {
+                    break;
+                }
+                map_tr.insert(OrderedFloat(dist_in.x[j]), dist_ref.x[i]);
+                j += 1;
+            }
+        }
+
+        // Apply the mapping to normalize `track`
+        self.map(&mut |_, _, value : f64| {
+            if value.is_nan() {
+                value
+            } else {
+                *map_tr.get(&OrderedFloat(value)).unwrap_or(&value)
+            }
+        })?;
+
+        Ok(())
+    }
 }
 
 /* -------------------------------------------------------------------------- */
