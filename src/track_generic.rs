@@ -356,7 +356,7 @@ impl<'a> GenericMutableTrack<'a> {
             if !value.is_nan() {
                 *map_in.entry(OrderedFloat(value)).or_insert(0) += 1;
             }
-            0.0
+            value
         })?;
 
         let dist_ref = CumDist::new(map_ref);
