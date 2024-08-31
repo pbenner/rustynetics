@@ -131,7 +131,7 @@ impl<'a> GenericMutableTrack<'a> {
     // overlap", each bin that overlaps the read is incremented by the fraction
     // of overlapping nucleotides within the bin.
     // The function returns an error if the read's position is out of range
-    fn add_reads(
+    pub fn add_reads(
         &mut self,
         reads : impl Iterator<Item = Read>,
         d     : usize,
