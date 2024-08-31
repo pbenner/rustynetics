@@ -33,6 +33,7 @@ pub mod error;
 pub mod options_print;
 pub mod track;
 pub mod track_generic;
+pub mod track_granges;
 pub mod track_simple;
 pub mod track_statistics;
 

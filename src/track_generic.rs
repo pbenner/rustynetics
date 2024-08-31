@@ -27,7 +27,7 @@ use crate::utility_cumdist::{CumDist, OrderedFloat};
 /* -------------------------------------------------------------------------- */
 
 pub struct GenericTrack<'a> {
-    track : &'a dyn Track,
+    pub track : &'a dyn Track,
 }
 
 /* -------------------------------------------------------------------------- */
@@ -263,7 +263,7 @@ impl<'a> GenericTrack<'a> {
 /* -------------------------------------------------------------------------- */
 
 pub struct GenericMutableTrack<'a> {
-    track : &'a mut dyn MutableTrack,
+    pub track : &'a mut dyn MutableTrack,
 }
 
 /* -------------------------------------------------------------------------- */
