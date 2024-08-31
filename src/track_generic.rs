@@ -89,7 +89,7 @@ impl<'a> GenericTrack<'a> {
     pub fn window_map<F>(
         &self,
         window_size: usize,
-        mut f: F,
+        mut f      : F,
     ) -> Result<(), Box<dyn Error>>
     where
         F: FnMut(&str, usize, &[f64]) -> f64,
@@ -492,6 +492,50 @@ impl<'a> GenericMutableTrack<'a> {
             }
         }
         
+        Ok(())
+    }
+
+    pub fn window_map<F>(
+        &mut self,
+        track      : &dyn Track,
+        window_size: usize,
+        mut f      : F,
+    ) -> Result<(), Box<dyn Error>>
+    where
+        F: FnMut(&str, usize, &[f64]) -> f64,
+    {
+        if window_size == 0 {
+            return Err(Box::new(InvalidWindowSizeError));
+        }
+
+        let mut v    = vec![f64::NAN; window_size];
+        let bin_size = self.track.get_bin_size();
+
+        if self.track.get_bin_size() != track.get_bin_size() {
+            return Err(Box::new(BinSizeMismatchError));
+        }
+
+        for name in self.track.get_seq_names() {
+            let mut seq1 = self.track.get_sequence_mut(&name)?;
+            let     seq2 = track.get_sequence(&name)?;
+
+            if seq1.n_bins() != seq2.n_bins() {
+                return Err(Box::new(SequenceLengthMismatchError(name)));
+            }
+
+            for i in 0..seq2.n_bins() {
+                for j in 0..window_size {
+                    let k = i as isize - (window_size / 2) as isize + j as isize;
+                    v[j] = if k < 0 || k >= seq2.n_bins() as isize {
+                        f64::NAN
+                    } else {
+                        seq2.at_bin(k as usize)
+                    };
+                }
+                seq1.set_bin(i, f(&name, i * bin_size, &v));
+            }
+        }
+
         Ok(())
     }
 }
