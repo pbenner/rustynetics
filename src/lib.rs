@@ -21,6 +21,7 @@
 pub mod alphabet;
 pub mod bbi;
 pub mod bigwig;
+pub mod cpg;
 pub mod genes;
 pub mod genes_ucsc;
 pub mod genome;
