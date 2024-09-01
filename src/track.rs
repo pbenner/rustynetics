@@ -16,23 +16,24 @@
 
 use std::fmt;
 use std::error::Error;
+use std::{cell::RefCell, rc::Rc};
 
 use crate::genome::Genome;
 use crate::granges_row::GRangesRow;
 
 /* -------------------------------------------------------------------------- */
 
-#[derive(Clone, Debug)]
-pub struct TrackSequence<'a> {
-    sequence: &'a Vec<f64>,
+#[derive(Debug)]
+pub struct TrackSequence {
+    sequence: Rc<RefCell<Vec<f64>>>,
     bin_size: usize,
 }
 
 /* -------------------------------------------------------------------------- */
 
-impl<'a> TrackSequence<'a> {
+impl TrackSequence {
 
-    pub fn new(sequence: &'a Vec<f64>, bin_size: usize) -> Self {
+    pub fn new(sequence: Rc<RefCell<Vec<f64>>>, bin_size: usize) -> Self {
         Self {
             sequence: sequence,
             bin_size: bin_size,
@@ -40,15 +41,15 @@ impl<'a> TrackSequence<'a> {
     }
 
     pub fn at(&self, i: usize) -> f64 {
-        self.sequence[i / self.bin_size]
+        self.sequence.borrow()[i / self.bin_size]
     }
 
     pub fn at_bin(&self, i: usize) -> f64 {
-        self.sequence[i]
+        self.sequence.borrow()[i]
     }
 
     pub fn n_bins(&self) -> usize {
-        self.sequence.len()
+        self.sequence.borrow().len()
     }
 
     pub fn get_bin_size(&self) -> usize {
@@ -60,16 +61,16 @@ impl<'a> TrackSequence<'a> {
 /* -------------------------------------------------------------------------- */
 
 #[derive(Debug)]
-pub struct TrackMutableSequence<'a> {
-    sequence: &'a mut Vec<f64>,
+pub struct TrackMutableSequence {
+    sequence: Rc<RefCell<Vec<f64>>>,
     bin_size: usize,
 }
 
 /* -------------------------------------------------------------------------- */
 
-impl<'a> TrackMutableSequence<'a> {
+impl TrackMutableSequence {
 
-    pub fn new(sequence: &'a mut Vec<f64>, bin_size: usize) -> Self {
+    pub fn new(sequence: Rc<RefCell<Vec<f64>>>, bin_size: usize) -> Self {
         Self {
             sequence: sequence,
             bin_size: bin_size,
@@ -77,15 +78,15 @@ impl<'a> TrackMutableSequence<'a> {
     }
 
     pub fn at(&self, i: usize) -> f64 {
-        self.sequence[i / self.bin_size]
+        self.sequence.borrow()[i / self.bin_size]
     }
 
     pub fn at_bin(&self, i: usize) -> f64 {
-        self.sequence[i]
+        self.sequence.borrow()[i]
     }
 
     pub fn n_bins(&self) -> usize {
-        self.sequence.len()
+        self.sequence.borrow().len()
     }
 
     pub fn get_bin_size(&self) -> usize {
@@ -93,11 +94,11 @@ impl<'a> TrackMutableSequence<'a> {
     }
 
     pub fn set(&mut self, i: usize, v: f64) {
-        self.sequence[i / self.bin_size] = v;
+        self.sequence.borrow_mut()[i / self.bin_size] = v;
     }
 
     pub fn set_bin(&mut self, i: usize, v: f64) {
-        self.sequence[i] = v;
+        self.sequence.borrow_mut()[i] = v;
     }
 }
 

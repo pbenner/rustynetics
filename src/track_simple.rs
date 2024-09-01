@@ -17,6 +17,7 @@
 use std::error::Error;
 use std::collections::HashMap;
 use std::string::String;
+use std::{cell::RefCell, rc::Rc};
 
 use crate::genome::Genome;
 use crate::granges_row::GRangesRow;
@@ -26,7 +27,7 @@ use crate::track::{TrackSequence, TrackMutableSequence, GenomeMismatchError, Seq
 
 /* -------------------------------------------------------------------------- */
 
-pub type TMapType = HashMap<String, Vec<f64>>;
+pub type TMapType = HashMap<String, Rc<RefCell<Vec<f64>>>>;
 
 /* -------------------------------------------------------------------------- */
 
@@ -55,7 +56,7 @@ impl SimpleTrack {
             if sequence.len() != genome.lengths[i] / bin_size {
                 return Err(Box::new(GenomeMismatchError("genome has invalid length for the given sequence and binsize".to_string())));
             }
-            data.insert(genome.seqnames[i].clone(), sequence.clone());
+            data.insert(genome.seqnames[i].clone(), Rc::new(RefCell::new(sequence.clone())));
         }
         Ok(SimpleTrack { name, genome, data, bin_size })
     }
@@ -69,7 +70,7 @@ impl SimpleTrack {
             // wig-related tools.
             data.insert(
                 genome.seqnames[i].clone(),
-                vec![0.0; genome.lengths[i] / bin_size],
+                Rc::new(RefCell::new(vec![0.0; genome.lengths[i] / bin_size])),
             );
         }
         SimpleTrack { name, genome, data, bin_size }
@@ -156,14 +157,14 @@ impl Track for SimpleTrack {
 
     fn get_sequence(&self, query: &str) -> Result<TrackSequence, Box<dyn Error>> {
         match self.data.get(query) {
-            Some(seq) => Ok(TrackSequence::new(seq, self.bin_size)),
+            Some(seq) => Ok(TrackSequence::new(seq.clone(), self.bin_size)),
             None      => Err(Box::new(SequenceNotFoundError(format!("sequence `{}` not found", query)))),
         }
     }
 
     fn get_slice(&self, r: &GRangesRow) -> Result<Vec<f64>, Box<dyn Error>> {
         let seq = match self.data.get(r.seqname()) {
-            Some(seq) => seq,
+            Some(seq) => seq.borrow(),
             None => return Err(Box::new(SequenceNotFoundError(format!("GetSlice(): invalid seqname `{}`", r.seqname())))),
         };
 
@@ -188,7 +189,7 @@ impl MutableTrack for SimpleTrack {
 
     fn get_sequence_mut(&mut self, query: &str) -> Result<TrackMutableSequence, Box<dyn Error>> {
         match self.data.get_mut(query) {
-            Some(seq) => Ok(TrackMutableSequence::new(seq, self.bin_size)),
+            Some(seq) => Ok(TrackMutableSequence::new(seq.clone(), self.bin_size)),
             None      => Err(Box::new(SequenceNotFoundError(format!("sequence `{}` not found", query)))),
         }
     }

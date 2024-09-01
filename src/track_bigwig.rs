@@ -15,7 +15,7 @@
  */
 
 use std::io::{Read, Seek};
-use std::cell::RefCell;
+use std::{rc::Rc, cell::RefCell};
 use std::error::Error;
 
 use crate::bigwig::BigWigReader;
@@ -91,7 +91,8 @@ impl<R: Read + Seek> Track for BigWigTrack<R> {
 
     fn get_sequence(&self, query: &str) -> Result<TrackSequence, Box<dyn Error>> {
         let (seq, bin_size) = self.bwr.borrow_mut().query_sequence(query, self.bin_sum_stat, self.bin_size, self.bin_overlap, self.init)?;
-        Ok(TrackSequence::new(&seq, bin_size))
+        let rc_seq = Rc::new(RefCell::new(seq));
+        Ok(TrackSequence::new(rc_seq, bin_size))
     }
 
     fn get_slice(&self, r: &GRangesRow) -> Result<Vec<f64>, Box<dyn Error>> {
