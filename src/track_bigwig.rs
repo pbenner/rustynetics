@@ -15,6 +15,7 @@
  */
 
 use std::io::{Read, Seek};
+use std::cell::RefCell;
 use std::error::Error;
 
 use crate::bigwig::BigWigReader;
@@ -32,7 +33,9 @@ pub struct BigWigTrack<R: Read + Seek> {
     name        : String,
     bin_size    : usize,
     bin_overlap : usize,
-    bwr         : BigWigReader<R>,
+    // BigWigReader must be mutable, while we want to implement Track, which
+    // only allows &self references for most methods. Wrap into RefCell
+    bwr         : RefCell<BigWigReader<R>>,
     bin_sum_stat: BinSummaryStatistics,
     init        : f64,
 }
@@ -43,7 +46,7 @@ impl BigWigTrack<NetFile> {
 
     pub fn new(filename : &str, name: String, f: BinSummaryStatistics, bin_size: usize, bin_overlap: usize, init: f64) -> Result<Self, Box<dyn Error>> {
 
-        let bwr      = BigWigFile::new_reader(filename)?;
+        let mut bwr  = BigWigFile::new_reader(filename)?;
         let bin_size = if bin_size == 0 {
             bwr.get_bin_size()?
         } else {
@@ -54,7 +57,7 @@ impl BigWigTrack<NetFile> {
             name,
             bin_size,
             bin_overlap,
-            bwr,
+            bwr :RefCell::new(bwr),
             bin_sum_stat: f,
             init,
         })
@@ -76,15 +79,15 @@ impl<R: Read + Seek> Track for BigWigTrack<R> {
     }
 
     fn get_seq_names(&self) -> Vec<String> {
-        self.bwr.genome().seqnames.clone()
+        self.bwr.borrow().genome().seqnames.clone()
     }
 
     fn get_genome(&self) -> &Genome {
-        self.bwr.genome()
+        self.bwr.borrow().genome()
     }
 
     fn get_sequence(&self, query: &str) -> Result<TrackSequence, Box<dyn Error>> {
-        let (seq, bin_size) = self.bwr.query_sequence(query, self.bin_sum_stat, self.bin_size, self.bin_overlap, self.init)?;
+        let (seq, bin_size) = self.bwr.borrow_mut().query_sequence(query, self.bin_sum_stat, self.bin_size, self.bin_overlap, self.init)?;
         Ok(TrackSequence::new(&seq, bin_size ))
     }
 
@@ -94,7 +97,7 @@ impl<R: Read + Seek> Track for BigWigTrack<R> {
 
         let mut seq = vec![0.0; (bin_to - bin_from) as usize];
         
-        for item in self.bwr.query(&r.seqname(), r.range().from, r.range().to, self.bin_size) {
+        for item in self.bwr.borrow_mut().query(&r.seqname(), r.range().from, r.range().to, self.bin_size) {
             if let Err(err) = item {
                 return Err(Box::new(err));
             }
