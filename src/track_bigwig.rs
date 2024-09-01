@@ -37,6 +37,7 @@ pub struct BigWigTrack<R: Read + Seek> {
     // only allows &self references for most methods. Wrap into RefCell
     bwr         : RefCell<BigWigReader<R>>,
     bin_sum_stat: BinSummaryStatistics,
+    genome      : Genome,
     init        : f64,
 }
 
@@ -47,6 +48,7 @@ impl BigWigTrack<NetFile> {
     pub fn new(filename : &str, name: String, f: BinSummaryStatistics, bin_size: usize, bin_overlap: usize, init: f64) -> Result<Self, Box<dyn Error>> {
 
         let mut bwr  = BigWigFile::new_reader(filename)?;
+        let genome   = bwr.genome().clone();
         let bin_size = if bin_size == 0 {
             bwr.get_bin_size()?
         } else {
@@ -59,6 +61,7 @@ impl BigWigTrack<NetFile> {
             bin_overlap,
             bwr :RefCell::new(bwr),
             bin_sum_stat: f,
+            genome,
             init,
         })
     }
@@ -83,12 +86,12 @@ impl<R: Read + Seek> Track for BigWigTrack<R> {
     }
 
     fn get_genome(&self) -> &Genome {
-        self.bwr.borrow().genome()
+        &self.genome
     }
 
     fn get_sequence(&self, query: &str) -> Result<TrackSequence, Box<dyn Error>> {
         let (seq, bin_size) = self.bwr.borrow_mut().query_sequence(query, self.bin_sum_stat, self.bin_size, self.bin_overlap, self.init)?;
-        Ok(TrackSequence::new(&seq, bin_size ))
+        Ok(TrackSequence::new(&seq, bin_size))
     }
 
     fn get_slice(&self, r: &GRangesRow) -> Result<Vec<f64>, Box<dyn Error>> {
