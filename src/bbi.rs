@@ -36,11 +36,11 @@ use futures_core::stream::Stream;
 const CIRTREE_MAGIC      : u32   = 0x78ca8c91;
 const IDX_MAGIC          : u32   = 0x2468ace0;
 
-const BBI_TYPE_FIXED     : u8    = 3;
-const BBI_TYPE_VARIABLE  : u8    = 2;
-const BBI_TYPE_BED_GRAPH : u8    = 1;
-
 /* -------------------------------------------------------------------------- */
+
+pub const BBI_TYPE_FIXED     : u8    = 3;
+pub const BBI_TYPE_VARIABLE  : u8    = 2;
+pub const BBI_TYPE_BED_GRAPH : u8    = 1;
 
 pub const BBI_MAX_ZOOM_LEVELS: usize = 10;
 pub const BBI_RES_INCREMENT  : u32   = 4;
@@ -224,7 +224,7 @@ impl Default for BbiSummaryRecord {
 
 impl BbiSummaryRecord {
 
-    fn add_record(&mut self, other: &BbiSummaryRecord) {
+    pub fn add_record(&mut self, other: &BbiSummaryRecord) {
         if self.chrom_id == -1 {
             self.chrom_id = other.chrom_id;
             self.from     = other.from;
@@ -243,7 +243,7 @@ impl BbiSummaryRecord {
         self.statistics.add(&other.statistics);
     }
 
-    fn reset(&mut self) {
+    pub fn reset(&mut self) {
         self.chrom_id = -1;
         self.from     =  0;
         self.to       =  0;

@@ -14,13 +14,14 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-use std::fs::File;
 use std::io::{Read, Seek};
 use std::error::Error;
 
 use crate::bigwig::BigWigReader;
+use crate::bigwig::BigWigFile;
 use crate::genome::Genome;
 use crate::granges_row::GRangesRow;
+use crate::netfile::NetFile;
 use crate::track_statistics::BinSummaryStatistics;
 use crate::track::{Track, TrackSequence};
 
@@ -30,7 +31,7 @@ use crate::track::{Track, TrackSequence};
 pub struct BigWigTrack<R: Read + Seek> {
     name        : String,
     bin_size    : usize,
-    bin_overlap : i32,
+    bin_overlap : usize,
     bwr         : BigWigReader<R>,
     bin_sum_stat: BinSummaryStatistics,
     init        : f64,
@@ -38,11 +39,11 @@ pub struct BigWigTrack<R: Read + Seek> {
 
 /* -------------------------------------------------------------------------- */
 
-impl<R: Read + Seek> BigWigTrack<R> {
+impl BigWigTrack<NetFile> {
 
-    pub fn new(reader: R, name: String, f: BinSummaryStatistics, bin_size: i32, bin_overlap: i32, init: f64) -> Result<Self, Box<dyn Error>> {
+    pub fn new(filename : &str, name: String, f: BinSummaryStatistics, bin_size: usize, bin_overlap: usize, init: f64) -> Result<Self, Box<dyn Error>> {
 
-        let bwr      = BigWigReader::new(reader)?;
+        let bwr      = BigWigFile::new_reader(filename)?;
         let bin_size = if bin_size == 0 {
             bwr.get_bin_size()?
         } else {
@@ -57,13 +58,6 @@ impl<R: Read + Seek> BigWigTrack<R> {
             bin_sum_stat: f,
             init,
         })
-    }
-
-    pub fn open(&mut self, filename: &str, name: &str, f: BinSummaryStatistics, bin_size: i32, bin_overlap: i32, init: f64) -> Result<(), Box<dyn Error>> {
-        let file = File::open(filename)?;
-        let lazy_track = LazyTrack::new(file, name.to_string(), f, bin_size, bin_overlap, init)?;
-        self.lazy_track = lazy_track;
-        Ok(())
     }
 
 }
@@ -91,7 +85,7 @@ impl<R: Read + Seek> Track for BigWigTrack<R> {
 
     fn get_sequence(&self, query: &str) -> Result<TrackSequence, Box<dyn Error>> {
         let (seq, bin_size) = self.bwr.query_sequence(query, self.bin_sum_stat, self.bin_size, self.bin_overlap, self.init)?;
-        Ok(TrackSequence { seq, bin_size })
+        Ok(TrackSequence::new(&seq, bin_size ))
     }
 
     fn get_slice(&self, r: &GRangesRow) -> Result<Vec<f64>, Box<dyn Error>> {
@@ -100,7 +94,7 @@ impl<R: Read + Seek> Track for BigWigTrack<R> {
 
         let mut seq = vec![0.0; (bin_to - bin_from) as usize];
         
-        for item in self.bwr.query(&r.seqname, r.range().from, r.range().to, self.bin_size) {
+        for item in self.bwr.query(&r.seqname(), r.range().from, r.range().to, self.bin_size) {
             if let Err(err) = item {
                 return Err(Box::new(err));
             }

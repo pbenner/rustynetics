@@ -30,6 +30,7 @@ use byteorder::{ByteOrder, ReadBytesExt, LittleEndian};
 
 use crate::genome::Genome;
 use crate::bbi::{BbiFile, BbiQueryType, BbiHeaderZoom, BbiSummaryRecord, RTree, RVertex, RVertexGenerator};
+use crate::bbi::BBI_TYPE_BED_GRAPH;
 use crate::netfile::NetFile;
 use crate::track_statistics::BinSummaryStatistics;
 use crate::utility::div_int_down;
@@ -211,38 +212,42 @@ impl<R: Read + Seek> BigWigReader<R> {
         &self.genome
     }
 
-    pub fn query_slice(&mut self, seqregex: &str, from: i32, to: i32, f: BinSummaryStatistics, mut bin_size: usize, bin_overlap: usize, init: f64) -> Result<(Vec<f64>, i32), Box<dyn Error>> {
+    pub fn query_slice(&mut self, seqregex: &str, from: usize, to: usize, f: BinSummaryStatistics, mut bin_size: usize, bin_overlap: usize, init: f64) -> Result<(Vec<f64>, usize), Box<dyn Error>> {
         let mut r: Vec<BbiSummaryRecord> = vec![];
 
         // A bin_size of 0 means that the raw data is returned as is
         if bin_size == 0 {
-            for record in self.query(seqregex, from, to, bin_size) {
-                if let Some(error) = record.error {
-                    return Err(error);
+            for item in self.query(seqregex, from, to, bin_size) {
+                if let Err(err) = item {
+                    return Err(Box::new(err));
                 }
-                // Try to determine bin_size from the first record (this most likely fails for bedGraph files)
-                if bin_size == 0 {
-                    if record.data_type == BbiTypeBedGraph {
-                        return Err("failed to determine bin-size for bigWig file: data has type bedGraph".into());
+                if let Ok(record) = item {
+                    // Try to determine bin_size from the first record (this most likely fails for bedGraph files)
+                    if bin_size == 0 {
+                        if record.data_type == BBI_TYPE_BED_GRAPH {
+                            return Err("failed to determine bin-size for bigWig file: data has type bedGraph".into());
+                        }
+                        bin_size = (record.data.to - record.data.from) as usize;
+                        r = vec![BbiSummaryRecord::default(); div_int_down(to - from, bin_size)];
                     }
-                    bin_size = record.to - record.from;
-                    r = vec![BbiSummaryRecord::default(); div_int_down(to - from, bin_size)];
-                }
-                for idx in (record.from / bin_size)..(record.to / bin_size) {
-                    if idx >= 0 && (idx as usize) < r.len() {
-                        r[idx as usize] = record.bbi_summary_record;
+                    for idx in (record.data.from as usize / bin_size)..(record.data.to as usize / bin_size) {
+                        if idx >= 0 && (idx as usize) < r.len() {
+                            r[idx as usize] = record.data;
+                        }
                     }
                 }
             }
         } else {
             r = vec![BbiSummaryRecord::default(); div_int_down(to - from, bin_size)];
-            for record in self.query(seqregex, from, to, bin_size) {
-                if let Some(error) = record.error {
-                    return Err(error);
+            for item in self.query(seqregex, from, to, bin_size) {
+                if let Err(err) = item {
+                    return Err(Box::new(err));
                 }
-                for idx in ((record.from - from) / bin_size)..((record.to - from) / bin_size) {
-                    if idx >= 0 && (idx as usize) < r.len() {
-                        r[idx as usize] = record.bbi_summary_record;
+                if let Ok(record) = item {
+                    for idx in ((record.data.from as usize - from) / bin_size)..((record.data.to as usize - from) / bin_size) {
+                        if idx >= 0 && (idx as usize) < r.len() {
+                            r[idx as usize] = record.data;
+                        }
                     }
                 }
             }
@@ -254,22 +259,22 @@ impl<R: Read + Seek> BigWigReader<R> {
             let mut t = BbiSummaryRecord::default();
             for i in 0..s.len() {
                 t.reset();
-                for j in (i as i32 - bin_overlap)..=(i as i32 + bin_overlap) {
-                    if j < 0 || j >= s.len() as i32 {
+                for j in (i - bin_overlap)..=(i + bin_overlap) {
+                    if j < 0 || j >= s.len() {
                         continue;
                     }
                     let j = j as usize;
-                    if r[j].valid > 0 {
+                    if r[j].statistics.valid > 0.0 {
                         t.add_record(&r[j]);
                     }
                 }
-                if t.statistics.valid > 0 {
+                if t.statistics.valid > 0.0 {
                     s[i] = f(t.statistics.sum, t.statistics.sum_squares, t.statistics.min, t.statistics.max, t.statistics.valid);
                 }
             }
         } else {
             for (i, t) in r.iter().enumerate() {
-                if t.statistics.valid > 0 {
+                if t.statistics.valid > 0.0 {
                     s[i] = f(t.statistics.sum, t.statistics.sum_squares, t.statistics.min, t.statistics.max, t.statistics.valid);
                 }
             }
@@ -285,15 +290,17 @@ impl<R: Read + Seek> BigWigReader<R> {
 
     pub fn get_bin_size(&mut self) -> Result<usize, Box<dyn Error>> {
         let mut bin_size = 0;
-        for record in self.query(".*", 0, i64::MAX as i32, bin_size) {
-            if let Some(error) = record.error {
-                return Err(error);
+        for r in self.query(".*", 0, usize::MAX, bin_size) {
+            if let Err(e) = r {
+                return Err(Box::new(e));
             }
-            if record.data_type == BbiTypeBedGraph {
-                return Err("failed to determine bin-size for bigWig file: data has type bedGraph".into());
+            if let Ok(record) = r {
+                if record.data_type == BBI_TYPE_BED_GRAPH {
+                    return Err("failed to determine bin-size for bigWig file: data has type bedGraph".into());
+                }
+                bin_size = (record.data.to - record.data.from) as usize;
+                break;
             }
-            record.quit(); // Assuming this is handled inside the loop in some way.
-            bin_size = record.to - record.from;
         }
         Ok(bin_size)
     }
