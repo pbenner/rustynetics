@@ -231,8 +231,8 @@ impl<R: Read + Seek> BigWigReader<R> {
                         r = vec![BbiSummaryRecord::default(); div_int_down(to - from, bin_size)];
                     }
                     for idx in (record.data.from as usize / bin_size)..(record.data.to as usize / bin_size) {
-                        if idx >= 0 && (idx as usize) < r.len() {
-                            r[idx as usize] = record.data;
+                        if (idx) < r.len() {
+                            r[idx] = record.data;
                         }
                     }
                 }
@@ -244,9 +244,19 @@ impl<R: Read + Seek> BigWigReader<R> {
                     return Err(Box::new(err));
                 }
                 if let Ok(record) = item {
-                    for idx in ((record.data.from as usize - from) / bin_size)..((record.data.to as usize - from) / bin_size) {
-                        if idx >= 0 && (idx as usize) < r.len() {
-                            r[idx as usize] = record.data;
+                    let i_from = if record.data.from as usize >= from {
+                        record.data.from as usize - from
+                    } else {
+                        0
+                    };
+                    let i_to = if record.data.to as usize >= from {
+                        record.data.to as usize - from
+                    } else {
+                        0
+                    };
+                    for idx in (i_from / bin_size)..(i_to / bin_size) {
+                        if idx < r.len() {
+                            r[idx] = record.data;
                         }
                     }
                 }
@@ -259,9 +269,17 @@ impl<R: Read + Seek> BigWigReader<R> {
             let mut t = BbiSummaryRecord::default();
             for i in 0..s.len() {
                 t.reset();
-                for j in (i - bin_overlap)..=(i + bin_overlap) {
-                    if j < 0 || j >= s.len() {
-                        continue;
+
+                let i_from = if i >= bin_overlap {
+                    i - bin_overlap
+                } else {
+                    0
+                };
+                let i_to = i + bin_overlap;
+
+                for j in i_from..=i_to {
+                    if j >= s.len() {
+                        break;
                     }
                     let j = j as usize;
                     if r[j].statistics.valid > 0.0 {
