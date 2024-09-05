@@ -27,7 +27,7 @@ use crate::granges::GRanges;
 use crate::error::Error;
 use crate::meta::MetaData;
 
-/* Export / write GRanges to BED files
+/* Write GRanges to BED files
  * -------------------------------------------------------------------------- */
 
 impl GRanges {
@@ -36,18 +36,6 @@ impl GRanges {
         for i in 0..self.num_rows() {
             write!(writer, "{}\t{}\t{}\n", self.seqnames[i], self.ranges[i].from, self.ranges[i].to)?;
         }
-        Ok(())
-    }
-
-    pub fn export_bed3(&self, filename: &str, compress: bool) -> Result<(), Error> {
-        let file = File::create(filename)?;
-        let mut writer: Box<dyn Write> = if compress {
-            Box::new(GzEncoder::new(file, Compression::default()))
-        } else {
-            Box::new(file)
-        };
-        self.write_bed3(&mut writer)?;
-        writer.flush()?;
         Ok(())
     }
 
@@ -63,18 +51,6 @@ impl GRanges {
         for i in 0..self.num_rows() {
             write!(writer, "{}\t{}\t{}\t{}\t{}\t{}\n", self.seqnames[i], self.ranges[i].from, self.ranges[i].to, name[i], score[i], self.strand.get(i).unwrap_or(&'.'))?;
         }
-        Ok(())
-    }
-
-    pub fn export_bed6(&self, filename: &str, compress: bool) -> Result<(), Error> {
-        let file = File::create(filename)?;
-        let mut writer: Box<dyn Write> = if compress {
-            Box::new(GzEncoder::new(file, Compression::default()))
-        } else {
-            Box::new(file)
-        };
-        self.write_bed6(&mut writer)?;
-        writer.flush()?;
         Ok(())
     }
 
@@ -104,6 +80,46 @@ impl GRanges {
         Ok(())
     }
 
+    pub fn write_bed<W: Write>(&self, writer: &mut W, columns: usize) -> Result<(), Error> {
+        match columns {
+            3 => self.write_bed3(writer),
+            6 => self.write_bed6(writer),
+            9 => self.write_bed9(writer),
+            _ => Err(Error::Generic("Invalid number of columns".to_string())),
+        }
+    }
+
+}
+
+/* Export GRanges to BED files
+ * -------------------------------------------------------------------------- */
+
+impl GRanges {
+
+    pub fn export_bed3(&self, filename: &str, compress: bool) -> Result<(), Error> {
+        let file = File::create(filename)?;
+        let mut writer: Box<dyn Write> = if compress {
+            Box::new(GzEncoder::new(file, Compression::default()))
+        } else {
+            Box::new(file)
+        };
+        self.write_bed3(&mut writer)?;
+        writer.flush()?;
+        Ok(())
+    }
+
+    pub fn export_bed6(&self, filename: &str, compress: bool) -> Result<(), Error> {
+        let file = File::create(filename)?;
+        let mut writer: Box<dyn Write> = if compress {
+            Box::new(GzEncoder::new(file, Compression::default()))
+        } else {
+            Box::new(file)
+        };
+        self.write_bed6(&mut writer)?;
+        writer.flush()?;
+        Ok(())
+    }
+
     pub fn export_bed9(&self, filename: &str, compress: bool) -> Result<(), Error> {
         let file = File::create(filename)?;
         let mut writer: Box<dyn Write> = if compress {
@@ -116,15 +132,6 @@ impl GRanges {
         Ok(())
     }
 
-    pub fn write_bed<W: Write>(&self, writer: &mut W, columns: usize) -> Result<(), Error> {
-        match columns {
-            3 => self.write_bed3(writer),
-            6 => self.write_bed6(writer),
-            9 => self.write_bed9(writer),
-            _ => Err(Error::Generic("Invalid number of columns".to_string())),
-        }
-    }
-
     pub fn export_bed(&mut self, filename: &str, columns: usize, compress: bool) -> Result<(), Error> {
         let file = File::create(filename)?;
         let mut writer: Box<dyn Write> = if compress {
@@ -135,16 +142,16 @@ impl GRanges {
         self.write_bed(&mut writer, columns)?;
         Ok(())
     }
+
 }
 
-/* Import / read GRanges from BED files
+/* Bufead GRanges from BED files
  * -------------------------------------------------------------------------- */
 
 impl GRanges {
 
-    pub fn read_bed3<R: Read>(&mut self, reader_: &mut R) -> Result<(), Error> {
-        let mut reader = BufReader::new(reader_);
-        let mut line   = String::new();
+    pub fn bufread_bed3<R: Read + BufRead>(&mut self, reader: &mut R) -> Result<(), Error> {
+        let mut line = String::new();
         while reader.read_line(&mut line)? > 0 {
             let fields: Vec<&str> = line.trim().split('\t').collect();
             if fields.len() < 3 {
@@ -160,22 +167,11 @@ impl GRanges {
         Ok(())
     }
 
-    pub fn import_bed3(&mut self, filename: &str, compress: bool) -> Result<(), Error> {
-        let file = File::open(filename)?;
-        let mut reader: Box<dyn BufRead> = if compress {
-            Box::new(BufReader::new(GzDecoder::new(file)))
-        } else {
-            Box::new(BufReader::new(file))
-        };
-        self.read_bed3(&mut reader)?;
-        Ok(())
-    }
 
-    pub fn read_bed6<R: Read>(&mut self, reader_: &mut R) -> Result<(), Error> {
-        let mut reader = BufReader::new(reader_);
-        let mut line   = String::new();
-        let mut name   = Vec::new();
-        let mut score  = Vec::new();
+    pub fn bufread_bed6<R: Read + BufRead>(&mut self, reader: &mut R) -> Result<(), Error> {
+        let mut line  = String::new();
+        let mut name  = Vec::new();
+        let mut score = Vec::new();
         while reader.read_line(&mut line)? > 0 {
             let fields: Vec<&str> = line.trim().split('\t').collect();
             if fields.len() < 6 {
@@ -196,18 +192,7 @@ impl GRanges {
         Ok(())
     }
 
-    pub fn import_bed6(&mut self, filename: &str, compress: bool) -> Result<(), Error> {
-        let file = File::open(filename)?;
-        let mut reader: Box<dyn BufRead> = if compress {
-            Box::new(BufReader::new(GzDecoder::new(file)))
-        } else {
-            Box::new(BufReader::new(file))
-        };
-        self.read_bed6(&mut reader)?;
-        Ok(())
-    }
-
-    pub fn read_bed9<R: Read>(&mut self, reader_: &mut R) -> Result<(), Error> {
+    pub fn bufread_bed9<R: Read + BufRead>(&mut self, reader_: &mut R) -> Result<(), Error> {
         let mut reader = BufReader::new(reader_);
         let mut line   = String::new();
         let mut name   = Vec::new();
@@ -241,15 +226,22 @@ impl GRanges {
         Ok(())
     }
 
-    pub fn import_bed9(&mut self, filename: &str, compress: bool) -> Result<(), Error> {
-        let file = File::open(filename)?;
-        let mut reader: Box<dyn BufRead> = if compress {
-            Box::new(BufReader::new(GzDecoder::new(file)))
-        } else {
-            Box::new(BufReader::new(file))
-        };
-        self.read_bed9(&mut reader)?;
-        Ok(())
+}
+
+/* Read GRanges from BED files
+ * -------------------------------------------------------------------------- */
+
+ impl GRanges {
+    pub fn read_bed3<R: Read>(&mut self, reader: &mut R) -> Result<(), Error> {
+        self.bufread_bed3(&mut BufReader::new(reader))
+    }
+
+    pub fn read_bed6<R: Read>(&mut self, reader: &mut R) -> Result<(), Error> {
+        self.bufread_bed6(&mut BufReader::new(reader))
+    }
+
+    pub fn read_bed9<R: Read>(&mut self, reader: &mut R) -> Result<(), Error> {
+        self.bufread_bed9(&mut BufReader::new(reader))
     }
 
     pub fn read_bed<R: Read>(&mut self, reader: &mut R, columns: usize) -> Result<(), Error> {
@@ -259,6 +251,47 @@ impl GRanges {
             9 => self.read_bed9(reader),
             _ => Err(Error::Generic("Invalid number of columns".to_string())),
         }
+    }
+
+}
+
+
+/* Import GRanges from BED files
+ * -------------------------------------------------------------------------- */
+
+impl GRanges {
+
+    pub fn import_bed3(&mut self, filename: &str, compress: bool) -> Result<(), Error> {
+        let file = File::open(filename)?;
+        let mut reader: Box<dyn BufRead> = if compress {
+            Box::new(BufReader::new(GzDecoder::new(file)))
+        } else {
+            Box::new(BufReader::new(file))
+        };
+        self.bufread_bed3(&mut reader)?;
+        Ok(())
+    }
+
+    pub fn import_bed6(&mut self, filename: &str, compress: bool) -> Result<(), Error> {
+        let file = File::open(filename)?;
+        let mut reader: Box<dyn BufRead> = if compress {
+            Box::new(BufReader::new(GzDecoder::new(file)))
+        } else {
+            Box::new(BufReader::new(file))
+        };
+        self.read_bed6(&mut reader)?;
+        Ok(())
+    }
+
+    pub fn import_bed9(&mut self, filename: &str, compress: bool) -> Result<(), Error> {
+        let file = File::open(filename)?;
+        let mut reader: Box<dyn BufRead> = if compress {
+            Box::new(BufReader::new(GzDecoder::new(file)))
+        } else {
+            Box::new(BufReader::new(file))
+        };
+        self.read_bed9(&mut reader)?;
+        Ok(())
     }
 
     pub fn import_bed(&mut self, filename: &str, columns: usize, compress: bool) -> Result<(), Error> {
@@ -271,4 +304,5 @@ impl GRanges {
         self.read_bed(&mut reader, columns)?;
         Ok(())
     }
+
 }
