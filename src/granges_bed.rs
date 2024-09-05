@@ -14,8 +14,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-use std::io::{BufRead, BufReader, Write};
 use std::fs::File;
+use std::io::{BufRead, BufReader, Read, Write};
+
 use flate2::read::GzDecoder;
 use flate2::write::GzEncoder;
 use flate2::Compression;
@@ -31,7 +32,7 @@ use crate::meta::MetaData;
 
 impl GRanges {
 
-    pub fn write_bed3(&self, writer: &mut dyn Write) -> Result<(), Error> {
+    pub fn write_bed3<W: Write>(&self, writer: &mut W) -> Result<(), Error> {
         for i in 0..self.num_rows() {
             write!(writer, "{}\t{}\t{}\n", self.seqnames[i], self.ranges[i].from, self.ranges[i].to)?;
         }
@@ -50,7 +51,7 @@ impl GRanges {
         Ok(())
     }
 
-    pub fn write_bed6(&self, writer: &mut dyn Write) -> Result<(), Error> {
+    pub fn write_bed6<W: Write>(&self, writer: &mut W) -> Result<(), Error> {
         let name  = match self.meta.get_column_str(&String::from("name" )) {
             Some(v) => v,
             None    => return Err(Error::Generic("Meta data does not contain a column `name'".to_string()))
@@ -77,7 +78,7 @@ impl GRanges {
         Ok(())
     }
 
-    pub fn write_bed9(&self, writer: &mut dyn Write) -> Result<(), Error> {
+    pub fn write_bed9<W: Write>(&self, writer: &mut W) -> Result<(), Error> {
         let name  = self.meta.get_column_str("name").ok_or(
             Error::from("Meta data does not contain a column `name'")
             )?;
@@ -115,7 +116,7 @@ impl GRanges {
         Ok(())
     }
 
-    pub fn write_bed(&self, writer: &mut dyn Write, columns: usize) -> Result<(), Error> {
+    pub fn write_bed<W: Write>(&self, writer: &mut W, columns: usize) -> Result<(), Error> {
         match columns {
             3 => self.write_bed3(writer),
             6 => self.write_bed6(writer),
@@ -141,8 +142,9 @@ impl GRanges {
 
 impl GRanges {
 
-    pub fn read_bed3(&mut self, reader: &mut dyn BufRead) -> Result<(), Error> {
-        let mut line = String::new();
+    pub fn read_bed3<R: Read>(&mut self, reader_: &mut R) -> Result<(), Error> {
+        let mut reader = BufReader::new(reader_);
+        let mut line   = String::new();
         while reader.read_line(&mut line)? > 0 {
             let fields: Vec<&str> = line.trim().split('\t').collect();
             if fields.len() < 3 {
@@ -169,10 +171,11 @@ impl GRanges {
         Ok(())
     }
 
-    pub fn read_bed6(&mut self, reader: &mut dyn BufRead) -> Result<(), Error> {
-        let mut line  = String::new();
-        let mut name  = Vec::new();
-        let mut score = Vec::new();
+    pub fn read_bed6<R: Read>(&mut self, reader_: &mut R) -> Result<(), Error> {
+        let mut reader = BufReader::new(reader_);
+        let mut line   = String::new();
+        let mut name   = Vec::new();
+        let mut score  = Vec::new();
         while reader.read_line(&mut line)? > 0 {
             let fields: Vec<&str> = line.trim().split('\t').collect();
             if fields.len() < 6 {
@@ -204,10 +207,11 @@ impl GRanges {
         Ok(())
     }
 
-    pub fn read_bed9(&mut self, reader: &mut dyn BufRead) -> Result<(), Error> {
-        let mut line  = String::new();
-        let mut name  = Vec::new();
-        let mut score = Vec::new();
+    pub fn read_bed9<R: Read>(&mut self, reader_: &mut R) -> Result<(), Error> {
+        let mut reader = BufReader::new(reader_);
+        let mut line   = String::new();
+        let mut name   = Vec::new();
+        let mut score  = Vec::new();
         let mut thick_start = Vec::new();
         let mut thick_end   = Vec::new();
         let mut item_rgb    = Vec::new();
@@ -248,7 +252,7 @@ impl GRanges {
         Ok(())
     }
 
-    pub fn read_bed(&mut self, reader: &mut dyn BufRead, columns: usize) -> Result<(), Error> {
+    pub fn read_bed<R: Read>(&mut self, reader: &mut R, columns: usize) -> Result<(), Error> {
         match columns {
             3 => self.read_bed3(reader),
             6 => self.read_bed6(reader),
