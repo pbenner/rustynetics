@@ -162,7 +162,7 @@ impl<'a> MetaTableReader<'a> {
     pub fn push(&mut self, meta: &mut Meta) {
         for (name, idx) in &self.idx_map {
             if *idx != -1 {
-                if let Err(_) = meta.add_meta(&name, self.meta_map.remove(name).unwrap()) {
+                if let Err(_) = meta.add(&name, self.meta_map.remove(name).unwrap()) {
                     panic!("internal error")
                 }
             }

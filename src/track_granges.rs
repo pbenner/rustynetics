@@ -76,7 +76,7 @@ impl<'a> GenericTrack<'a> {
 
         let mut r = GRanges::new(seqnames, from, to, vec![]);
 
-        r.meta.add_meta(name, MetaData::FloatArray(values))?;
+        r.meta.add(name, MetaData::FloatArray(values))?;
 
         Ok(r)
     }

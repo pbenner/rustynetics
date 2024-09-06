@@ -24,6 +24,8 @@ use flate2::read::GzDecoder;
 use regex::Regex;
 
 use crate::granges::GRanges;
+use crate::meta::MetaData;
+use crate::range::Range;
 
 /* -------------------------------------------------------------------------- */
  
@@ -53,27 +55,26 @@ impl GRanges {
             if fields.len() < 8 {
                 return Err(io::Error::new(io::ErrorKind::InvalidData, "file must have at least eight columns"));
             }
-            self.seqnames.push(fields[0].clone());
-            self.source.push(fields[1].clone());
-            self.feature.push(fields[2].clone());
-            self.start.push(fields[3].parse::<i32>()?);
-            self.end.push(fields[4].parse::<i32>()?);
-            self.score.push(fields[5].parse::<f64>().unwrap_or(0.0));
-            self.strand.push(fields[6].chars().next().unwrap_or('*'));
-            self.frame.push(fields[7].parse::<i32>().unwrap_or(-1));
+            self.seqnames   .push(fields[0].clone());
+            self.source     .push(fields[1].clone());
+            self.feature    .push(fields[2].clone());
+            self.ranges     .push(Range::new(fields[3].parse::<usize>()?, fields[4].parse::<usize>()?));
+            self.score      .push(fields[5].parse::<f64>().unwrap_or(0.0));
+            self.strand     .push(fields[6].chars().next().unwrap_or('*'));
+            self.frame      .push(fields[7].parse::<i32>().unwrap_or(-1));
 
             let optional_fields = &fields[8..];
             self.parse_optional_fields(optional_fields, &type_map, &mut gtf_opt, &gtf_def, self.seqnames.len())?;
         }
 
         // Add meta data to GRanges
-        self.add_meta("source", self.source.clone());
-        self.add_meta("feature", self.feature.clone());
-        self.add_meta("score", self.score.iter().map(|s| s.to_string()).collect());
-        self.add_meta("frame", self.frame.iter().map(|f| f.to_string()).collect());
+        self.meta.add("source", self.source.clone());
+        self.meta.add("feature", self.feature.clone());
+        self.meta.add("score", self.score.iter().map(|s| s.to_string()).collect());
+        self.meta.add("frame", self.frame.iter().map(|f| f.to_string()).collect());
 
         for (name, values) in gtf_opt {
-            self.add_meta(&name, values);
+            self.meta.add(&name, MetaData::StringArray(values));
         }
 
         Ok(())
@@ -141,8 +142,8 @@ impl GRanges {
         for i in 0..self.seqnames.len() {
             writeln!(w, "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}", 
                 self.seqnames[i],
-                self.source.get(i).unwrap_or(&"."to_string()),
-                self.feature.get(i).unwrap_or(&"."to_string()),
+                self.source.get(i).unwrap_or(&".".to_string()),
+                self.feature.get(i).unwrap_or(&".".to_string()),
                 self.start[i],
                 self.end[i],
                 self.score.get(i).unwrap_or(&0.0).to_string(),
@@ -150,7 +151,7 @@ impl GRanges {
                 self.frame.get(i).unwrap_or(&-1).to_string()
             )?;
 
-            for (name, values) in &self.meta {
+            for (name, values) in self.meta.iter() {
                 if name == "source" || name == "feature" || name == "score" || name == "frame" {
                     continue;
                 }

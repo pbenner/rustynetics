@@ -196,7 +196,7 @@ impl Meta {
             rows: 0,
         };
         for i in 0..names.len() {
-            meta.add_meta(names[i], data[i].clone())?;
+            meta.add(names[i], data[i].clone())?;
         }
         Ok(meta)
     }
@@ -236,7 +236,7 @@ impl Meta {
         Ok(meta)
     }
 
-    pub fn add_meta(&mut self, name: &str, data: MetaData) -> Result<(), Error> {
+    pub fn add(&mut self, name: &str, data: MetaData) -> Result<(), Error> {
         let n = data.len();
         if self.meta_name.len() > 0 {
             if n != self.rows {
@@ -368,6 +368,10 @@ impl Meta {
             }
         }
         Ok(self.subset(&indices))
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = (&String, &MetaData)> {
+        self.meta_name.iter().zip(self.meta_data.iter())
     }
 }
 

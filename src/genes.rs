@@ -76,8 +76,8 @@ impl Genes {
             tx_to,
             strand,
         );
-        granges.meta.add_meta("names", MetaData::StringArray(names)).unwrap();
-        granges.meta.add_meta("cds"  , MetaData::RangeArray(cds   )).unwrap();
+        granges.meta.add("names", MetaData::StringArray(names)).unwrap();
+        granges.meta.add("cds"  , MetaData::RangeArray(cds   )).unwrap();
         Genes::new_impl(granges)
     }
 
