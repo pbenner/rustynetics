@@ -26,13 +26,13 @@ use crate::range::Range;
 
 #[derive(Debug, Clone)]
 pub enum MetaData {
-    StringMatrix(Vec<Vec<String>>),
-    StringArray(Vec<String>),
-    FloatMatrix(Vec<Vec<f64>>),
-    FloatArray(Vec<f64>),
-    IntMatrix(Vec<Vec<i64>>),
-    IntArray(Vec<i64>),
-    RangeArray(Vec<Range>),
+    StringMatrix (Vec<Vec<String>>),
+    StringArray  (Vec<String>     ),
+    FloatMatrix  (Vec<Vec<f64>>   ),
+    FloatArray   (Vec<f64>        ),
+    IntMatrix    (Vec<Vec<i64>>   ),
+    IntArray     (Vec<i64>        ),
+    RangeArray   (Vec<Range>      ),
 }
 
 /* -------------------------------------------------------------------------- */

@@ -19,6 +19,7 @@ use std::fs::File;
 use std::io::{self, BufRead, BufReader, Write};
 use std::path::Path;
 use std::collections::HashMap;
+use std::error::Error;
 
 use flate2::read::GzDecoder;
 use regex::Regex;
@@ -37,7 +38,7 @@ impl GRanges {
         opt_names: Vec<String>,
         opt_types: Vec<String>,
         defaults: Vec<Option<String>>,
-    ) -> io::Result<()> {
+    ) -> Result<(), Box<dyn Error>> {
         let mut type_map = HashMap::new();
         let mut gtf_opt  = HashMap::new();
         let mut gtf_def  = HashMap::new();
@@ -60,11 +61,14 @@ impl GRanges {
             let fields: Vec<String> = Self::parse_gtf_line(&line);
 
             if fields.len() < 8 {
-                return Err(io::Error::new(io::ErrorKind::InvalidData, "file must have at least eight columns"));
+                return Err(Box::new(io::Error::new(io::ErrorKind::InvalidData, "file must have at least eight columns")));
             }
 
+            let from = fields[3].parse::<usize>()?;
+            let to   = fields[4].parse::<usize>()?;
+
             self.seqnames.push(fields[0].clone());
-            self.ranges  .push(Range::new(fields[3].parse::<usize>()?, fields[4].parse::<usize>()?));
+            self.ranges  .push(Range::new(from, to));
             self.strand  .push(fields[6].chars().next().unwrap_or('*'));
 
             source .push(fields[1].clone());
@@ -134,7 +138,7 @@ impl GRanges {
         opt_names: Vec<String>,
         opt_types: Vec<String>,
         opt_def: Vec<Option<String>>,
-    ) -> io::Result<()> {
+    ) -> Result<(), Box<dyn Error>> {
         let file = File::open(path)?;
         let reader: Box<dyn BufRead> = if path.as_ref().to_str().unwrap().ends_with(".gz") {
             let decoder = GzDecoder::new(file);
