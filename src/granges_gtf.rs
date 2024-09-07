@@ -39,8 +39,13 @@ impl GRanges {
         defaults: Vec<Option<String>>,
     ) -> io::Result<()> {
         let mut type_map = HashMap::new();
-        let mut gtf_opt = HashMap::new();
-        let mut gtf_def = HashMap::new();
+        let mut gtf_opt  = HashMap::new();
+        let mut gtf_def  = HashMap::new();
+
+        let mut source  = vec![];
+        let mut feature = vec![];
+        let mut score   = vec![];
+        let mut frame   = vec![];
 
         for (i, name) in opt_names.iter().enumerate() {
             type_map.insert(name.clone(), opt_types[i].clone());
@@ -50,28 +55,32 @@ impl GRanges {
         }
 
         for line in reader.lines() {
+
             let line = line?;
             let fields: Vec<String> = Self::parse_gtf_line(&line);
+
             if fields.len() < 8 {
                 return Err(io::Error::new(io::ErrorKind::InvalidData, "file must have at least eight columns"));
             }
-            self.seqnames   .push(fields[0].clone());
-            self.source     .push(fields[1].clone());
-            self.feature    .push(fields[2].clone());
-            self.ranges     .push(Range::new(fields[3].parse::<usize>()?, fields[4].parse::<usize>()?));
-            self.score      .push(fields[5].parse::<f64>().unwrap_or(0.0));
-            self.strand     .push(fields[6].chars().next().unwrap_or('*'));
-            self.frame      .push(fields[7].parse::<i32>().unwrap_or(-1));
+
+            self.seqnames.push(fields[0].clone());
+            self.ranges  .push(Range::new(fields[3].parse::<usize>()?, fields[4].parse::<usize>()?));
+            self.strand  .push(fields[6].chars().next().unwrap_or('*'));
+
+            source .push(fields[1].clone());
+            feature.push(fields[2].clone());
+            score  .push(fields[5].parse::<f64>().unwrap_or(0.0));
+            frame  .push(fields[7].parse::<i32>().unwrap_or(-1));
 
             let optional_fields = &fields[8..];
             self.parse_optional_fields(optional_fields, &type_map, &mut gtf_opt, &gtf_def, self.seqnames.len())?;
         }
 
         // Add meta data to GRanges
-        self.meta.add("source", self.source.clone());
+        self.meta.add("source" , self.source .clone());
         self.meta.add("feature", self.feature.clone());
-        self.meta.add("score", self.score.iter().map(|s| s.to_string()).collect());
-        self.meta.add("frame", self.frame.iter().map(|f| f.to_string()).collect());
+        self.meta.add("score"  , self.score.iter().map(|s| s.to_string()).collect());
+        self.meta.add("frame"  , self.frame.iter().map(|f| f.to_string()).collect());
 
         for (name, values) in gtf_opt {
             self.meta.add(&name, MetaData::StringArray(values));
