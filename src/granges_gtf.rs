@@ -34,11 +34,12 @@ impl GRanges {
 
     fn read_gtf<R: BufRead>(
         &mut self,
-        reader: R,
+        reader   : R,
         opt_names: Vec<String>,
         opt_types: Vec<String>,
-        defaults: Vec<Option<String>>,
+        defaults : Vec<Option<String>>,
     ) -> Result<(), Box<dyn Error>> {
+
         let mut type_map = HashMap::new();
         let mut gtf_opt  = HashMap::new();
         let mut gtf_def  = HashMap::new();
@@ -134,10 +135,10 @@ impl GRanges {
 
     fn import_gtf<P: AsRef<Path>>(
         &mut self,
-        path: P,
+        path     : P,
         opt_names: Vec<String>,
         opt_types: Vec<String>,
-        opt_def: Vec<Option<String>>,
+        opt_def  : Vec<Option<String>>,
     ) -> Result<(), Box<dyn Error>> {
         let file = File::open(path)?;
         let reader: Box<dyn BufRead> = if path.as_ref().to_str().unwrap().ends_with(".gz") {
@@ -149,7 +150,7 @@ impl GRanges {
         self.read_gtf(reader, opt_names, opt_types, opt_def)
     }
 
-    fn write_gtf<W: Write>(&self, writer: W) -> io::Result<()> {
+    fn write_gtf<W: Write>(&self, writer: W) -> Result<(), Box<dyn Error>> {
         let mut w = io::BufWriter::new(writer);
 
         for i in 0..self.seqnames.len() {
@@ -178,7 +179,7 @@ impl GRanges {
         Ok(())
     }
 
-    fn export_gtf<P: AsRef<Path>>(&self, path: P) -> io::Result<()> {
+    fn export_gtf<P: AsRef<Path>>(&self, path: P) -> Result<(), Box<dyn Error>> {
         let file = File::create(path)?;
         self.write_gtf(file)
     }
