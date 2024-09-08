@@ -48,7 +48,7 @@ impl GRanges {
     ) -> io::Result<()> {
 
         for i in (0..fields.len()).step_by(2) {
-            let name = &fields[i];
+            let name      = &fields[i];
             let value_str = &fields[i + 1];
             if let Some(type_str) = type_map.get(name) {
                 let entry = gtf_opt.entry(name.clone()).or_insert_with(Vec::new);
@@ -157,6 +157,9 @@ impl GRanges {
         )?;
 
         for i in 0..self.seqnames.len() {
+
+            let mut printed_tab = false;
+
             writeln!(w, "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}", 
                 self.seqnames[i],
                 source     [i],
@@ -168,12 +171,63 @@ impl GRanges {
                 frame      [i]
             )?;
 
-            for (name, values) in self.meta.iter() {
+            for (name, item) in self.meta.iter() {
                 if name == "source" || name == "feature" || name == "score" || name == "frame" {
                     continue;
                 }
-                write!(w, "\t{} ", name)?;
-                write!(w, "\"{}\"", values[i])?;
+                if printed_tab {
+                    write!(w, " ")?;
+                } else {
+                    write!(w, "\t")?;
+                    printed_tab = true;
+                }
+
+                write!(w, "{} ", name)?;
+
+                match item {
+                    MetaData::FloatArray(values) => {
+                        write!(w, "\"{}\"", values[i])?;
+                    },
+                    MetaData::IntArray(values) => {
+                        write!(w, "\"{}\"", values[i])?;
+                    },
+                    MetaData::StringArray(values) => {
+                        write!(w, "\"{}\"", values[i])?;
+                    },
+                    MetaData::FloatMatrix(values) => {
+                        write!(w, "\"")?;
+                        for (j, v) in values[i].iter().enumerate() {
+                            if j != 0 {
+                                write!(w, " ")?;
+                            }
+                            write!(w, "{}", v)?;
+                        }
+                        write!(w, "\"")?;
+                    },
+                    MetaData::IntMatrix(values) => {
+                        write!(w, "\"")?;
+                        for (j, v) in values[i].iter().enumerate() {
+                            if j != 0 {
+                                write!(w, " ")?;
+                            }
+                            write!(w, "{}", v)?;
+                        }
+                        write!(w, "\"")?;
+                    },
+                    MetaData::StringMatrix(values) => {
+                        write!(w, "\"")?;
+                        for (j, v) in values[i].iter().enumerate() {
+                            if j != 0 {
+                                write!(w, " ")?;
+                            }
+                            write!(w, "{}", v)?;
+                        }
+                        write!(w, "\"")?;
+                    },
+                    MetaData::RangeArray(values) => {
+                        todo!()
+                    },
+                }
                 write!(w, ";")?;
             }
             writeln!(w)?;
