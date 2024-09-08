@@ -29,10 +29,55 @@ use crate::meta::MetaData;
 use crate::range::Range;
 
 /* -------------------------------------------------------------------------- */
+
+impl GRanges {
+
+    fn parse_gtf_line(line: &str) -> Vec<String> {
+        let re = Regex::new(r#""[^"]*"|[^ \t;]+"#).unwrap();
+        re.find_iter(line)
+            .map(|mat| mat.as_str().to_string())
+            .collect()
+    }
+
+    fn parse_optional_fields(
+        &self,
+        fields  : &[String],
+        type_map: &HashMap<String, String>,
+        gtf_opt : &mut HashMap<String, Vec<String>>,
+        gtf_def : &HashMap<String, Option<String>>,
+        length  : usize,
+    ) -> io::Result<()> {
+        for i in (0..fields.len()).step_by(2) {
+            let name = &fields[i];
+            let value_str = &fields[i + 1];
+            if let Some(type_str) = type_map.get(name) {
+                let entry = gtf_opt.entry(name.clone()).or_insert_with(Vec::new);
+                entry.push(value_str.clone());
+            }
+        }
+
+        for (name, values) in gtf_opt.iter_mut() {
+            if values.len() < length {
+                if let Some(def_val) = gtf_def.get(name) {
+                    if let Some(def) = def_val {
+                        values.push(def.clone());
+                    } else {
+                        return Err(io::Error::new(io::ErrorKind::InvalidData, format!("optional field `{}` is missing at line `{}` with no default", name, length + 1)));
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+}
+
+/* -------------------------------------------------------------------------- */
  
 impl GRanges {
 
-    fn read_gtf<R: BufRead>(
+    pub fn read_gtf<R: BufRead>(
         &mut self,
         reader   : R,
         opt_names: Vec<String>,
@@ -94,46 +139,7 @@ impl GRanges {
         Ok(())
     }
 
-    fn parse_gtf_line(line: &str) -> Vec<String> {
-        let re = Regex::new(r#""[^"]*"|[^ \t;]+"#).unwrap();
-        re.find_iter(line)
-            .map(|mat| mat.as_str().to_string())
-            .collect()
-    }
-
-    fn parse_optional_fields(
-        &self,
-        fields: &[String],
-        type_map: &HashMap<String, String>,
-        gtf_opt: &mut HashMap<String, Vec<String>>,
-        gtf_def: &HashMap<String, Option<String>>,
-        length: usize,
-    ) -> io::Result<()> {
-        for i in (0..fields.len()).step_by(2) {
-            let name = &fields[i];
-            let value_str = &fields[i + 1];
-            if let Some(type_str) = type_map.get(name) {
-                let entry = gtf_opt.entry(name.clone()).or_insert_with(Vec::new);
-                entry.push(value_str.clone());
-            }
-        }
-
-        for (name, values) in gtf_opt.iter_mut() {
-            if values.len() < length {
-                if let Some(def_val) = gtf_def.get(name) {
-                    if let Some(def) = def_val {
-                        values.push(def.clone());
-                    } else {
-                        return Err(io::Error::new(io::ErrorKind::InvalidData, format!("optional field `{}` is missing at line `{}` with no default", name, length + 1)));
-                    }
-                }
-            }
-        }
-
-        Ok(())
-    }
-
-    fn import_gtf<P: AsRef<Path>>(
+    pub fn import_gtf<P: AsRef<Path>>(
         &mut self,
         path     : P,
         opt_names: Vec<String>,
@@ -150,7 +156,7 @@ impl GRanges {
         self.read_gtf(reader, opt_names, opt_types, opt_def)
     }
 
-    fn write_gtf<W: Write>(&self, writer: W) -> Result<(), Box<dyn Error>> {
+    pub fn write_gtf<W: Write>(&self, writer: W) -> Result<(), Box<dyn Error>> {
         let mut w = io::BufWriter::new(writer);
 
         for i in 0..self.seqnames.len() {
