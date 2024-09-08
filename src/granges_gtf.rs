@@ -121,17 +121,17 @@ impl GRanges {
             source .push(fields[1].clone());
             feature.push(fields[2].clone());
             score  .push(fields[5].parse::<f64>().unwrap_or(0.0));
-            frame  .push(fields[7].parse::<i32>().unwrap_or(-1));
+            frame  .push(fields[7].parse::<i64>().unwrap_or(-1));
 
             let optional_fields = &fields[8..];
             self.parse_optional_fields(optional_fields, &type_map, &mut gtf_opt, &gtf_def, self.seqnames.len())?;
         }
 
         // Add meta data to GRanges
-        self.meta.add("source" , self.source .clone());
-        self.meta.add("feature", self.feature.clone());
-        self.meta.add("score"  , self.score.iter().map(|s| s.to_string()).collect());
-        self.meta.add("frame"  , self.frame.iter().map(|f| f.to_string()).collect());
+        self.meta.add("source" , MetaData::StringArray(source));
+        self.meta.add("feature", MetaData::StringArray(feature));
+        self.meta.add("score"  , MetaData::FloatArray(score));
+        self.meta.add("frame"  , MetaData::IntArray(frame));
 
         for (name, values) in gtf_opt {
             self.meta.add(&name, MetaData::StringArray(values));
@@ -143,16 +143,29 @@ impl GRanges {
     pub fn write_gtf<W: Write>(&self, writer: W) -> Result<(), Box<dyn Error>> {
         let mut w = io::BufWriter::new(writer);
 
+        let source = self.meta.get_column_str("sources").ok_or(
+            Box::new(io::Error::new(io::ErrorKind::InvalidData, "no sources column available"))
+        )?;
+        let feature = self.meta.get_column_str("freatures").ok_or(
+            Box::new(io::Error::new(io::ErrorKind::InvalidData, "no features column available"))
+        )?;
+        let score = self.meta.get_column_float("scores").ok_or(
+            Box::new(io::Error::new(io::ErrorKind::InvalidData, "no scores column available"))
+        )?;
+        let frame = self.meta.get_column_int("frames").ok_or(
+            Box::new(io::Error::new(io::ErrorKind::InvalidData, "no frames column available"))
+        )?;
+
         for i in 0..self.seqnames.len() {
             writeln!(w, "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}", 
                 self.seqnames[i],
-                self.source.get(i).unwrap_or(&".".to_string()),
-                self.feature.get(i).unwrap_or(&".".to_string()),
-                self.start[i],
-                self.end[i],
-                self.score.get(i).unwrap_or(&0.0).to_string(),
+                source     [i],
+                feature    [i],
+                self.ranges[i].from,
+                self.ranges[i].to,
+                score      [i],
                 self.strand[i],
-                self.frame.get(i).unwrap_or(&-1).to_string()
+                frame      [i]
             )?;
 
             for (name, values) in self.meta.iter() {
@@ -186,7 +199,7 @@ impl GRanges {
     ) -> Result<(), Box<dyn Error>> {
 
         let file = File::open(filename)?;
-        let reader: Box<dyn BufRead> = if filename.to_str().unwrap().ends_with(".gz") {
+        let reader: Box<dyn BufRead> = if filename.to_string().ends_with(".gz") {
             let decoder = GzDecoder::new(file);
             Box::new(BufReader::new(decoder))
         } else {
