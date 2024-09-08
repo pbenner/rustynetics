@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-use std::fs::File;
+use std::fs::{File};
 use std::io::{self, BufRead, BufReader, Write};
 use std::collections::HashMap;
 use std::error::Error;
@@ -95,6 +95,9 @@ impl GRanges {
         let mut score   = vec![];
         let mut frame   = vec![];
 
+        let mut has_score = false;
+        let mut has_frame = false;
+
         for (i, name) in opt_names.iter().enumerate() {
             type_map.insert(name.clone(), opt_types[i].clone());
             if let Some(def) = defaults.get(i) {
@@ -120,8 +123,20 @@ impl GRanges {
 
             source .push(fields[1].clone());
             feature.push(fields[2].clone());
-            score  .push(fields[5].parse::<f64>().unwrap_or(0.0));
-            frame  .push(fields[7].parse::<i64>().unwrap_or(-1));
+
+            if fields[5] == "." {
+                score.push(0.0);
+            } else {
+                score.push(fields[5].parse::<f64>()?);
+                has_score = true;
+            }
+
+            if fields[7] == "." {
+                frame.push(-1);
+            } else {
+                frame.push(fields[7].parse::<i64>()?);
+                has_frame = true;
+            }
 
             let optional_fields = &fields[8..];
             self.parse_optional_fields(optional_fields, &type_map, &mut gtf_opt, &gtf_def, self.num_rows())?;
@@ -130,8 +145,13 @@ impl GRanges {
         // Add meta data to GRanges
         self.meta.add("source" , MetaData::StringArray(source))?;
         self.meta.add("feature", MetaData::StringArray(feature))?;
-        self.meta.add("score"  , MetaData::FloatArray(score))?;
-        self.meta.add("frame"  , MetaData::IntArray(frame))?;
+
+        if has_score {
+            self.meta.add("score", MetaData::FloatArray(score))?;
+        }
+        if has_frame {
+            self.meta.add("frame", MetaData::IntArray(frame))?;
+        }
 
         for (name, values) in gtf_opt {
             self.meta.add(&name, MetaData::StringArray(values))?;
@@ -143,22 +163,37 @@ impl GRanges {
     pub fn write_gtf<W: Write>(&self, writer: W) -> Result<(), Box<dyn Error>> {
         let mut w = io::BufWriter::new(writer);
 
+        let v1 = vec![];
+        let v2 = vec![];
+
         let source = self.meta.get_column_str("source").ok_or(
             Box::new(io::Error::new(io::ErrorKind::InvalidData, "no source column available"))
         )?;
         let feature = self.meta.get_column_str("feature").ok_or(
             Box::new(io::Error::new(io::ErrorKind::InvalidData, "no feature column available"))
         )?;
-        let score = self.meta.get_column_float("score").ok_or(
-            Box::new(io::Error::new(io::ErrorKind::InvalidData, "no score column available"))
-        )?;
-        let frame = self.meta.get_column_int("frame").ok_or(
-            Box::new(io::Error::new(io::ErrorKind::InvalidData, "no frame column available"))
-        )?;
+        let score = self.meta.get_column_float("score").unwrap_or(
+            &v1
+        );
+        let frame = self.meta.get_column_int("frame").unwrap_or(
+            &v2
+        );
 
         for i in 0..self.num_rows() {
 
             let mut printed_tab = false;
+
+            let s = if score.len() == 0 {
+                ".".to_string()
+            } else {
+                score[i].to_string()
+            };
+
+            let f = if frame.len() == 0 {
+                ".".to_string()
+            } else {
+                frame[i].to_string()
+            };
 
             write!(w, "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
                 self.seqnames[i],
@@ -166,9 +201,9 @@ impl GRanges {
                 feature      [i],
                 self.ranges  [i].from,
                 self.ranges  [i].to,
-                score        [i],
+                s,
                 self.strand  [i],
-                frame        [i]
+                f,
             )?;
 
             for (name, item) in self.meta.iter() {
@@ -276,6 +311,8 @@ impl GRanges {
 #[cfg(test)]
 mod tests {
 
+    use std::fs;
+
     use crate::granges::GRanges;
 
     #[test]
@@ -283,11 +320,14 @@ mod tests {
 
         let mut granges = GRanges::default();
         
-        let r = granges.import_gtf("src/granges_gtf.gtf", vec!["gene_id".to_string()], vec!["str".to_string()], vec![]);
+        let r = granges.import_gtf("src/granges_gtf.gtf",
+            vec!["gene_id".to_string()],
+            vec!["str".to_string()],
+            vec![]);
 
         assert!(r.is_ok());
-        assert_eq!(granges.num_rows(), 2);
 
+        assert_eq!(granges.num_rows(), 2);
         assert_eq!(granges.ranges[0].from, 11869);
         assert_eq!(granges.ranges[0].to  , 14409);
         assert_eq!(granges.ranges[1].from, 11870);
@@ -300,8 +340,8 @@ mod tests {
 
         assert!(source.is_some());
         assert!(feature.is_some());
-        assert!(score.is_some());
-        assert!(frame.is_some());
+        assert!(score.is_none());
+        assert!(frame.is_none());
 
         assert_eq!(source.unwrap()[0], "transcribed_unprocessed_pseudogene");
         assert_eq!(source.unwrap()[1], "processed_transcript");
@@ -309,15 +349,9 @@ mod tests {
         assert_eq!(feature.unwrap()[0], "gene");
         assert_eq!(feature.unwrap()[1], "transcript");
 
-        assert_eq!(score.unwrap()[0], 0.0);
-        assert_eq!(score.unwrap()[1], 0.0);
+        assert!(granges.export_gtf("src/granges_gtf.gtf.tmp").is_ok());
 
-        assert_eq!(frame.unwrap()[0], -1);
-        assert_eq!(frame.unwrap()[1], -1);
-
-        let s = granges.export_gtf("src/granges_gtf.gtf.tmp");
-
-        assert!(s.is_ok());
+        assert!(fs::remove_file("src/granges_gtf.gtf.tmp").is_ok());
 
     }
 
