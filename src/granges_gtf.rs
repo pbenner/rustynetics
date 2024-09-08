@@ -17,7 +17,6 @@
 
 use std::fs::File;
 use std::io::{self, BufRead, BufReader, Write};
-use std::path::Path;
 use std::collections::HashMap;
 use std::error::Error;
 
@@ -47,6 +46,7 @@ impl GRanges {
         gtf_def : &HashMap<String, Option<String>>,
         length  : usize,
     ) -> io::Result<()> {
+
         for i in (0..fields.len()).step_by(2) {
             let name = &fields[i];
             let value_str = &fields[i + 1];
@@ -73,7 +73,8 @@ impl GRanges {
 
 }
 
-/* -------------------------------------------------------------------------- */
+/* Read/write
+ * -------------------------------------------------------------------------- */
  
 impl GRanges {
 
@@ -139,23 +140,6 @@ impl GRanges {
         Ok(())
     }
 
-    pub fn import_gtf<P: AsRef<Path>>(
-        &mut self,
-        path     : P,
-        opt_names: Vec<String>,
-        opt_types: Vec<String>,
-        opt_def  : Vec<Option<String>>,
-    ) -> Result<(), Box<dyn Error>> {
-        let file = File::open(path)?;
-        let reader: Box<dyn BufRead> = if path.as_ref().to_str().unwrap().ends_with(".gz") {
-            let decoder = GzDecoder::new(file);
-            Box::new(BufReader::new(decoder))
-        } else {
-            Box::new(BufReader::new(file))
-        };
-        self.read_gtf(reader, opt_names, opt_types, opt_def)
-    }
-
     pub fn write_gtf<W: Write>(&self, writer: W) -> Result<(), Box<dyn Error>> {
         let mut w = io::BufWriter::new(writer);
 
@@ -185,8 +169,36 @@ impl GRanges {
         Ok(())
     }
 
-    fn export_gtf<P: AsRef<Path>>(&self, path: P) -> Result<(), Box<dyn Error>> {
-        let file = File::create(path)?;
+}
+
+
+/* Import/export
+ * -------------------------------------------------------------------------- */
+ 
+impl GRanges {
+
+    pub fn import_gtf(
+        &mut self,
+        filename : &str,
+        opt_names: Vec<String>,
+        opt_types: Vec<String>,
+        opt_def  : Vec<Option<String>>,
+    ) -> Result<(), Box<dyn Error>> {
+
+        let file = File::open(filename)?;
+        let reader: Box<dyn BufRead> = if filename.to_str().unwrap().ends_with(".gz") {
+            let decoder = GzDecoder::new(file);
+            Box::new(BufReader::new(decoder))
+        } else {
+            Box::new(BufReader::new(file))
+        };
+
+        self.read_gtf(reader, opt_names, opt_types, opt_def)
+
+    }
+
+    fn export_gtf(&self, filename: &str) -> Result<(), Box<dyn Error>> {
+        let file = File::create(filename)?;
         self.write_gtf(file)
     }
 
