@@ -144,23 +144,23 @@ impl GRanges {
         let mut w = io::BufWriter::new(writer);
 
         let source = self.meta.get_column_str("source").ok_or(
-            Box::new(io::Error::new(io::ErrorKind::InvalidData, "no sources column available"))
+            Box::new(io::Error::new(io::ErrorKind::InvalidData, "no source column available"))
         )?;
-        let feature = self.meta.get_column_str("freature").ok_or(
-            Box::new(io::Error::new(io::ErrorKind::InvalidData, "no features column available"))
+        let feature = self.meta.get_column_str("feature").ok_or(
+            Box::new(io::Error::new(io::ErrorKind::InvalidData, "no feature column available"))
         )?;
         let score = self.meta.get_column_float("score").ok_or(
-            Box::new(io::Error::new(io::ErrorKind::InvalidData, "no scores column available"))
+            Box::new(io::Error::new(io::ErrorKind::InvalidData, "no score column available"))
         )?;
         let frame = self.meta.get_column_int("frame").ok_or(
-            Box::new(io::Error::new(io::ErrorKind::InvalidData, "no frames column available"))
+            Box::new(io::Error::new(io::ErrorKind::InvalidData, "no frame column available"))
         )?;
 
         for i in 0..self.num_rows() {
 
             let mut printed_tab = false;
 
-            writeln!(w, "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}", 
+            write!(w, "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
                 self.seqnames[i],
                 source       [i],
                 feature      [i],
@@ -283,7 +283,7 @@ mod tests {
 
         let mut granges = GRanges::default();
         
-        let r = granges.import_gtf("src/granges_gtf.gtf", vec![], vec![], vec![]);
+        let r = granges.import_gtf("src/granges_gtf.gtf", vec!["gene_id".to_string()], vec!["str".to_string()], vec![]);
 
         assert!(r.is_ok());
         assert_eq!(granges.num_rows(), 2);
@@ -314,6 +314,10 @@ mod tests {
 
         assert_eq!(frame.unwrap()[0], -1);
         assert_eq!(frame.unwrap()[1], -1);
+
+        let s = granges.export_gtf("src/granges_gtf.gtf.tmp");
+
+        assert!(s.is_ok());
 
     }
 
