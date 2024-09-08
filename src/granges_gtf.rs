@@ -50,7 +50,7 @@ impl GRanges {
         for i in (0..fields.len()).step_by(2) {
             let name      = &fields[i];
             let value_str = &fields[i + 1];
-            if let Some(type_str) = type_map.get(name) {
+            if let Some(_) = type_map.get(name) {
                 let entry = gtf_opt.entry(name.clone()).or_insert_with(Vec::new);
                 entry.push(value_str.clone());
             }
@@ -162,13 +162,13 @@ impl GRanges {
 
             writeln!(w, "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}", 
                 self.seqnames[i],
-                source     [i],
-                feature    [i],
-                self.ranges[i].from,
-                self.ranges[i].to,
-                score      [i],
-                self.strand[i],
-                frame      [i]
+                source       [i],
+                feature      [i],
+                self.ranges  [i].from,
+                self.ranges  [i].to,
+                score        [i],
+                self.strand  [i],
+                frame        [i]
             )?;
 
             for (name, item) in self.meta.iter() {
