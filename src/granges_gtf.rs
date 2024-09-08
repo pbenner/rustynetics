@@ -124,7 +124,7 @@ impl GRanges {
             frame  .push(fields[7].parse::<i64>().unwrap_or(-1));
 
             let optional_fields = &fields[8..];
-            self.parse_optional_fields(optional_fields, &type_map, &mut gtf_opt, &gtf_def, self.seqnames.len())?;
+            self.parse_optional_fields(optional_fields, &type_map, &mut gtf_opt, &gtf_def, self.num_rows())?;
         }
 
         // Add meta data to GRanges
@@ -143,20 +143,20 @@ impl GRanges {
     pub fn write_gtf<W: Write>(&self, writer: W) -> Result<(), Box<dyn Error>> {
         let mut w = io::BufWriter::new(writer);
 
-        let source = self.meta.get_column_str("sources").ok_or(
+        let source = self.meta.get_column_str("source").ok_or(
             Box::new(io::Error::new(io::ErrorKind::InvalidData, "no sources column available"))
         )?;
-        let feature = self.meta.get_column_str("freatures").ok_or(
+        let feature = self.meta.get_column_str("freature").ok_or(
             Box::new(io::Error::new(io::ErrorKind::InvalidData, "no features column available"))
         )?;
-        let score = self.meta.get_column_float("scores").ok_or(
+        let score = self.meta.get_column_float("score").ok_or(
             Box::new(io::Error::new(io::ErrorKind::InvalidData, "no scores column available"))
         )?;
-        let frame = self.meta.get_column_int("frames").ok_or(
+        let frame = self.meta.get_column_int("frame").ok_or(
             Box::new(io::Error::new(io::ErrorKind::InvalidData, "no frames column available"))
         )?;
 
-        for i in 0..self.seqnames.len() {
+        for i in 0..self.num_rows() {
 
             let mut printed_tab = false;
 
@@ -267,6 +267,54 @@ impl GRanges {
     pub fn export_gtf(&self, filename: &str) -> Result<(), Box<dyn Error>> {
         let file = File::create(filename)?;
         self.write_gtf(file)
+    }
+
+}
+
+/* -------------------------------------------------------------------------- */
+
+#[cfg(test)]
+mod tests {
+
+    use crate::granges::GRanges;
+
+    #[test]
+    fn test_granges_gtf() {
+
+        let mut granges = GRanges::default();
+        
+        let r = granges.import_gtf("src/granges_gtf.gtf", vec![], vec![], vec![]);
+
+        assert!(r.is_ok());
+        assert_eq!(granges.num_rows(), 2);
+
+        assert_eq!(granges.ranges[0].from, 11869);
+        assert_eq!(granges.ranges[0].to  , 14409);
+        assert_eq!(granges.ranges[1].from, 11870);
+        assert_eq!(granges.ranges[1].to  , 14410);
+
+        let source  = granges.meta.get_column_str("source");
+        let feature = granges.meta.get_column_str("feature");
+        let score   = granges.meta.get_column_float("score");
+        let frame   = granges.meta.get_column_int("frame");
+
+        assert!(source.is_some());
+        assert!(feature.is_some());
+        assert!(score.is_some());
+        assert!(frame.is_some());
+
+        assert_eq!(source.unwrap()[0], "transcribed_unprocessed_pseudogene");
+        assert_eq!(source.unwrap()[1], "processed_transcript");
+
+        assert_eq!(feature.unwrap()[0], "gene");
+        assert_eq!(feature.unwrap()[1], "transcript");
+
+        assert_eq!(score.unwrap()[0], 0.0);
+        assert_eq!(score.unwrap()[1], 0.0);
+
+        assert_eq!(frame.unwrap()[0], -1);
+        assert_eq!(frame.unwrap()[1], -1);
+
     }
 
 }
