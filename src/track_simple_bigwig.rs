@@ -40,15 +40,15 @@ impl SimpleTrack {
 
         let mut sequences: Vec<Vec<f64>> = Vec::new();
 
-        for seqname in &bwr.genome.seqnames {
-            let (s, b) = bwr.query_sequence(seqname, &f, bin_size, bin_overlap, init)?;
+        for seqname in &bwr.genome().seqnames {
+            let (s, b) = bwr.query_sequence(seqname, f, bin_size, bin_overlap, init)?;
             if bin_size == 0 {
                 bin_size = b;
             }
             sequences.push(s);
         }
 
-        let tmp = SimpleTrack::new(name.to_string(), sequences, bwr.genome, bin_size)?;
+        let tmp = SimpleTrack::new(name.to_string(), sequences, bwr.genome().clone(), bin_size)?;
         *self = tmp;
 
         Ok(())
@@ -65,11 +65,12 @@ impl SimpleTrack {
     ) -> Result<(), Box<dyn Error>> {
 
         let mut f = File::open(filename)?;
-        self.read_big_wig(&mut f, name, s, bin_size, bin_overlap, init)
+
+        Ok(self.read_bigwig(&mut f, name, s, bin_size, bin_overlap, init)
             .map_err(|e| {
-                io::Error::new(io::ErrorKind::Other, format!("importing bigWig file from `{}` failed: {}", filename.display(), e))
+                io::Error::new(io::ErrorKind::Other, format!("importing bigWig file from `{}` failed: {}", filename, e))
             }
-        )
+        )?)
 
     }
 
@@ -79,7 +80,7 @@ impl SimpleTrack {
         args: &[impl ToString]
     ) -> Result<(), Box<dyn Error>> {
 
-        GenericTrack { track: self }.write_big_wig(writer, args)
+        GenericTrack { track: self }.write_bigwig(writer, args)
 
     }
 
@@ -90,9 +91,10 @@ impl SimpleTrack {
     ) -> Result<(), Box<dyn Error>> {
 
         let mut f = File::create(filename)?;
-        self.write_bigwig(&mut f, args).map_err(|e| {
-            io::Error::new(io::ErrorKind::Other, format!("exporting bigWig file to `{}` failed: {}", filename.display(), e))
-        })
+
+        Ok(self.write_bigwig(&mut f, args).map_err(|e| {
+            io::Error::new(io::ErrorKind::Other, format!("exporting bigWig file to `{}` failed: {}", filename, e))
+        })?)
 
     }
 
