@@ -128,13 +128,13 @@ impl GRanges {
         }
 
         // Add meta data to GRanges
-        self.meta.add("source" , MetaData::StringArray(source));
-        self.meta.add("feature", MetaData::StringArray(feature));
-        self.meta.add("score"  , MetaData::FloatArray(score));
-        self.meta.add("frame"  , MetaData::IntArray(frame));
+        self.meta.add("source" , MetaData::StringArray(source))?;
+        self.meta.add("feature", MetaData::StringArray(feature))?;
+        self.meta.add("score"  , MetaData::FloatArray(score))?;
+        self.meta.add("frame"  , MetaData::IntArray(frame))?;
 
         for (name, values) in gtf_opt {
-            self.meta.add(&name, MetaData::StringArray(values));
+            self.meta.add(&name, MetaData::StringArray(values))?;
         }
 
         Ok(())
@@ -224,7 +224,7 @@ impl GRanges {
                         }
                         write!(w, "\"")?;
                     },
-                    MetaData::RangeArray(values) => {
+                    MetaData::RangeArray(_) => {
                         todo!()
                     },
                 }
@@ -264,7 +264,7 @@ impl GRanges {
 
     }
 
-    fn export_gtf(&self, filename: &str) -> Result<(), Box<dyn Error>> {
+    pub fn export_gtf(&self, filename: &str) -> Result<(), Box<dyn Error>> {
         let file = File::create(filename)?;
         self.write_gtf(file)
     }
