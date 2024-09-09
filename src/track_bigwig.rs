@@ -14,17 +14,20 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-use std::io::{Read, Seek};
+use std::io::{Read, Seek, Write};
 use std::{rc::Rc, cell::RefCell};
 use std::error::Error;
+use std::fs::File;
 
-use crate::bigwig::BigWigReader;
+use crate::bbi::{BBI_MAX_ZOOM_LEVELS, BBI_RES_INCREMENT};
+use crate::bigwig::{BigWigReader, BigWigWriter, BigWigParameters};
 use crate::bigwig::BigWigFile;
 use crate::genome::Genome;
 use crate::granges_row::GRangesRow;
 use crate::netfile::NetFile;
 use crate::track_statistics::BinSummaryStatistics;
 use crate::track::{Track, TrackSequence};
+use crate::track_generic::GenericTrack;
 
 /* -------------------------------------------------------------------------- */
 
@@ -115,6 +118,91 @@ impl<R: Read + Seek> Track for BigWigTrack<R> {
             }
         }
         Ok(seq)
+    }
+
+}
+
+/* -------------------------------------------------------------------------- */
+
+impl<'a> GenericTrack<'a> {
+
+    fn write_bigwig_reduction_levels(&self, parameters: &BigWigParameters) -> Vec<usize> {
+
+        let c = BBI_RES_INCREMENT * self.get_bin_size();
+        let mut n = Vec::new();
+        let mut l = 0;
+
+        // Get length of longest track
+        for &length in &self.get_genome().lengths {
+            if length / self.get_bin_size() > l {
+                l = length / self.get_bin_size();
+            }
+        }
+
+        // Initial zoom level
+        let mut r = std::cmp::max(100, c);
+
+        // Compute number of zoom levels
+        while n.len() <= BBI_MAX_ZOOM_LEVELS {
+            if l / r > parameters.items_per_slot {
+                n.push(r);
+                r *= c;
+            } else {
+                break;
+            }
+        }
+
+        n
+    }
+
+    fn write_bigwig<W: Write + Seek>(&self, writer: &mut W, args: &[Box<dyn std::any::Any>]) -> Result<(), Box<dyn Error>> {
+        let mut parameters = BigWigParameters::default();
+
+        // Parse arguments
+        for arg in args {
+            if let Some(param) = arg.downcast_ref::<BigWigParameters>() {
+                parameters = param.clone();
+            } else {
+                return Err("WriteBigWig(): invalid arguments".into());
+            }
+        }
+
+        // Get reduction levels for zoomed data
+        if parameters.reduction_levels.is_none() {
+            parameters.reduction_levels = Some(self.write_bigwig_reduction_levels(&parameters));
+        }
+
+        // Create new BigWig writer
+        let mut bww = BigWigWriter::new(writer, self.get_genome(), &parameters)?;
+
+        // Write data
+        for name in self.get_seq_names() {
+            let sequence = self.get_sequence(name)?;
+            bww.write(name, &sequence.sequence, self.get_bin_size())?;
+        }
+
+        bww.write_index()?;
+
+        // Write zoomed data
+        if let Some(reduction_levels) = parameters.reduction_levels {
+            for (i, &reduction_level) in reduction_levels.iter().enumerate() {
+                bww.start_zoom_data(i)?;
+                for name in self.get_seq_names() {
+                    let sequence = self.get_sequence(name)?;
+                    bww.write_zoom(name, &sequence.sequence, self.get_bin_size(), reduction_level, i)?;
+                }
+                bww.write_index_zoom(i)?;
+            }
+        }
+
+        bww.close()?;
+        Ok(())
+    }
+
+    fn export_bigwig(&self, filename: &str, args: &[Box<dyn std::any::Any>]) -> Result<(), Box<dyn Error>> {
+        let mut file = File::create(filename)?;
+        self.write_bigwig(&mut file, args)?;
+        Ok(())
     }
 
 }
