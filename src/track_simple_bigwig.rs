@@ -18,7 +18,7 @@ use std::fs::File;
 use std::error::Error;
 use std::io::{self, Read, Seek, Write};
 
-use crate::bigwig::BigWigReader;
+use crate::bigwig::{BigWigReader, BigWigParameters};
 use crate::track_generic::GenericTrack;
 use crate::track_simple::SimpleTrack;
 use crate::track_statistics::BinSummaryStatistics;
@@ -77,22 +77,22 @@ impl SimpleTrack {
     fn write_bigwig<W: Write + Seek>(
         &self,
         writer: &mut W,
-        args: &[impl ToString]
+        params: Option<BigWigParameters>
     ) -> Result<(), Box<dyn Error>> {
 
-        GenericTrack { track: self }.write_bigwig(writer, args)
+        GenericTrack { track: self }.write_bigwig(writer, params)
 
     }
 
     fn export_bigwig(
         &self,
         filename: &str,
-        args: &[impl ToString]
+        params  : Option<BigWigParameters>
     ) -> Result<(), Box<dyn Error>> {
 
         let mut f = File::create(filename)?;
 
-        Ok(self.write_bigwig(&mut f, args).map_err(|e| {
+        Ok(self.write_bigwig(&mut f, params).map_err(|e| {
             io::Error::new(io::ErrorKind::Other, format!("exporting bigWig file to `{}` failed: {}", filename, e))
         })?)
 
