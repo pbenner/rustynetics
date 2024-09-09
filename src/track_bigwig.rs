@@ -126,7 +126,7 @@ impl<R: Read + Seek> Track for BigWigTrack<R> {
 
 impl<'a> GenericTrack<'a> {
 
-    fn write_bigwig_reduction_levels(&self, parameters: &BigWigParameters) -> Vec<usize> {
+    fn write_bigwig_reduction_levels(&self, parameters: &BigWigParameters) -> Vec<i32> {
 
         let c = (BBI_RES_INCREMENT as usize) * self.track.get_bin_size();
         let mut n = Vec::new();
@@ -145,7 +145,7 @@ impl<'a> GenericTrack<'a> {
         // Compute number of zoom levels
         while n.len() <= BBI_MAX_ZOOM_LEVELS {
             if l / r > parameters.items_per_slot {
-                n.push(r as usize);
+                n.push(r as i32);
                 r *= c;
             } else {
                 break;
@@ -155,23 +155,15 @@ impl<'a> GenericTrack<'a> {
         n
     }
 
-    pub fn write_bigwig<W: Write + Seek>(&self, writer: &mut W, args: &[Box<dyn std::any::Any>]) -> Result<(), Box<dyn Error>> {
+    pub fn write_bigwig<W: Write + Seek>(&self, writer: &mut W, params: Option<BigWigParameters>) -> Result<(), Box<dyn Error>> {
 
-        let mut parameters = BigWigParameters::default();
-
-        // Parse arguments
-        for arg in args {
-            if let Some(param) = arg.downcast_ref::<BigWigParameters>() {
-                parameters = param.clone();
-            } else {
-                return Err("WriteBigWig(): invalid arguments".into());
-            }
-        }
-
-        // Get reduction levels for zoomed data
-        if parameters.reduction_levels.is_none() {
-            parameters.reduction_levels = Some(self.write_bigwig_reduction_levels(&parameters));
-        }
+        let mut parameters = if let Some(p) = params {
+            p
+        } else {
+            let mut p = BigWigParameters::default();
+            p.reduction_levels = self.write_bigwig_reduction_levels(&p);
+            p
+        };
 
         // Create new BigWig writer
         let mut bww = BigWigWriter::new(writer, self.track.get_genome().clone(), parameters)?;
@@ -185,23 +177,21 @@ impl<'a> GenericTrack<'a> {
         bww.write_index()?;
 
         // Write zoomed data
-        if let Some(reduction_levels) = parameters.reduction_levels {
-            for (i, &reduction_level) in reduction_levels.iter().enumerate() {
-                bww.start_zoom_data(i)?;
-                for name in self.track.get_seq_names() {
-                    let sequence = self.track.get_sequence(&name)?;
-                    bww.write_zoom(&sequence.sequence, self.track.get_bin_size(), reduction_level, i)?;
-                }
-                bww.write_index_zoom(i)?;
+        for (i, &reduction_level) in parameters.reduction_levels.iter().enumerate() {
+            bww.start_zoom_data(i)?;
+            for name in self.track.get_seq_names() {
+                let sequence = self.track.get_sequence(&name)?;
+                bww.write_zoom(&sequence.sequence, self.track.get_bin_size(), reduction_level, i)?;
             }
+            bww.write_index_zoom(i)?;
         }
 
         Ok(())
     }
 
-    pub fn export_bigwig(&self, filename: &str, args: &[Box<dyn std::any::Any>]) -> Result<(), Box<dyn Error>> {
+    pub fn export_bigwig(&self, filename: &str, params: Option<BigWigParameters>) -> Result<(), Box<dyn Error>> {
         let mut file = File::create(filename)?;
-        self.write_bigwig(&mut file, args)?;
+        self.write_bigwig(&mut file, params)?;
         Ok(())
     }
 
