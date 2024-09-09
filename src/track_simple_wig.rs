@@ -14,7 +14,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-use std::collections::HashMap;
 use std::fs::File;
 use std::io::{self, BufRead, BufReader, Write};
 use std::path::Path;
@@ -103,22 +102,18 @@ impl SimpleTrack {
 
 impl SimpleTrack {
 
-    fn read_wiggle_header(scanner: &mut dyn Iterator<Item = String>) -> Result<SimpleTrack, String> {
-
-        let mut result = SimpleTrack {
-            name: String::new(),
-            bin_size: 1,
-            data: HashMap::new(),
-        };
+    fn read_wiggle_header(&mut self, scanner: &mut dyn Iterator<Item = String>) -> Result<(), String> {
 
         let fields: Vec<String> = fields_quoted(&scanner.next().unwrap());
+
         for field in fields.iter().skip(1) {
+
             let header_fields: Vec<&str> = field.split('=').collect();
             if header_fields.len() != 2 {
                 return Err("invalid declaration line".into());
             }
             match header_fields[0] {
-                "name" => result.name = remove_quotes(header_fields[1]),
+                "name" => self.name = remove_quotes(header_fields[1]),
                 "type" => {
                     if remove_quotes(header_fields[1]) != "wiggle_0" {
                         return Err("unsupported wiggle format".into());
@@ -127,7 +122,7 @@ impl SimpleTrack {
                 _ => (),
             }
         }
-        Ok(result)
+        Ok(())
     }
 
     fn read_wiggle_fixed_step(
@@ -136,9 +131,8 @@ impl SimpleTrack {
     ) -> Result<(), String> {
 
         let fields: Vec<String> = fields_quoted(&scanner.next().unwrap());
-        let mut seqname = String::new();
+        let mut seqname  = String::new();
         let mut position = 0;
-        let mut sequence = Vec::new();
 
         for field in fields.iter().skip(1) {
             let header_fields: Vec<&str> = field.split('=').collect();
@@ -149,6 +143,11 @@ impl SimpleTrack {
                 "chrom" => seqname = remove_quotes(header_fields[1]),
                 "start" => {
                     let t = header_fields[1].parse::<i64>().map_err(|_| "invalid start value")?;
+
+                    if t <= 0 {
+                        return Err("declaration line defines invalid start position".into());
+                    }
+
                     position = self.index((t - 1) as usize);
                 }
                 "step" => {
@@ -160,15 +159,12 @@ impl SimpleTrack {
                 _ => (),
             }
         }
+
         if seqname.is_empty() {
             return Err("declaration line is missing the chromosome name".into());
         }
 
-        if position < 0 {
-            return Err("declaration line defines invalid start position".into());
-        }
-
-        sequence = self.data.get(&seqname).cloned().unwrap_or_default().borrow().to_vec();
+        let sequence = self.data.get(&seqname).cloned().unwrap_or_default().borrow().to_vec();
 
         for line in scanner {
             let fields: Vec<&str> = line.split_whitespace().collect();
@@ -178,7 +174,7 @@ impl SimpleTrack {
             let value = fields[0].parse::<f64>().map_err(|_| "invalid data value")?;
             if let Some(seq) = self.data.get_mut(&seqname) {
                 if position < seq.borrow().len() {
-                    seq.borrow()[position] = value;
+                    seq.borrow_mut()[position] = value;
                     position += 1;
                 }
             }
@@ -216,7 +212,7 @@ impl SimpleTrack {
             return Err("declaration line is missing the chromosome name".into());
         }
 
-        let mut sequence = self.data.get(&seqname).cloned().unwrap_or_default();
+        let sequence = self.data.get(&seqname).cloned().unwrap_or_default();
 
         for line in scanner {
             let fields: Vec<&str> = line.split_whitespace().collect();
@@ -231,7 +227,7 @@ impl SimpleTrack {
             }
             let index = self.index((position - 1) as usize);
             if index < sequence.borrow().len() {
-                sequence.borrow()[index] = value;
+                sequence.borrow_mut()[index] = value;
             }
         }
 
@@ -257,7 +253,7 @@ impl SimpleTrack {
                 "track" => {
                     if !header {
                         header = true;
-                        *self = Self::read_wiggle_header(&mut scanner)?;
+                        self.read_wiggle_header(&mut scanner)?;
                     } else {
                         return Err("file contains more than one track definition line".into());
                     }
@@ -280,7 +276,7 @@ impl SimpleTrack {
         let reader = BufReader::new(file);
 
         if is_gzip(&filename) {
-            let mut gz_reader = flate2::read::GzDecoder::new(reader);
+            let gz_reader = flate2::read::GzDecoder::new(reader);
             self.read_wiggle(BufReader::new(gz_reader))
         } else {
             self.read_wiggle(reader)
