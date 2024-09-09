@@ -60,6 +60,10 @@ impl TrackSequence {
         self.bin_size
     }
 
+    pub fn iter(&self) -> std::slice::Iter<'_, f64> {
+        self.sequence.borrow().iter()
+    }
+
 }
 
 /* -------------------------------------------------------------------------- */

@@ -18,7 +18,7 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::{self, BufRead, BufReader, Write};
 use std::path::Path;
-use std::str::FromStr;
+use std::{rc::Rc, cell::RefCell};
 
 use crate::track_simple::SimpleTrack;
 
@@ -28,8 +28,8 @@ impl SimpleTrack {
 
     fn write_wiggle_fixed_step<W: Write>(
         &self,
-        writer: &mut W,
-        seqname: &str,
+        writer  : &mut W,
+        seqname : &str,
         sequence: &[f64],
     ) -> io::Result<()> {
         let mut gap = true;
@@ -56,8 +56,8 @@ impl SimpleTrack {
 
     fn write_wiggle_variable_step<W: Write>(
         &self,
-        writer: &mut W,
-        seqname: &str,
+        writer  : &mut W,
+        seqname : &str,
         sequence: &[f64],
     ) -> io::Result<()> {
         writeln!(
@@ -74,7 +74,8 @@ impl SimpleTrack {
     }
 
     pub fn write_wiggle(&self, filename: &str, description: &str) -> io::Result<()> {
-        let mut file = File::create(filename)?;
+
+        let mut file   = File::create(filename)?;
         let mut writer = io::BufWriter::new(&mut file);
 
         writeln!(
@@ -84,13 +85,13 @@ impl SimpleTrack {
         )?;
 
         for (seqname, sequence) in &self.data {
-            let n = sequence.iter().filter(|&&x| x.is_nan() || x == 0.0).count();
-            if n >= sequence.len() / 2 {
+            let n = sequence.borrow().iter().filter(|&&x| x.is_nan() || x == 0.0).count();
+            if n >= sequence.borrow().len() / 2 {
                 // sparse data track
-                self.write_wiggle_variable_step(&mut writer, seqname, sequence)?;
+                self.write_wiggle_variable_step(&mut writer, seqname, &sequence.borrow())?;
             } else {
                 // dense data track
-                self.write_wiggle_fixed_step(&mut writer, seqname, sequence)?;
+                self.write_wiggle_fixed_step(&mut writer, seqname, &sequence.borrow())?;
             }
         }
         Ok(())
@@ -103,6 +104,7 @@ impl SimpleTrack {
 impl SimpleTrack {
 
     fn read_wiggle_header(scanner: &mut dyn Iterator<Item = String>) -> Result<SimpleTrack, String> {
+
         let mut result = SimpleTrack {
             name: String::new(),
             bin_size: 1,
@@ -132,6 +134,7 @@ impl SimpleTrack {
         &mut self,
         scanner: &mut dyn Iterator<Item = String>,
     ) -> Result<(), String> {
+
         let fields: Vec<String> = fields_quoted(&scanner.next().unwrap());
         let mut seqname = String::new();
         let mut position = 0;
@@ -165,7 +168,7 @@ impl SimpleTrack {
             return Err("declaration line defines invalid start position".into());
         }
 
-        sequence = self.data.get(&seqname).cloned().unwrap_or_default();
+        sequence = self.data.get(&seqname).cloned().unwrap_or_default().borrow().to_vec();
 
         for line in scanner {
             let fields: Vec<&str> = line.split_whitespace().collect();
@@ -174,14 +177,14 @@ impl SimpleTrack {
             }
             let value = fields[0].parse::<f64>().map_err(|_| "invalid data value")?;
             if let Some(seq) = self.data.get_mut(&seqname) {
-                if position < seq.len() {
-                    seq[position] = value;
+                if position < seq.borrow().len() {
+                    seq.borrow()[position] = value;
                     position += 1;
                 }
             }
         }
 
-        self.data.insert(seqname, sequence);
+        self.data.insert(seqname, Rc::new(RefCell::new(sequence)));
         Ok(())
     }
 
@@ -189,6 +192,7 @@ impl SimpleTrack {
         &mut self,
         scanner: &mut dyn Iterator<Item = String>,
     ) -> Result<(), String> {
+
         let fields: Vec<String> = fields_quoted(&scanner.next().unwrap());
         let mut seqname = String::new();
 
@@ -226,8 +230,8 @@ impl SimpleTrack {
                 return Err("invalid chromosomal position".into());
             }
             let index = self.index((position - 1) as usize);
-            if index < sequence.len() {
-                sequence[index] = value;
+            if index < sequence.borrow().len() {
+                sequence.borrow()[index] = value;
             }
         }
 
@@ -235,7 +239,11 @@ impl SimpleTrack {
         Ok(())
     }
 
-    pub fn read_wiggle<R: BufRead>(&mut self, reader: R) -> Result<(), String> {
+    pub fn read_wiggle<R: BufRead>(
+        &mut self,
+        reader: R
+    ) -> Result<(), String> {
+
         let mut scanner = reader.lines().map(|l| l.unwrap());
         let mut header = false;
 
@@ -263,7 +271,11 @@ impl SimpleTrack {
         Ok(())
     }
 
-    pub fn import_wiggle<P: AsRef<Path>>(&mut self, filename: P) -> Result<(), String> {
+    pub fn import_wiggle(
+        &mut self,
+        filename: &str
+    ) -> Result<(), String> {
+
         let file = File::open(&filename).map_err(|_| "failed to open file")?;
         let reader = BufReader::new(file);
 
@@ -275,9 +287,6 @@ impl SimpleTrack {
         }
     }
 
-    fn index(&self, position: usize) -> usize {
-        position / self.bin_size
-    }
 }
 
 /* -------------------------------------------------------------------------- */

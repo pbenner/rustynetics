@@ -37,10 +37,10 @@ pub type TMapType = HashMap<String, Rc<RefCell<Vec<f64>>>>;
 
 #[derive(Debug)]
 pub struct SimpleTrack {
-    name    : String,
-    genome  : Genome,
-    data    : TMapType,
-    bin_size: usize,
+    pub name    : String,
+    pub genome  : Genome,
+    pub data    : TMapType,
+    pub bin_size: usize,
 }
 
 /* -------------------------------------------------------------------------- */
