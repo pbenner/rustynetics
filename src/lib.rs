@@ -45,6 +45,7 @@ pub mod track_bigwig;
 pub mod track_generic;
 pub mod track_granges;
 pub mod track_simple;
+pub mod track_simple_bedgraph;
 pub mod track_simple_bigwig;
 pub mod track_simple_wig;
 pub mod track_statistics;
