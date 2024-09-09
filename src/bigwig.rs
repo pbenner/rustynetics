@@ -376,8 +376,11 @@ impl<W: Write + Seek> BigWigWriter<W> {
         n < sequence.len() / 2
     }
 
-    pub fn write(&mut self, idx: usize, sequence: &Vec<f64>, bin_size: usize) -> Result<i32, Box<dyn Error>> {
-        let mut n = 0;
+    pub fn write(&mut self, seqname: &str, sequence: &Vec<f64>, bin_size: usize) -> Result<(), Box<dyn Error>> {
+        let idx = self.genome.get_idx(seqname).ok_or(
+            std::io::Error::new(std::io::ErrorKind::InvalidData, format!("Sequence '{}' not found", seqname))
+        )?;
+        let mut n      = 0;
         let fixed_step = self.use_fixed_step(&sequence);
 
         for mut tmp in self.generator.generate::<LittleEndian>(idx, sequence, bin_size, 0, fixed_step) {
@@ -391,20 +394,15 @@ impl<W: Write + Seek> BigWigWriter<W> {
         for v in sequence {
             self.bwf.header.summary_add_value(*v, bin_size as u64);
         }
-
-        Ok(n)
-    }
-
-    pub fn write_sequence(&mut self, seqname: &str, sequence: &Vec<f64>, bin_size: usize) -> Result<(), Box<dyn Error>> {
-        let idx = self.genome.get_idx(seqname).ok_or(
-            std::io::Error::new(std::io::ErrorKind::InvalidData, format!("Sequence '{}' not found", seqname))
-        )?;
-        let n = self.write(idx, sequence, bin_size)?;
         self.bwf.header.n_blocks += n as u64;
+
         Ok(())
     }
 
-    pub fn write_zoom(&mut self, idx: usize, sequence: &Vec<f64>, bin_size: usize, reduction_level: usize) -> Result<i32, Box<dyn Error>> {
+    pub fn write_zoom(&mut self, seqname: &str, sequence: &Vec<f64>, bin_size: usize, reduction_level: usize, i: usize) -> Result<(), Box<dyn Error>> {
+        let idx = self.genome.get_idx(seqname).ok_or(
+            std::io::Error::new(std::io::ErrorKind::InvalidData, format!("Sequence '{}' not found", seqname))
+        )?;
         let mut n = 0;
 
         for mut tmp in self.generator.generate::<LittleEndian>(idx, sequence, bin_size, reduction_level, true) {
@@ -415,15 +413,8 @@ impl<W: Write + Seek> BigWigWriter<W> {
             self.leaves.entry(idx).or_default().push(tmp.vertex);
         }
 
-        Ok(n)
-    }
-
-    pub fn write_zoom_sequence(&mut self, seqname: &str, sequence: &Vec<f64>, bin_size: usize, reduction_level: usize, i: usize) -> Result<(), Box<dyn Error>> {
-        let idx = self.genome.get_idx(seqname).ok_or(
-            std::io::Error::new(std::io::ErrorKind::InvalidData, format!("Sequence '{}' not found", seqname))
-        )?;
-        let n = self.write_zoom(idx, sequence, bin_size, reduction_level)?;
         self.bwf.header.zoom_headers[i].n_blocks += n as u32;
+
         Ok(())
     }
 

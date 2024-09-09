@@ -171,7 +171,7 @@ impl<'a> GenericTrack<'a> {
         // Write data
         for name in self.track.get_seq_names() {
             let sequence = self.track.get_sequence(&name)?;
-            bww.write(name, &sequence.sequence, self.track.get_bin_size())?;
+            bww.write(&name, &sequence.sequence, self.track.get_bin_size())?;
         }
 
         bww.write_index()?;
@@ -181,10 +181,12 @@ impl<'a> GenericTrack<'a> {
             bww.start_zoom_data(i)?;
             for name in self.track.get_seq_names() {
                 let sequence = self.track.get_sequence(&name)?;
-                bww.write_zoom(&sequence.sequence, self.track.get_bin_size(), reduction_level, i)?;
+                bww.write_zoom(&name, &sequence.sequence, self.track.get_bin_size(), reduction_level as usize, i)?;
             }
             bww.write_index_zoom(i)?;
         }
+
+        bww.close()?;
 
         Ok(())
     }
