@@ -157,7 +157,7 @@ impl<'a> GenericTrack<'a> {
 
     pub fn write_bigwig<W: Write + Seek>(&self, writer: &mut W, params: Option<BigWigParameters>) -> Result<(), Box<dyn Error>> {
 
-        let mut parameters = if let Some(p) = params {
+        let parameters = if let Some(p) = params {
             p
         } else {
             let mut p = BigWigParameters::default();
@@ -166,12 +166,12 @@ impl<'a> GenericTrack<'a> {
         };
 
         // Create new BigWig writer
-        let mut bww = BigWigWriter::new(writer, self.track.get_genome().clone(), parameters)?;
+        let mut bww = BigWigWriter::new(writer, self.track.get_genome().clone(), parameters.clone())?;
 
         // Write data
         for name in self.track.get_seq_names() {
             let sequence = self.track.get_sequence(&name)?;
-            bww.write(&name, &sequence.sequence, self.track.get_bin_size())?;
+            bww.write(&name, &sequence.clone_as_vec(), self.track.get_bin_size())?;
         }
 
         bww.write_index()?;
@@ -181,7 +181,7 @@ impl<'a> GenericTrack<'a> {
             bww.start_zoom_data(i)?;
             for name in self.track.get_seq_names() {
                 let sequence = self.track.get_sequence(&name)?;
-                bww.write_zoom(&name, &sequence.sequence, self.track.get_bin_size(), reduction_level as usize, i)?;
+                bww.write_zoom(&name, &sequence.clone_as_vec(), self.track.get_bin_size(), reduction_level as usize, i)?;
             }
             bww.write_index_zoom(i)?;
         }

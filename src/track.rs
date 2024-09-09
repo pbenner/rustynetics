@@ -40,6 +40,10 @@ impl TrackSequence {
         }
     }
 
+    pub fn clone_as_vec(&self) -> Vec<f64> {
+        self.sequence.borrow().clone()
+    }
+
     pub fn at(&self, i: usize) -> f64 {
         self.sequence.borrow()[i / self.bin_size]
     }
@@ -75,6 +79,10 @@ impl TrackMutableSequence {
             sequence: sequence,
             bin_size: bin_size,
         }
+    }
+
+    pub fn clone_as_vec(&self) -> Vec<f64> {
+        self.sequence.borrow().clone()
     }
 
     pub fn at(&self, i: usize) -> f64 {

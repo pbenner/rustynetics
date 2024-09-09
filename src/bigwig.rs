@@ -337,6 +337,29 @@ pub struct BigWigWriter<W: Write + Seek> {
     leaves    : BTreeMap<usize, Vec<RVertex>>,
 }
 
+/* Some private utility functions
+ * -------------------------------------------------------------------------- */
+
+impl<W: Write + Seek> BigWigWriter<W> {
+
+    fn use_fixed_step(&self, sequence: &Vec<f64>) -> bool {
+        let n = sequence.iter().filter(|&&x| x.is_nan()).count();
+        n < sequence.len() / 2
+    }
+
+    fn get_leaves_sorted(&self) -> Vec<RVertex> {
+        let mut indices: Vec<_> = self.leaves.keys().cloned().collect();
+        indices.sort_unstable();
+        
+        indices.iter().flat_map(|idx| self.leaves.get(idx).unwrap().clone()).collect()
+    }
+
+    fn reset_leaf_map(&mut self) {
+        self.leaves.clear();
+    }
+
+}
+
 /* -------------------------------------------------------------------------- */
 
 impl<W: Write + Seek> BigWigWriter<W> {
@@ -369,11 +392,6 @@ impl<W: Write + Seek> BigWigWriter<W> {
         bww.bwf.create::<LittleEndian, W>(&mut bww.writer)?;
 
         Ok(bww)
-    }
-
-    fn use_fixed_step(&self, sequence: &Vec<f64>) -> bool {
-        let n = sequence.iter().filter(|&&x| x.is_nan()).count();
-        n < sequence.len() / 2
     }
 
     pub fn write(&mut self, seqname: &str, sequence: &Vec<f64>, bin_size: usize) -> Result<(), Box<dyn Error>> {
@@ -416,17 +434,6 @@ impl<W: Write + Seek> BigWigWriter<W> {
         self.bwf.header.zoom_headers[i].n_blocks += n as u32;
 
         Ok(())
-    }
-
-    fn get_leaves_sorted(&self) -> Vec<RVertex> {
-        let mut indices: Vec<_> = self.leaves.keys().cloned().collect();
-        indices.sort_unstable();
-        
-        indices.iter().flat_map(|idx| self.leaves.get(idx).unwrap().clone()).collect()
-    }
-
-    fn reset_leaf_map(&mut self) {
-        self.leaves.clear();
     }
 
     pub fn write_index(&mut self) -> Result<(), Box<dyn Error>> {

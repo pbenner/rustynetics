@@ -27,7 +27,7 @@ use crate::track_statistics::BinSummaryStatistics;
 
 impl SimpleTrack {
 
-    fn read_bigwig<R: Read + Seek>(
+    pub fn read_bigwig<R: Read + Seek>(
         &mut self,
         reader: &mut R,
         name  : &str,
@@ -36,12 +36,13 @@ impl SimpleTrack {
         bin_overlap: usize,
         init: f64,
     ) -> Result<(), Box<dyn Error>> {
+
         let mut bwr = BigWigReader::new(reader)?;
-
         let mut sequences: Vec<Vec<f64>> = Vec::new();
+        let genome = bwr.genome().clone();
 
-        for seqname in &bwr.genome().seqnames {
-            let (s, b) = bwr.query_sequence(seqname, f, bin_size, bin_overlap, init)?;
+        for seqname in genome.seqnames {
+            let (s, b) = bwr.query_sequence(&seqname, f, bin_size, bin_overlap, init)?;
             if bin_size == 0 {
                 bin_size = b;
             }
@@ -54,7 +55,7 @@ impl SimpleTrack {
         Ok(())
     }
 
-    fn import_bigwig(
+    pub fn import_bigwig(
         &mut self,
         filename   : &str,
         name       : &str,
@@ -74,7 +75,7 @@ impl SimpleTrack {
 
     }
 
-    fn write_bigwig<W: Write + Seek>(
+    pub fn write_bigwig<W: Write + Seek>(
         &self,
         writer: &mut W,
         params: Option<BigWigParameters>
@@ -84,7 +85,7 @@ impl SimpleTrack {
 
     }
 
-    fn export_bigwig(
+    pub fn export_bigwig(
         &self,
         filename: &str,
         params  : Option<BigWigParameters>
