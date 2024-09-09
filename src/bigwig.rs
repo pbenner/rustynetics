@@ -376,7 +376,7 @@ impl<W: Write + Seek> BigWigWriter<W> {
         n < sequence.len() / 2
     }
 
-    fn write(&mut self, idx: usize, sequence: &Vec<f64>, bin_size: usize) -> Result<i32, Box<dyn Error>> {
+    pub fn write(&mut self, idx: usize, sequence: &Vec<f64>, bin_size: usize) -> Result<i32, Box<dyn Error>> {
         let mut n = 0;
         let fixed_step = self.use_fixed_step(&sequence);
 
@@ -404,7 +404,7 @@ impl<W: Write + Seek> BigWigWriter<W> {
         Ok(())
     }
 
-    fn write_zoom(&mut self, idx: usize, sequence: &Vec<f64>, bin_size: usize, reduction_level: usize) -> Result<i32, Box<dyn Error>> {
+    pub fn write_zoom(&mut self, idx: usize, sequence: &Vec<f64>, bin_size: usize, reduction_level: usize) -> Result<i32, Box<dyn Error>> {
         let mut n = 0;
 
         for mut tmp in self.generator.generate::<LittleEndian>(idx, sequence, bin_size, reduction_level, true) {

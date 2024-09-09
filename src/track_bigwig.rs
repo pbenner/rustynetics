@@ -128,14 +128,14 @@ impl<'a> GenericTrack<'a> {
 
     fn write_bigwig_reduction_levels(&self, parameters: &BigWigParameters) -> Vec<usize> {
 
-        let c = BBI_RES_INCREMENT * self.get_bin_size();
+        let c = (BBI_RES_INCREMENT as usize) * self.track.get_bin_size();
         let mut n = Vec::new();
         let mut l = 0;
 
         // Get length of longest track
-        for &length in &self.get_genome().lengths {
-            if length / self.get_bin_size() > l {
-                l = length / self.get_bin_size();
+        for &length in &self.track.get_genome().lengths {
+            if length / self.track.get_bin_size() > l {
+                l = length / self.track.get_bin_size();
             }
         }
 
@@ -145,7 +145,7 @@ impl<'a> GenericTrack<'a> {
         // Compute number of zoom levels
         while n.len() <= BBI_MAX_ZOOM_LEVELS {
             if l / r > parameters.items_per_slot {
-                n.push(r);
+                n.push(r as usize);
                 r *= c;
             } else {
                 break;
@@ -155,7 +155,8 @@ impl<'a> GenericTrack<'a> {
         n
     }
 
-    fn write_bigwig<W: Write + Seek>(&self, writer: &mut W, args: &[Box<dyn std::any::Any>]) -> Result<(), Box<dyn Error>> {
+    pub fn write_bigwig<W: Write + Seek>(&self, writer: &mut W, args: &[Box<dyn std::any::Any>]) -> Result<(), Box<dyn Error>> {
+
         let mut parameters = BigWigParameters::default();
 
         // Parse arguments
@@ -173,12 +174,12 @@ impl<'a> GenericTrack<'a> {
         }
 
         // Create new BigWig writer
-        let mut bww = BigWigWriter::new(writer, self.get_genome(), &parameters)?;
+        let mut bww = BigWigWriter::new(writer, self.track.get_genome().clone(), parameters)?;
 
         // Write data
-        for name in self.get_seq_names() {
-            let sequence = self.get_sequence(name)?;
-            bww.write(name, &sequence.sequence, self.get_bin_size())?;
+        for name in self.track.get_seq_names() {
+            let sequence = self.track.get_sequence(&name)?;
+            bww.write(name, &sequence.sequence, self.track.get_bin_size())?;
         }
 
         bww.write_index()?;
@@ -187,19 +188,18 @@ impl<'a> GenericTrack<'a> {
         if let Some(reduction_levels) = parameters.reduction_levels {
             for (i, &reduction_level) in reduction_levels.iter().enumerate() {
                 bww.start_zoom_data(i)?;
-                for name in self.get_seq_names() {
-                    let sequence = self.get_sequence(name)?;
-                    bww.write_zoom(name, &sequence.sequence, self.get_bin_size(), reduction_level, i)?;
+                for name in self.track.get_seq_names() {
+                    let sequence = self.track.get_sequence(&name)?;
+                    bww.write_zoom(&sequence.sequence, self.track.get_bin_size(), reduction_level, i)?;
                 }
                 bww.write_index_zoom(i)?;
             }
         }
 
-        bww.close()?;
         Ok(())
     }
 
-    fn export_bigwig(&self, filename: &str, args: &[Box<dyn std::any::Any>]) -> Result<(), Box<dyn Error>> {
+    pub fn export_bigwig(&self, filename: &str, args: &[Box<dyn std::any::Any>]) -> Result<(), Box<dyn Error>> {
         let mut file = File::create(filename)?;
         self.write_bigwig(&mut file, args)?;
         Ok(())
