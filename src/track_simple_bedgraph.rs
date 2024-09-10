@@ -30,7 +30,7 @@ impl SimpleTrack {
 
     pub fn read_bedgraph<R: BufRead>(&mut self, reader: R) -> io::Result<()> {
 
-        let mut cur_seq  = Vec::<f64>::new();
+        let mut cur_seq  = &mut Rc::new(RefCell::new(vec![]));
         let mut cur_name = String::new();
         let bin_size     = self.bin_size;
 
@@ -54,17 +54,19 @@ impl SimpleTrack {
 
                 cur_seq = self.data.entry(name.clone()).or_insert_with(
                     || Rc::new(RefCell::new(vec![0.0; (to / bin_size) + 1]))
-                ).clone();
+                );
 
                 cur_name = name;
             }
 
-            if from >= cur_seq.len() * bin_size || to >= cur_seq.len() * bin_size {
+            let mut s = cur_seq.borrow_mut();
+
+            if from >= s.len() * bin_size || to >= s.len() * bin_size {
                 continue;
             }
 
             for i in (from / bin_size)..(to / bin_size) {
-                cur_seq[i] = value;
+                s[i] = value;
             }
         }
 
