@@ -16,13 +16,13 @@
 
 use std::fs::File;
 use std::io::{self, BufRead, BufReader};
-use std::path::Path;
 use std::str::FromStr;
 use std::{cell::RefCell, rc::Rc};
 
 use flate2::read::GzDecoder;
 
 use crate::track_simple::SimpleTrack;
+use crate::utility::is_gzip;
 
 /* -------------------------------------------------------------------------- */
 
@@ -85,8 +85,4 @@ impl SimpleTrack {
 
         self.read_bedgraph(reader)
     }
-}
-
-fn is_gzip<P: AsRef<Path>>(filename: P) -> bool {
-    filename.as_ref().extension().map_or(false, |ext| ext == "gz")
 }

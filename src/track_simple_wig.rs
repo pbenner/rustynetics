@@ -16,10 +16,10 @@
 
 use std::fs::File;
 use std::io::{self, BufRead, BufReader, Write};
-use std::path::Path;
 use std::{rc::Rc, cell::RefCell};
 
 use crate::track_simple::SimpleTrack;
+use crate::utility::is_gzip;
 
 /* -------------------------------------------------------------------------- */
 
@@ -314,10 +314,4 @@ fn fields_quoted(s: &str) -> Vec<String> {
         fields.push(field);
     }
     fields
-}
-
-fn is_gzip<P: AsRef<Path>>(path: P) -> bool {
-    path.as_ref()
-        .extension()
-        .map_or(false, |ext| ext == "gz" || ext == "gzip")
 }

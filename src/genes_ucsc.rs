@@ -16,12 +16,14 @@
 
 use std::fs::File;
 use std::io::{BufRead, BufReader};
+
 use flate2::read::GzDecoder;
 use mysql::prelude::*;
 use mysql::from_row;
 use mysql::Pool;
 
 use crate::genes::Genes;
+use crate::utility::is_gzip;
 
 /* -------------------------------------------------------------------------- */
 
@@ -37,7 +39,7 @@ impl Genes {
         let mut strand   = vec![];
 
         let file = File::open(filename)?;
-        let reader: Box<dyn BufRead> = if filename.ends_with(".gz") {
+        let reader: Box<dyn BufRead> = if is_gzip(filename) {
             Box::new(BufReader::new(GzDecoder::new(file)))
         } else {
             Box::new(BufReader::new(file))

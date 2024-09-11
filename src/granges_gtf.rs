@@ -26,6 +26,7 @@ use regex::Regex;
 use crate::granges::GRanges;
 use crate::meta::MetaData;
 use crate::range::Range;
+use crate::utility::is_gzip;
 
 /* -------------------------------------------------------------------------- */
 
@@ -288,7 +289,7 @@ impl GRanges {
     ) -> Result<(), Box<dyn Error>> {
 
         let file = File::open(filename)?;
-        let reader: Box<dyn BufRead> = if filename.to_string().ends_with(".gz") {
+        let reader: Box<dyn BufRead> = if is_gzip(filename) {
             let decoder = GzDecoder::new(file);
             Box::new(BufReader::new(decoder))
         } else {

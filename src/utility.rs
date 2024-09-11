@@ -16,9 +16,10 @@
 
 /* -------------------------------------------------------------------------- */
 
-use num::traits::PrimInt;
-
 use std::collections::HashSet;
+use std::path::Path;
+
+use num::traits::PrimInt;
 
 /* -------------------------------------------------------------------------- */
 
@@ -43,4 +44,10 @@ pub fn div_int_up<T : PrimInt>(a: T, b: T) -> T {
 // Helper function for integer division rounding down
 pub fn div_int_down<T : PrimInt>(n: T, d: T) -> T {
     n / d
+}
+
+/* -------------------------------------------------------------------------- */
+
+pub fn is_gzip<P: AsRef<Path>>(filename: P) -> bool {
+    filename.as_ref().extension().map_or(false, |ext| ext == "gz")
 }
