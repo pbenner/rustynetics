@@ -20,6 +20,7 @@
 // Public crates
 pub mod alphabet;
 pub mod bbi;
+pub mod bgzf;
 pub mod bigwig;
 pub mod cpg;
 pub mod genes;
