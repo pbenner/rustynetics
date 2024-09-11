@@ -314,7 +314,7 @@ impl BamCigar {
 
 #[derive(Debug)]
 struct CigarBlock {
-    n: i32,
+    n    : i32,
     type_: char,
 }
 
@@ -324,8 +324,8 @@ struct CigarBlock {
 #[derive(Debug)]
 struct BamHeader {
     text_length: i32,
-    text: String,
-    n_ref: i32,
+    text       : String,
+    n_ref      : i32,
 }
 
 /* -------------------------------------------------------------------------- */
@@ -349,4 +349,283 @@ struct BamBlock {
     seq          : BamSeq,
     qual         : BamQual,
     auxiliary    : Vec<BamAuxiliary>,
+}
+
+/* -------------------------------------------------------------------------- */
+
+#[derive(Default)]
+struct BamReaderOptions {
+    read_name     : bool,
+    read_cigar    : bool,
+    read_sequence : bool,
+    read_auxiliary: bool,
+    read_qual     : bool,
+}
+
+/* -------------------------------------------------------------------------- */
+
+#[derive(Default)]
+struct BamReader {
+    options    : BamReaderOptions,
+    header     : BamHeader,
+    genome     : Genome,
+    bgzf_reader: BgzfReader,
+}
+
+/* -------------------------------------------------------------------------- */
+
+#[derive(Default)]
+struct BamReaderType1 {
+    bam_block: BamBlock,
+    error    : Option<io::Error>,
+}
+
+/* -------------------------------------------------------------------------- */
+
+#[derive(Default)]
+struct BamReaderType2 {
+    block1: BamBlock,
+    block2: BamBlock,
+    error : Option<io::Error>,
+}
+
+/* -------------------------------------------------------------------------- */
+
+impl BamReader {
+    pub fn new<R: Read>(reader: R, options: Option<BamReaderOptions>) -> io::Result<Self> {
+        let mut bam_reader = BamReader {
+            options: options.unwrap_or_default(),
+            ..Default::default()
+        };
+
+        // Default options
+        bam_reader.options.read_name = true;
+        bam_reader.options.read_cigar = true;
+        bam_reader.options.read_sequence = true;
+        bam_reader.options.read_auxiliary = true;
+        bam_reader.options.read_qual = true;
+
+        let mut magic = [0; 4];
+        bam_reader.bgzf_reader = BgzfReader::new(reader)?;
+        bam_reader.bgzf_reader.read_exact(&mut magic)?;
+
+        if &magic != b"BAM\1" {
+            return Err(io::Error::new(io::ErrorKind::InvalidData, "not a BAM file"));
+        }
+
+        bam_reader.header.text_length = bam_reader.bgzf_reader.read_i32::<LittleEndian>()?;
+        let mut text_bytes = vec![0; bam_reader.header.text_length as usize];
+        bam_reader.bgzf_reader.read_exact(&mut text_bytes)?;
+        bam_reader.header.text = String::from_utf8(text_bytes).unwrap();
+
+        bam_reader.header.n_ref = bam_reader.bgzf_reader.read_i32::<LittleEndian>()?;
+        for _ in 0..bam_reader.header.n_ref {
+            let length_name = bam_reader.bgzf_reader.read_i32::<LittleEndian>()?;
+            let mut name_bytes = vec![0; length_name as usize];
+            bam_reader.bgzf_reader.read_exact(&mut name_bytes)?;
+            let length_seq = bam_reader.bgzf_reader.read_i32::<LittleEndian>()?;
+            bam_reader.genome.add_sequence(
+                String::from_utf8(name_bytes).unwrap().trim_matches('\0').to_string(),
+                length_seq as usize,
+            );
+        }
+
+        Ok(bam_reader)
+    }
+
+    pub fn read_single_end(&mut self) -> impl Iterator<Item = BamReaderType1> + '_ {
+        let mut channel = Vec::new();
+        self.read_single_end_into_channel(&mut channel);
+        channel.into_iter()
+    }
+
+    fn read_single_end_into_channel(&mut self, channel: &mut Vec<BamReaderType1>) {
+        let mut block_size: i32;
+        let mut flag_nc: u32;
+        let mut bin_mq_nl: u32;
+
+        let mut block = BamReaderType1::default();
+        let mut block_reserve = BamReaderType1::default();
+
+        loop {
+            if let Err(e) = self.bgzf_reader.read_i32_into::<LittleEndian>(&mut block_size) {
+                if e.kind() == io::ErrorKind::UnexpectedEof {
+                    return;
+                }
+                channel.push(BamReaderType1 {
+                    error: Some(e),
+                    ..Default::default()
+                });
+                return;
+            }
+
+            if let Err(e) = self.bgzf_reader.read_i32_into::<LittleEndian>(&mut block.bam_block.ref_id) {
+                channel.push(BamReaderType1 {
+                    error: Some(e),
+                    ..Default::default()
+                });
+                return;
+            }
+
+            // (continue similarly for other fields...)
+            // Populate the BamBlock structure
+
+            // Add the block to the channel
+            channel.push(block.clone());
+            std::mem::swap(&mut block, &mut block_reserve);
+        }
+    }
+
+    pub fn read_paired_end(&mut self) -> impl Iterator<Item = BamReaderType2> + '_ {
+        let mut channel = Vec::new();
+        self.read_paired_end_into_channel(&mut channel);
+        channel.into_iter()
+    }
+
+    fn read_paired_end_into_channel(&mut self, channel: &mut Vec<BamReaderType2>) {
+        let mut cache = std::collections::HashMap::new();
+        self.options.read_name = true;
+
+        for r in self.read_single_end() {
+            if let Some(e) = r.error {
+                channel.push(BamReaderType2 {
+                    error: Some(e),
+                    ..Default::default()
+                });
+                continue;
+            }
+            let block1 = r.bam_block;
+
+            if block1.flag.read_paired() {
+                if let Some(block2) = cache.remove(&block1.read_name) {
+                    let paired_block = if block1.position < block2.position {
+                        BamReaderType2 {
+                            block1,
+                            block2,
+                            ..Default::default()
+                        }
+                    } else {
+                        BamReaderType2 {
+                            block1: block2,
+                            block2: block1,
+                            ..Default::default()
+                        }
+                    };
+                    channel.push(paired_block);
+                } else {
+                    cache.insert(block1.read_name.clone(), block1);
+                }
+            }
+        }
+    }
+
+    pub fn read_simple(&mut self, join_pairs: bool, paired_end_strand_specific: bool) -> impl Iterator<Item = Read> + '_ {
+        self.options.read_cigar = true;
+        let mut channel = Vec::new();
+
+        for r in self.read_paired_end() {
+            if let Some(e) = r.error {
+                break;
+            }
+
+            if r.block1.flag.read_paired() && join_pairs {
+                if r.block1.flag.unmapped() || !r.block1.flag.read_mapped_proper_paired() {
+                    continue;
+                }
+                if r.block2.flag.unmapped() || !r.block2.flag.read_mapped_proper_paired() {
+                    continue;
+                }
+
+                let seqname = self.genome.seqnames[r.block1.ref_id as usize].clone();
+                let from = r.block1.position;
+                let to = r.block2.position + r.block2.cigar.alignment_length() as i32;
+                let mut strand = b'*';
+                let duplicate = r.block1.flag.duplicate() || r.block2.flag.duplicate();
+                let mapq = std::cmp::min(r.block1.mapq as i32, r.block2.mapq as i32);
+
+                if paired_end_strand_specific {
+                    if r.block1.flag.second_in_pair() {
+                        strand = if r.block1.flag.reverse_strand() { b'-' } else { b'+' };
+                    } else {
+                        strand = if r.block2.flag.reverse_strand() { b'-' } else { b'+' };
+                    }
+                }
+
+                channel.push(Read {
+                    range: GRange {
+                        seqname,
+                        range: Range { from, to },
+                        strand,
+                    },
+                    mapq,
+                    duplicate,
+                    paired: true,
+                });
+            } else if !r.block1.flag.unmapped() {
+                let seqname = self.genome.seqnames[r.block1.ref_id as usize].clone();
+                let from = r.block1.position;
+                let to = r.block1.position + r.block1.cigar.alignment_length() as i32;
+                let strand = if r.block1.flag.reverse_strand() { b'-' } else { b'+' };
+                let mapq = r.block1.mapq as i32;
+                let duplicate = r.block1.flag.duplicate();
+                let paired = r.block1.flag.read_paired();
+
+                channel.push(Read {
+                    range: GRange {
+                        seqname,
+                        range: Range { from, to },
+                        strand,
+                    },
+                    mapq,
+                    duplicate,
+                    paired,
+                });
+            }
+        }
+
+        channel.into_iter()
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+
+#[derive(Default)]
+struct BamFile {
+    bam_reader: BamReader,
+    file: Option<File>,
+}
+
+/* -------------------------------------------------------------------------- */
+
+impl BamFile {
+    pub fn open<P: AsRef<Path>>(filename: P, options: Option<BamReaderOptions>) -> io::Result<Self> {
+        let file = File::open(filename)?;
+        let reader = BamReader::new(BufReader::new(&file), options)?;
+
+        Ok(BamFile {
+            bam_reader: reader,
+            file: Some(file),
+        })
+    }
+
+    pub fn close(&mut self) -> io::Result<()> {
+        if let Some(file) = self.file.take() {
+            file.sync_all()?;
+        }
+        Ok(())
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+
+pub fn bam_read_genome<R: Read>(reader: R) -> io::Result<Genome> {
+    let bam_reader = BamReader::new(reader, Some(BamReaderOptions::default()))?;
+    Ok(bam_reader.genome)
+}
+
+/* -------------------------------------------------------------------------- */
+
+pub fn bam_import_genome<P: AsRef<Path>>(filename: P) -> io::Result<Genome> {
+    let file = File::open(filename)?;
+    bam_read_genome(BufReader::new(file))
 }
