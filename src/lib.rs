@@ -19,6 +19,7 @@
 
 // Public crates
 pub mod alphabet;
+pub mod bam;
 pub mod bbi;
 pub mod bgzf;
 pub mod bigwig;
