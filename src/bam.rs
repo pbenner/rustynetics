@@ -536,12 +536,12 @@ impl BamReader {
                     continue;
                 }
 
-                let seqname = self.genome.seqnames[r.block1.ref_id as usize].clone();
-                let from = r.block1.position;
-                let to = r.block2.position + r.block2.cigar.alignment_length() as i32;
+                let seqname    = self.genome.seqnames[r.block1.ref_id as usize].clone();
+                let from       = r.block1.position;
+                let to         = r.block2.position + r.block2.cigar.alignment_length() as i32;
                 let mut strand = b'*';
-                let duplicate = r.block1.flag.duplicate() || r.block2.flag.duplicate();
-                let mapq = std::cmp::min(r.block1.mapq as i32, r.block2.mapq as i32);
+                let duplicate  = r.block1.flag.duplicate() || r.block2.flag.duplicate();
+                let mapq       = std::cmp::min(r.block1.mapq as i32, r.block2.mapq as i32);
 
                 if paired_end_strand_specific {
                     if r.block1.flag.second_in_pair() {
@@ -562,13 +562,13 @@ impl BamReader {
                     paired: true,
                 });
             } else if !r.block1.flag.unmapped() {
-                let seqname = self.genome.seqnames[r.block1.ref_id as usize].clone();
-                let from = r.block1.position;
-                let to = r.block1.position + r.block1.cigar.alignment_length() as i32;
-                let strand = if r.block1.flag.reverse_strand() { b'-' } else { b'+' };
-                let mapq = r.block1.mapq as i32;
+                let seqname   = self.genome.seqnames[r.block1.ref_id as usize].clone();
+                let from      = r.block1.position;
+                let to        = r.block1.position + r.block1.cigar.alignment_length() as i32;
+                let strand    = if r.block1.flag.reverse_strand() { b'-' } else { b'+' };
+                let mapq      = r.block1.mapq as i32;
                 let duplicate = r.block1.flag.duplicate();
-                let paired = r.block1.flag.read_paired();
+                let paired    = r.block1.flag.read_paired();
 
                 channel.push(Read {
                     range: GRange {
@@ -592,14 +592,14 @@ impl BamReader {
 #[derive(Default)]
 struct BamFile {
     bam_reader: BamReader,
-    file: Option<File>,
+    file      : Option<File>,
 }
 
 /* -------------------------------------------------------------------------- */
 
 impl BamFile {
     pub fn open<P: AsRef<Path>>(filename: P, options: Option<BamReaderOptions>) -> io::Result<Self> {
-        let file = File::open(filename)?;
+        let file   = File::open(filename)?;
         let reader = BamReader::new(BufReader::new(&file), options)?;
 
         Ok(BamFile {
