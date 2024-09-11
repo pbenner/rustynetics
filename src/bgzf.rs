@@ -57,9 +57,9 @@ impl<R: Read> BgzfReader<R> {
             }
 
             let mut cursor = io::Cursor::new(extra);
-            let si1 = cursor.read_u8()?;
-            let si2 = cursor.read_u8()?;
-            let slen = cursor.read_u16::<LittleEndian>()?;
+            let si1   = cursor.read_u8()?;
+            let si2   = cursor.read_u8()?;
+            let slen  = cursor.read_u16::<LittleEndian>()?;
             let bsize = cursor.read_u16::<LittleEndian>()?;
 
             Ok(BgzfExtra { si1, si2, slen, bsize })
