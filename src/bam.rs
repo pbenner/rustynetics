@@ -15,8 +15,15 @@
  */
 
 use std::fmt;
-use std::io::{self, BufRead};
+use std::fs::File;
+use std::io::{self, BufRead, BufReader, Read};
 use byteorder::{LittleEndian, ReadBytesExt};
+
+use crate::bgzf::BgzfReader;
+use crate::genome::Genome;
+use crate::granges_row::GRange;
+use crate::range::Range;
+use crate::reads;
 
 /* -------------------------------------------------------------------------- */
 
@@ -321,7 +328,7 @@ struct CigarBlock {
 /* -------------------------------------------------------------------------- */
 
 // Represents a BAM header
-#[derive(Debug)]
+#[derive(Debug, Default)]
 struct BamHeader {
     text_length: i32,
     text       : String,
@@ -365,11 +372,11 @@ struct BamReaderOptions {
 /* -------------------------------------------------------------------------- */
 
 #[derive(Default)]
-struct BamReader {
+struct BamReader<R: Read> {
     options    : BamReaderOptions,
     header     : BamHeader,
     genome     : Genome,
-    bgzf_reader: BgzfReader,
+    bgzf_reader: BgzfReader<R>,
 }
 
 /* -------------------------------------------------------------------------- */
@@ -391,8 +398,8 @@ struct BamReaderType2 {
 
 /* -------------------------------------------------------------------------- */
 
-impl BamReader {
-    pub fn new<R: Read>(reader: R, options: Option<BamReaderOptions>) -> io::Result<Self> {
+impl<R: Read> BamReader<R> {
+    pub fn new(reader: R, options: Option<BamReaderOptions>) -> io::Result<Self> {
         let mut bam_reader = BamReader {
             options: options.unwrap_or_default(),
             ..Default::default()
@@ -409,7 +416,7 @@ impl BamReader {
         bam_reader.bgzf_reader = BgzfReader::new(reader)?;
         bam_reader.bgzf_reader.read_exact(&mut magic)?;
 
-        if &magic != b"BAM\1" {
+        if &magic != b"BAM\x01" {
             return Err(io::Error::new(io::ErrorKind::InvalidData, "not a BAM file"));
         }
 
@@ -519,7 +526,7 @@ impl BamReader {
         }
     }
 
-    pub fn read_simple(&mut self, join_pairs: bool, paired_end_strand_specific: bool) -> impl Iterator<Item = Read> + '_ {
+    pub fn read_simple(&mut self, join_pairs: bool, paired_end_strand_specific: bool) -> impl Iterator<Item = dyn Read> + '_ {
         self.options.read_cigar = true;
         let mut channel = Vec::new();
 
@@ -551,7 +558,7 @@ impl BamReader {
                     }
                 }
 
-                channel.push(Read {
+                channel.push(reads::Read {
                     range: GRange {
                         seqname,
                         range: Range { from, to },
@@ -570,7 +577,7 @@ impl BamReader {
                 let duplicate = r.block1.flag.duplicate();
                 let paired    = r.block1.flag.read_paired();
 
-                channel.push(Read {
+                channel.push(reads::Read {
                     range: GRange {
                         seqname,
                         range: Range { from, to },
@@ -590,15 +597,15 @@ impl BamReader {
 /* -------------------------------------------------------------------------- */
 
 #[derive(Default)]
-struct BamFile {
-    bam_reader: BamReader,
+struct BamFile<R: Read> {
+    bam_reader: BamReader<R>,
     file      : Option<File>,
 }
 
 /* -------------------------------------------------------------------------- */
 
-impl BamFile {
-    pub fn open<P: AsRef<Path>>(filename: P, options: Option<BamReaderOptions>) -> io::Result<Self> {
+impl<R: Read> BamFile<R> {
+    pub fn open(filename: &str, options: Option<BamReaderOptions>) -> io::Result<Self> {
         let file   = File::open(filename)?;
         let reader = BamReader::new(BufReader::new(&file), options)?;
 
@@ -619,13 +626,13 @@ impl BamFile {
 /* -------------------------------------------------------------------------- */
 
 pub fn bam_read_genome<R: Read>(reader: R) -> io::Result<Genome> {
-    let bam_reader = BamReader::new(reader, Some(BamReaderOptions::default()))?;
+    let bam_reader = BamReader::<R>::new(reader, Some(BamReaderOptions::default()))?;
     Ok(bam_reader.genome)
 }
 
 /* -------------------------------------------------------------------------- */
 
-pub fn bam_import_genome<P: AsRef<Path>>(filename: P) -> io::Result<Genome> {
+pub fn bam_import_genome(filename: &str) -> io::Result<Genome> {
     let file = File::open(filename)?;
-    bam_read_genome(BufReader::new(file))
+    bam_read_genome(BufReader::<R>::new(file))
 }
