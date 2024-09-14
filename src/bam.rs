@@ -550,6 +550,10 @@ impl<R: Read> BamReader<R> {
                 let duplicate  = r.block1.flag.duplicate() || r.block2.flag.duplicate();
                 let mapq       = std::cmp::min(r.block1.mapq as i32, r.block2.mapq as i32);
 
+                if from < 0 {
+                    return Err(io::Error::new(io::ErrorKind::InvalidData, format!("invalid position detected: from={}", from)));
+                }
+
                 if paired_end_strand_specific {
                     if r.block1.flag.second_in_pair() {
                         strand = if r.block1.flag.reverse_strand() { b'-' } else { b'+' };
@@ -559,12 +563,8 @@ impl<R: Read> BamReader<R> {
                 }
 
                 channel.push(reads::Read {
-                    range: GRange {
-                        seqname,
-                        range: Range { from, to },
-                        strand,
-                    },
-                    mapq,
+                    range: GRange::new(seqname, from as usize, to as usize, strand),
+                    mapq as i64,
                     duplicate,
                     paired: true,
                 });
@@ -583,14 +583,14 @@ impl<R: Read> BamReader<R> {
                         range: Range { from, to },
                         strand,
                     },
-                    mapq,
+                    mapq as i64,
                     duplicate,
                     paired,
                 });
             }
         }
 
-        channel.into_iter()
+        Ok(channel.into_iter())
     }
 }
 

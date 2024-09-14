@@ -31,6 +31,18 @@ pub struct GRange {
 
 /* -------------------------------------------------------------------------- */
 
+impl GRange {
+    pub fn new(seqname : String, from : usize, to : usize, strand : char) {
+        GRange {
+            seqname,
+            range: Range::new(from, to),
+            strand,
+        }
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+
 pub struct GRangesRow<'a> {
     granges: &'a GRanges,
     row    : usize,
