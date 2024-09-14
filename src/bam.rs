@@ -489,7 +489,9 @@ impl<R: Read> BamReader<R> {
     }
 
     fn read_paired_end_into_channel(&mut self, channel: &mut Vec<BamReaderType2>) {
-        let mut cache = std::collections::HashMap::new();
+
+        let mut cache : std::collections::HashMap<String, BamBlock> = std::collections::HashMap::new();
+
         self.options.read_name = true;
 
         for r in self.read_single_end() {
