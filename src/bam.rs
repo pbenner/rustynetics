@@ -27,7 +27,7 @@ use crate::reads;
 /* -------------------------------------------------------------------------- */
 
 // Represents a BAM sequence
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct BamSeq(Vec<u8>);
 
 /* -------------------------------------------------------------------------- */
@@ -50,7 +50,7 @@ impl fmt::Display for BamSeq {
 /* -------------------------------------------------------------------------- */
 
 // Represents BAM quality scores
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct BamQual(Vec<u8>);
 
 /* -------------------------------------------------------------------------- */
@@ -67,7 +67,7 @@ impl fmt::Display for BamQual {
 /* -------------------------------------------------------------------------- */
 
 // Represents a BAM auxiliary data field
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct BamAuxiliary {
     tag  : [u8; 2],
     value: BamAuxValue,
@@ -75,7 +75,7 @@ struct BamAuxiliary {
 
 /* -------------------------------------------------------------------------- */
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 enum BamAuxValue {
     A         (u8),
     C         (i8),
@@ -220,7 +220,7 @@ impl BamAuxiliary {
 /* -------------------------------------------------------------------------- */
 
 // Represents BAM flags
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct BamFlag(u16);
 
 /* -------------------------------------------------------------------------- */
@@ -278,7 +278,7 @@ impl BamFlag {
 /* -------------------------------------------------------------------------- */
 
 // Represents a BAM CIGAR string
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct BamCigar(Vec<u32>);
 
 /* -------------------------------------------------------------------------- */
@@ -327,7 +327,7 @@ struct CigarBlock {
 /* -------------------------------------------------------------------------- */
 
 // Represents a BAM header
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 struct BamHeader {
     text_length: i32,
     text       : String,
@@ -337,7 +337,7 @@ struct BamHeader {
 /* -------------------------------------------------------------------------- */
 
 // Represents a BAM block
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct BamBlock {
     ref_id       : i32,
     position     : i32,
@@ -359,6 +359,23 @@ struct BamBlock {
 
 /* -------------------------------------------------------------------------- */
 
+#[derive(Clone, Default)]
+struct BamReaderType1 {
+    bam_block: BamBlock,
+    error    : Option<io::Error>,
+}
+
+/* -------------------------------------------------------------------------- */
+
+#[derive(Clone, Default)]
+struct BamReaderType2 {
+    block1: BamBlock,
+    block2: BamBlock,
+    error : Option<io::Error>,
+}
+
+/* -------------------------------------------------------------------------- */
+
 #[derive(Default)]
 struct BamReaderOptions {
     read_name     : bool,
@@ -376,23 +393,6 @@ struct BamReader<R: Read> {
     header     : BamHeader,
     genome     : Genome,
     bgzf_reader: BgzfReader<R>,
-}
-
-/* -------------------------------------------------------------------------- */
-
-#[derive(Default)]
-struct BamReaderType1 {
-    bam_block: BamBlock,
-    error    : Option<io::Error>,
-}
-
-/* -------------------------------------------------------------------------- */
-
-#[derive(Default)]
-struct BamReaderType2 {
-    block1: BamBlock,
-    block2: BamBlock,
-    error : Option<io::Error>,
 }
 
 /* -------------------------------------------------------------------------- */
@@ -609,8 +609,8 @@ impl<R: Read> BamFile<R> {
         let reader = BamReader::new(BufReader::new(&file), options)?;
 
         Ok(BamFile {
-            bam_reader: reader,
-            file: Some(file),
+            bam_reader : &dyn reader,
+            file       : Some(file),
         })
     }
 

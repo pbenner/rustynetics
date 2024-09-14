@@ -21,7 +21,7 @@ use byteorder::{LittleEndian, ReadBytesExt};
 /* -------------------------------------------------------------------------- */
 
 // Structure to hold the BGZF extra fields
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct BgzfExtra {
     pub si1  : u8,
     pub si2  : u8,
@@ -32,6 +32,7 @@ pub struct BgzfExtra {
 /* -------------------------------------------------------------------------- */
 
 // BGZF reader structure that wraps GzDecoder
+#[derive(Debug)]
 pub struct BgzfReader<R: Read> {
     decoder: GzDecoder<R>,
 }
