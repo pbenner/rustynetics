@@ -32,7 +32,7 @@ pub struct GRange {
 /* -------------------------------------------------------------------------- */
 
 impl GRange {
-    pub fn new(seqname : String, from : usize, to : usize, strand : char) {
+    pub fn new(seqname : String, from : usize, to : usize, strand : char) -> Self {
         GRange {
             seqname,
             range: Range::new(from, to),
