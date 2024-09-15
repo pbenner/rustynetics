@@ -663,21 +663,19 @@ impl<R: Read> BamReader<R> {
 /* -------------------------------------------------------------------------- */
 
 #[derive(Debug)]
-struct BamFile<'a> {
-    bam_reader: BamReader<BufReader<&'a File>>,
-    file      : Option<File>,
+struct BamFile {
+    bam_reader: BamReader<BufReader<File>>,
 }
 
 /* -------------------------------------------------------------------------- */
 
-impl BamFile<'_> {
+impl BamFile {
     pub fn open(filename: &str, options: Option<BamReaderOptions>) -> io::Result<Self> {
         let file   = File::open(filename)?;
-        let reader = BamReader::new(BufReader::new(&file), options)?;
+        let reader = BamReader::new(BufReader::new(file), options)?;
 
         Ok(BamFile {
             bam_reader : reader,
-            file       : Some(file),
         })
     }
 }
