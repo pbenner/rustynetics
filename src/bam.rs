@@ -156,7 +156,7 @@ impl BamAuxiliary {
                 let mut buffer = Vec::new();
                 reader.read_until(0, &mut buffer)?;
                 buffer.pop(); // Remove the trailing null byte
-                BamAuxValue::Z(String::from_utf8(buffer)?)
+                BamAuxValue::Z(String::from_utf8_lossy(&buffer).to_string())
             }
             b'H' => {
                 let mut buffer = Vec::new();
