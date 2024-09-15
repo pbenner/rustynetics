@@ -450,6 +450,11 @@ impl<R: Read> BamReader<R> {
 
         Ok(bam_reader)
     }
+}
+
+/* -------------------------------------------------------------------------- */
+
+impl<R: Read> BamReader<R> {
 
     fn read_single_end_stream<'a>(&'a mut self) -> impl Stream<Item = io::Result<BamReaderType1>> + 'a {
 
@@ -544,6 +549,91 @@ impl<R: Read> BamReader<R> {
         }
     }
 
+    pub fn read_simple_stream<'a>(
+        &'a mut self,
+        join_pairs: bool,
+        paired_end_strand_specific: bool
+    ) -> impl Stream<Item = io::Result<reads::Read>> + 'a {
+
+        stream!{
+
+            self.options.read_cigar = true;
+
+            let mut iterator = self.read_paired_end_stream();
+
+            while let Some(item) = iterator.next().await {
+
+                match item {
+
+                    Err(e) => {yield e; break},
+                    Ok (r) => {
+
+                        if r.block1.flag.read_paired() && join_pairs {
+                            if r.block1.flag.unmapped() || !r.block1.flag.read_mapped_proper_paired() {
+                                continue;
+                            }
+                            if r.block2.flag.unmapped() || !r.block2.flag.read_mapped_proper_paired() {
+                                continue;
+                            }
+
+                            let seqname    = self.genome.seqnames[r.block1.ref_id as usize].clone();
+                            let from       = r.block1.position;
+                            let to         = r.block2.position + r.block2.cigar.alignment_length() as i32;
+                            let mut strand = b'*';
+                            let duplicate  = r.block1.flag.duplicate() || r.block2.flag.duplicate();
+                            let mapq       = std::cmp::min(r.block1.mapq as i32, r.block2.mapq as i32);
+
+                            if from < 0 {
+                                yield Err(io::Error::new(io::ErrorKind::InvalidData, format!("invalid position detected: from={}", from)));
+                            }
+
+                            if paired_end_strand_specific {
+                                if r.block1.flag.second_in_pair() {
+                                    strand = if r.block1.flag.reverse_strand() { b'-' } else { b'+' };
+                                } else {
+                                    strand = if r.block2.flag.reverse_strand() { b'-' } else { b'+' };
+                                }
+                            }
+
+                            yield Ok(reads::Read {
+                                seqname   : seqname,
+                                range     : Range::new(from as usize, to as usize),
+                                strand    : strand as char,
+                                mapq      : mapq as i64,
+                                duplicate : duplicate,
+                                paired_end: true,
+                            });
+
+                        } else if !r.block1.flag.unmapped() {
+
+                            let seqname   = self.genome.seqnames[r.block1.ref_id as usize].clone();
+                            let from      = r.block1.position;
+                            let to        = r.block1.position + r.block1.cigar.alignment_length() as i32;
+                            let strand    = if r.block1.flag.reverse_strand() { b'-' } else { b'+' };
+                            let mapq      = r.block1.mapq as i32;
+                            let duplicate = r.block1.flag.duplicate();
+                            let paired    = r.block1.flag.read_paired();
+
+                            yield Ok(reads::Read {
+                                seqname   : seqname,
+                                range     : Range::new(from as usize, to as usize),
+                                strand    : strand as char,
+                                mapq      : mapq as i64,
+                                duplicate : duplicate,
+                                paired_end: paired,
+                            });
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+
+impl<R: Read> BamReader<R> {
+
     pub fn read_single_end<'a>(&'a mut self) -> impl Iterator<Item = io::Result<BamReaderType1>> + 'a {
 
         let s = Box::pin(self.read_single_end_stream());
@@ -560,76 +650,6 @@ impl<R: Read> BamReader<R> {
 
     }
 
-    pub fn read_simple(&mut self, join_pairs: bool, paired_end_strand_specific: bool) -> impl Iterator<Item = dyn Read> + '_ {
-        self.options.read_cigar = true;
-        let mut channel = Vec::new();
-
-        for item in self.read_paired_end() {
-            if let Err(e) = item {
-                break;
-            }
-            if let Ok(r) = item {
-
-                if r.block1.flag.read_paired() && join_pairs {
-                    if r.block1.flag.unmapped() || !r.block1.flag.read_mapped_proper_paired() {
-                        continue;
-                    }
-                    if r.block2.flag.unmapped() || !r.block2.flag.read_mapped_proper_paired() {
-                        continue;
-                    }
-
-                    let seqname    = self.genome.seqnames[r.block1.ref_id as usize].clone();
-                    let from       = r.block1.position;
-                    let to         = r.block2.position + r.block2.cigar.alignment_length() as i32;
-                    let mut strand = b'*';
-                    let duplicate  = r.block1.flag.duplicate() || r.block2.flag.duplicate();
-                    let mapq       = std::cmp::min(r.block1.mapq as i32, r.block2.mapq as i32);
-
-                    if from < 0 {
-                        return Err(io::Error::new(io::ErrorKind::InvalidData, format!("invalid position detected: from={}", from)));
-                    }
-
-                    if paired_end_strand_specific {
-                        if r.block1.flag.second_in_pair() {
-                            strand = if r.block1.flag.reverse_strand() { b'-' } else { b'+' };
-                        } else {
-                            strand = if r.block2.flag.reverse_strand() { b'-' } else { b'+' };
-                        }
-                    }
-
-                    channel.push(reads::Read {
-                        seqname   : seqname,
-                        range     : Range::new(from as usize, to as usize),
-                        strand    : strand as char,
-                        mapq      : mapq as i64,
-                        duplicate : duplicate,
-                        paired_end: true,
-                    });
-
-                } else if !r.block1.flag.unmapped() {
-
-                    let seqname   = self.genome.seqnames[r.block1.ref_id as usize].clone();
-                    let from      = r.block1.position;
-                    let to        = r.block1.position + r.block1.cigar.alignment_length() as i32;
-                    let strand    = if r.block1.flag.reverse_strand() { b'-' } else { b'+' };
-                    let mapq      = r.block1.mapq as i32;
-                    let duplicate = r.block1.flag.duplicate();
-                    let paired    = r.block1.flag.read_paired();
-
-                    channel.push(reads::Read {
-                        seqname   : seqname,
-                        range     : Range::new(from as usize, to as usize),
-                        strand    : strand as char,
-                        mapq      : mapq as i64,
-                        duplicate : duplicate,
-                        paired_end: paired,
-                    });
-                }
-            }
-        }
-
-        Ok(channel.into_iter())
-    }
 }
 
 /* -------------------------------------------------------------------------- */
