@@ -69,3 +69,13 @@ impl<R: Read> BgzfReader<R> {
         }
     }
 }
+
+/* -------------------------------------------------------------------------- */
+
+impl<R: Read> Read for BgzfReader<R> {
+
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        self.decoder.read(buf)
+    }
+
+}
