@@ -493,7 +493,7 @@ impl<R: Read> BamReader<R> {
                 };    
                 block.bin       = ((bin_mq_nl >>   16) & 0xffff) as u16;
                 block.mapq      = ((bin_mq_nl >>    8) & 0xff  ) as u8;
-                block.rn_length =  (bin_mq_nl  & 0xff) as u8;
+                block.rname_len =  (bin_mq_nl  & 0xff) as u8;
 
                 flag_nc = match self.bgzf_reader.read_u32::<LittleEndian>() {
                     Ok (v) => v,
@@ -514,7 +514,7 @@ impl<R: Read> BamReader<R> {
                     Ok (v) => v,
                     Err(e) => { yield Err(e); return; }
                 };
-                block.t_length = match self.bgzf_reader.read_i32::<LittleEndian>() {
+                block.tlen = match self.bgzf_reader.read_i32::<LittleEndian>() {
                     Ok (v) => v,
                     Err(e) => { yield Err(e); return; }
                 };
@@ -533,9 +533,9 @@ impl<R: Read> BamReader<R> {
     
                 // Parse CIGAR block
                 if self.options.read_cigar {
-                    block.cigar = bam::BamCigar(Vec::with_capacity(block.n_cigar_op as usize));
+                    block.cigar = BamCigar(Vec::with_capacity(block.n_cigar_op as usize));
                     for _ in 0..block.n_cigar_op {
-                        if let Err(e) = self.bgzf_reader.read_u32::<LittleEndian>().map(|v| block.cigar.push(v)) {
+                        if let Err(e) = self.bgzf_reader.read_u32::<LittleEndian>().map(|v| block.cigar.0.push(v)) {
                             yield Err(e); return;
                         }
                     }
@@ -593,7 +593,9 @@ impl<R: Read> BamReader<R> {
                     }
                 }
 
-                yield Ok(block.clone());
+                yield Ok(BamReaderType1{
+                    block: block.clone()
+                });
 
             }
         })
