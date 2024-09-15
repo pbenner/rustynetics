@@ -469,21 +469,129 @@ impl<R: Read> BamReader<R> {
             let mut flag_nc   : u32;
             let mut bin_mq_nl : u32;
 
-            let mut block = BamReaderType1::default();
+            let mut block = BamBlock::default();
 
             loop {
+                let mut buf = Vec::new();
 
                 block_size = match self.bgzf_reader.read_i32::<LittleEndian>() {
                     Ok (v) => v,
                     Err(e) => { yield Err(e); return; }
                 };
-                block.block.ref_id = match self.bgzf_reader.read_i32::<LittleEndian>() {
+                block.ref_id = match self.bgzf_reader.read_i32::<LittleEndian>() {
+                    Ok (v) => v,
+                    Err(e) => { yield Err(e); return; }
+                };
+                block.position = match self.bgzf_reader.read_i32::<LittleEndian>() {
                     Ok (v) => v,
                     Err(e) => { yield Err(e); return; }
                 };
 
-                // (continue similarly for other fields...)
-                // Populate the BamBlock structure
+                bin_mq_nl = match self.bgzf_reader.read_u32::<LittleEndian>() {
+                    Ok (v) => v,
+                    Err(e) => { yield Err(e); return; }
+                };    
+                block.bin       = ((bin_mq_nl >>   16) & 0xffff) as u16;
+                block.mapq      = ((bin_mq_nl >>    8) & 0xff  ) as u8;
+                block.rn_length =  (bin_mq_nl  & 0xff) as u8;
+
+                flag_nc = match self.bgzf_reader.read_u32::<LittleEndian>() {
+                    Ok (v) => v,
+                    Err(e) => { yield Err(e); return; }
+                };
+                block.flag       = BamFlag((flag_nc >> 16) as u16);
+                block.n_cigar_op = (flag_nc & 0xffff) as u16;
+    
+                block.l_seq = match self.bgzf_reader.read_i32::<LittleEndian>() {
+                    Ok (v) => v,
+                    Err(e) => { yield Err(e); return; }
+                };
+                block.next_ref_id = match self.bgzf_reader.read_i32::<LittleEndian>() {
+                    Ok (v) => v,
+                    Err(e) => { yield Err(e); return; }
+                };
+                block.next_position = match self.bgzf_reader.read_i32::<LittleEndian>() {
+                    Ok (v) => v,
+                    Err(e) => { yield Err(e); return; }
+                };
+                block.t_length = match self.bgzf_reader.read_i32::<LittleEndian>() {
+                    Ok (v) => v,
+                    Err(e) => { yield Err(e); return; }
+                };
+    
+                // Parse the read name
+                loop {
+                    match self.bgzf_reader.read_u8() {
+                        Ok (b) if b == 0 => {
+                            block.read_name = String::from_utf8(buf.clone()).unwrap();
+                            break;
+                        }
+                        Ok (b) => buf.push(b),
+                        Err(e) => { yield Err(e); return; }
+                    }
+                }
+    
+                // Parse CIGAR block
+                if self.options.read_cigar {
+                    block.cigar = bam::BamCigar(Vec::with_capacity(block.n_cigar_op as usize));
+                    for _ in 0..block.n_cigar_op {
+                        if let Err(e) = self.bgzf_reader.read_u32::<LittleEndian>().map(|v| block.cigar.push(v)) {
+                            yield Err(e); return;
+                        }
+                    }
+                } else {
+                    for _ in 0..block.n_cigar_op {
+                        if let Err(e) = io::copy(&mut self.bgzf_reader, &mut io::sink()).map(|_| ()) {
+                            yield Err(e); return;
+                        }
+                    }
+                }
+    
+                // Parse sequence
+                if self.options.read_sequence {
+                    let seq_len = (block.l_seq + 1) / 2;
+                    block.seq = vec![0; seq_len as usize];
+                    if let Err(e) = self.bgzf_reader.read_exact(&mut block.seq) {
+                        yield Err(e); return;
+                    }
+                } else {
+                    if let Err(e) = io::copy(&mut self.bgzf_reader, &mut io::sink()).map(|_| ()) {
+                        yield Err(e); return;
+                    }
+                }
+    
+                // Parse qual block
+                if self.options.read_qual {
+                    block.qual = vec![0; block.l_seq as usize];
+                    if let Err(e) = self.bgzf_reader.read_exact(&mut block.qual) {
+                        yield Err(e); return;
+                    }
+                } else {
+                    if let Err(e) = io::copy(&mut self.bgzf_reader, &mut io::sink()).map(|_| ()) {
+                        yield Err(e); return;
+                    }
+                }
+    
+                // Read auxiliary data
+                let mut position = (8 * 4 + block.rn_length as usize + 4 * block.n_cigar_op as usize
+                    + (block.l_seq as usize + 1) / 2 + block.l_seq as usize) as i32;
+    
+                if self.options.read_auxiliary {
+                    while position < block_size {
+                        let mut aux = BamAuxiliary::new();
+                        match aux.read(&mut self.bgzf_reader) {
+                            Ok (bytes_read) => {
+                                block.auxiliary.push(aux);
+                                position += bytes_read as i32;
+                            }
+                            Err(e) => { yield Err(e); return; }
+                        }
+                    }
+                } else {
+                    if let Err(e) = io::copy(&mut self.bgzf_reader, &mut io::sink()).map(|_| ()) {
+                        yield Err(e); return;
+                    }
+                }
 
                 yield Ok(block.clone());
 
