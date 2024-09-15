@@ -27,7 +27,7 @@ use crate::reads;
 /* -------------------------------------------------------------------------- */
 
 // Represents a BAM sequence
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 struct BamSeq(Vec<u8>);
 
 /* -------------------------------------------------------------------------- */
@@ -50,7 +50,7 @@ impl fmt::Display for BamSeq {
 /* -------------------------------------------------------------------------- */
 
 // Represents BAM quality scores
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 struct BamQual(Vec<u8>);
 
 /* -------------------------------------------------------------------------- */
@@ -67,7 +67,7 @@ impl fmt::Display for BamQual {
 /* -------------------------------------------------------------------------- */
 
 // Represents a BAM auxiliary data field
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 struct BamAuxiliary {
     tag  : [u8; 2],
     value: BamAuxValue,
@@ -75,7 +75,7 @@ struct BamAuxiliary {
 
 /* -------------------------------------------------------------------------- */
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 enum BamAuxValue {
     A         (u8),
     C         (i8),
@@ -220,7 +220,7 @@ impl BamAuxiliary {
 /* -------------------------------------------------------------------------- */
 
 // Represents BAM flags
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 struct BamFlag(u16);
 
 /* -------------------------------------------------------------------------- */
@@ -278,7 +278,7 @@ impl BamFlag {
 /* -------------------------------------------------------------------------- */
 
 // Represents a BAM CIGAR string
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 struct BamCigar(Vec<u32>);
 
 /* -------------------------------------------------------------------------- */
@@ -318,7 +318,7 @@ impl BamCigar {
 
 /* -------------------------------------------------------------------------- */
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 struct CigarBlock {
     n    : i32,
     type_: char,
@@ -337,7 +337,7 @@ struct BamHeader {
 /* -------------------------------------------------------------------------- */
 
 // Represents a BAM block
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 struct BamBlock {
     ref_id       : i32,
     position     : i32,
@@ -447,30 +447,40 @@ impl<R: Read> BamReader<R> {
 
     fn read_single_end_into_channel(&mut self, channel: &mut Vec<BamReaderType1>) {
         let mut block_size: i32;
-        let mut flag_nc: u32;
-        let mut bin_mq_nl: u32;
+        let mut flag_nc   : u32;
+        let mut bin_mq_nl : u32;
 
-        let mut block = BamReaderType1::default();
+        let mut block         = BamReaderType1::default();
         let mut block_reserve = BamReaderType1::default();
 
         loop {
-            if let Err(e) = self.bgzf_reader.read_i32_into::<LittleEndian>(&mut block_size) {
-                if e.kind() == io::ErrorKind::UnexpectedEof {
+            match self.bgzf_reader.read_i32::<LittleEndian>() {
+                Err(e) => {
+                    if e.kind() == io::ErrorKind::UnexpectedEof {
+                        return;
+                    }
+                    channel.push(BamReaderType1 {
+                        error: Some(e),
+                        ..Default::default()
+                    });
                     return;
+                },
+                Ok(v) => {
+                    block_size = v;
                 }
-                channel.push(BamReaderType1 {
-                    error: Some(e),
-                    ..Default::default()
-                });
-                return;
             }
 
-            if let Err(e) = self.bgzf_reader.read_i32_into::<LittleEndian>(&mut block.bam_block.ref_id) {
-                channel.push(BamReaderType1 {
-                    error: Some(e),
-                    ..Default::default()
-                });
-                return;
+            match self.bgzf_reader.read_i32::<LittleEndian>() {
+                Err(e) => {
+                    channel.push(BamReaderType1 {
+                        error: Some(e),
+                        ..Default::default()
+                    });
+                    return;
+                },
+                Ok(v) => {
+                    block.bam_block.ref_id = v;
+                }
             }
 
             // (continue similarly for other fields...)
@@ -567,7 +577,7 @@ impl<R: Read> BamReader<R> {
                     range     : GRange::new(seqname, from as usize, to as usize, strand as char),
                     mapq      : mapq as i64,
                     duplicate : duplicate,
-                    paired    : true,
+                    paired_end: true,
                 });
 
             } else if !r.block1.flag.unmapped() {
@@ -581,10 +591,10 @@ impl<R: Read> BamReader<R> {
                 let paired    = r.block1.flag.read_paired();
 
                 channel.push(reads::Read {
-                    range     : GRange::new(seqname, from as usize, to as usize, strand),
+                    range     : GRange::new(seqname, from as usize, to as usize, strand as char),
                     mapq      : mapq as i64,
                     duplicate : duplicate,
-                    paired    : paired,
+                    paired_end: paired,
                 });
             }
         }

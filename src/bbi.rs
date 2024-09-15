@@ -299,30 +299,34 @@ impl Default for BbiDataHeader {
 
 impl BbiDataHeader {
 
-    fn read_buffer<E: ByteOrder>(&mut self, buffer: &[u8]) {
+    fn read_buffer<E: ByteOrder>(&mut self, buffer: &[u8]) -> io::Result<()> {
         let mut cursor = Cursor::new(buffer);
 
-        self.chrom_id   = cursor.read_u32::<E>().unwrap();
-        self.start      = cursor.read_u32::<E>().unwrap();
-        self.end        = cursor.read_u32::<E>().unwrap();
-        self.step       = cursor.read_u32::<E>().unwrap();
-        self.span       = cursor.read_u32::<E>().unwrap();
-        self.kind       = cursor.read_u8      ().unwrap();
-        self.reserved   = cursor.read_u8      ().unwrap();
-        self.item_count = cursor.read_u16::<E>().unwrap();
+        self.chrom_id   = cursor.read_u32::<E>()?;
+        self.start      = cursor.read_u32::<E>()?;
+        self.end        = cursor.read_u32::<E>()?;
+        self.step       = cursor.read_u32::<E>()?;
+        self.span       = cursor.read_u32::<E>()?;
+        self.kind       = cursor.read_u8      ()?;
+        self.reserved   = cursor.read_u8      ()?;
+        self.item_count = cursor.read_u16::<E>()?;
+
+        Ok(())
     }
 
-    fn write_buffer<E: ByteOrder>(&self, buffer: &mut [u8]) {
+    fn write_buffer<E: ByteOrder>(&self, buffer: &mut [u8]) -> io::Result<()> {
         let mut cursor = Cursor::new(buffer);
 
-        cursor.write_u32::<E>(self.chrom_id  ).unwrap();
-        cursor.write_u32::<E>(self.start     ).unwrap();
-        cursor.write_u32::<E>(self.end       ).unwrap();
-        cursor.write_u32::<E>(self.step      ).unwrap();
-        cursor.write_u32::<E>(self.span      ).unwrap();
-        cursor.write_u8      (self.kind      ).unwrap();
-        cursor.write_u8      (self.reserved  ).unwrap();
-        cursor.write_u16::<E>(self.item_count).unwrap();
+        cursor.write_u32::<E>(self.chrom_id  )?;
+        cursor.write_u32::<E>(self.start     )?;
+        cursor.write_u32::<E>(self.end       )?;
+        cursor.write_u32::<E>(self.step      )?;
+        cursor.write_u32::<E>(self.span      )?;
+        cursor.write_u8      (self.kind      )?;
+        cursor.write_u8      (self.reserved  )?;
+        cursor.write_u16::<E>(self.item_count)?;
+
+        Ok(())
     }
 }
 
