@@ -22,7 +22,6 @@ use byteorder::{LittleEndian, ReadBytesExt};
 use async_stream::stream;
 use futures::executor::block_on_stream;
 use futures_core::stream::Stream;
-use futures_util::pin_mut;
 
 use crate::bgzf::BgzfReader;
 use crate::genome::Genome;
@@ -545,21 +544,17 @@ impl<R: Read> BamReader<R> {
         }
     }
 
-    pub fn read_single_end(&mut self) -> impl Iterator<Item = io::Result<BamReaderType1>> + '_ {
+    pub fn read_single_end<'a>(&'a mut self) -> impl Iterator<Item = io::Result<BamReaderType1>> + 'a {
 
-        let s = self.read_single_end_stream();
-
-        pin_mut!(s);
+        let s = Box::pin(self.read_single_end_stream());
 
         block_on_stream(s)
 
     }
 
-    pub fn read_paired_end(&mut self) -> impl Iterator<Item = io::Result<BamReaderType2>> + '_ {
+    pub fn read_paired_end<'a>(&'a mut self) -> impl Iterator<Item = io::Result<BamReaderType2>> + 'a {
 
-        let s = self.read_paired_end_stream();
-
-        pin_mut!(s);
+        let s = Box::pin(self.read_paired_end_stream());
 
         block_on_stream(s)
 
