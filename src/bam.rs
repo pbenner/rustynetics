@@ -34,7 +34,7 @@ use crate::reads;
 
 // Represents a BAM sequence
 #[derive(Clone, Debug, Default)]
-struct BamSeq(Vec<u8>);
+pub struct BamSeq(Vec<u8>);
 
 /* -------------------------------------------------------------------------- */
 
@@ -57,7 +57,7 @@ impl fmt::Display for BamSeq {
 
 // Represents BAM quality scores
 #[derive(Clone, Debug, Default)]
-struct BamQual(Vec<u8>);
+pub struct BamQual(Vec<u8>);
 
 /* -------------------------------------------------------------------------- */
 
@@ -74,15 +74,15 @@ impl fmt::Display for BamQual {
 
 // Represents a BAM auxiliary data field
 #[derive(Clone, Debug, Default)]
-struct BamAuxiliary {
-    tag  : [u8; 2],
-    value: BamAuxValue,
+pub struct BamAuxiliary {
+    pub tag  : [u8; 2],
+    pub value: BamAuxValue,
 }
 
 /* -------------------------------------------------------------------------- */
 
 #[derive(Clone, Debug)]
-enum BamAuxValue {
+pub enum BamAuxValue {
     A         (u8),
     C         (i8),
     CUnsigned (u8),
@@ -237,56 +237,56 @@ impl BamAuxiliary {
 
 // Represents BAM flags
 #[derive(Clone, Debug, Default)]
-struct BamFlag(u16);
+pub struct BamFlag(u16);
 
 /* -------------------------------------------------------------------------- */
 
 impl BamFlag {
-    fn bit(&self, i: u8) -> bool {
+    pub fn bit(&self, i: u8) -> bool {
         (self.0 >> i) & 1 == 1
     }
 
-    fn read_paired(&self) -> bool {
+    pub fn read_paired(&self) -> bool {
         self.bit(0)
     }
 
-    fn read_mapped_proper_paired(&self) -> bool {
+    pub fn read_mapped_proper_paired(&self) -> bool {
         self.bit(1)
     }
 
-    fn unmapped(&self) -> bool {
+    pub fn unmapped(&self) -> bool {
         self.bit(2)
     }
 
-    fn mate_unmapped(&self) -> bool {
+    pub fn mate_unmapped(&self) -> bool {
         self.bit(3)
     }
 
-    fn reverse_strand(&self) -> bool {
+    pub fn reverse_strand(&self) -> bool {
         self.bit(4)
     }
 
-    fn mate_reverse_strand(&self) -> bool {
+    pub fn mate_reverse_strand(&self) -> bool {
         self.bit(5)
     }
 
-    fn first_in_pair(&self) -> bool {
+    pub fn first_in_pair(&self) -> bool {
         self.bit(6)
     }
 
-    fn second_in_pair(&self) -> bool {
+    pub fn second_in_pair(&self) -> bool {
         self.bit(7)
     }
 
-    fn secondary_alignment(&self) -> bool {
+    pub fn secondary_alignment(&self) -> bool {
         self.bit(8)
     }
 
-    fn not_passing_filters(&self) -> bool {
+    pub fn not_passing_filters(&self) -> bool {
         self.bit(9)
     }
 
-    fn duplicate(&self) -> bool {
+    pub fn duplicate(&self) -> bool {
         self.bit(10)
     }
 }
@@ -295,7 +295,7 @@ impl BamFlag {
 
 // Represents a BAM CIGAR string
 #[derive(Clone, Debug, Default)]
-struct BamCigar(Vec<u32>);
+pub struct BamCigar(Vec<u32>);
 
 /* -------------------------------------------------------------------------- */
 
@@ -335,63 +335,63 @@ impl BamCigar {
 /* -------------------------------------------------------------------------- */
 
 #[derive(Debug, Default)]
-struct CigarBlock {
-    n    : i32,
-    type_: char,
+pub struct CigarBlock {
+    pub n    : i32,
+    pub type_: char,
 }
 
 /* -------------------------------------------------------------------------- */
 
 // Represents a BAM header
 #[derive(Clone, Debug, Default)]
-struct BamHeader {
-    text_length: i32,
-    text       : String,
-    n_ref      : i32,
+pub struct BamHeader {
+    pub text_length: i32,
+    pub text       : String,
+    pub n_ref      : i32,
 }
 
 /* -------------------------------------------------------------------------- */
 
 // Represents a BAM block
 #[derive(Clone, Debug, Default)]
-struct BamBlock {
-    ref_id       : i32,
-    position     : i32,
-    bin          : u16,
-    mapq         : u8,
-    rname_len    : u8,
-    flag         : BamFlag,
-    n_cigar_op   : u16,
-    l_seq        : i32,
-    next_ref_id  : i32,
-    next_position: i32,
-    tlen         : i32,
-    read_name    : String,
-    cigar        : BamCigar,
-    seq          : BamSeq,
-    qual         : BamQual,
-    auxiliary    : Vec<BamAuxiliary>,
+pub struct BamBlock {
+    pub ref_id       : i32,
+    pub position     : i32,
+    pub bin          : u16,
+    pub mapq         : u8,
+    pub rname_len    : u8,
+    pub flag         : BamFlag,
+    pub n_cigar_op   : u16,
+    pub l_seq        : i32,
+    pub next_ref_id  : i32,
+    pub next_position: i32,
+    pub tlen         : i32,
+    pub read_name    : String,
+    pub cigar        : BamCigar,
+    pub seq          : BamSeq,
+    pub qual         : BamQual,
+    pub auxiliary    : Vec<BamAuxiliary>,
 }
 
 /* -------------------------------------------------------------------------- */
 
 #[derive(Clone, Debug, Default)]
-struct BamReaderType1 {
-    block: BamBlock,
+pub struct BamReaderType1 {
+    pub block: BamBlock,
 }
 
 /* -------------------------------------------------------------------------- */
 
 #[derive(Clone, Debug, Default)]
-struct BamReaderType2 {
-    block1: BamBlock,
-    block2: BamBlock,
+pub struct BamReaderType2 {
+    pub block1: BamBlock,
+    pub block2: BamBlock,
 }
 
 /* -------------------------------------------------------------------------- */
 
 #[derive(Debug, Default)]
-struct BamReaderOptions {
+pub struct BamReaderOptions {
     read_name     : bool,
     read_cigar    : bool,
     read_sequence : bool,
@@ -402,7 +402,7 @@ struct BamReaderOptions {
 /* -------------------------------------------------------------------------- */
 
 #[derive(Debug)]
-struct BamReader<R: Read> {
+pub struct BamReader<R: Read> {
     options    : BamReaderOptions,
     header     : BamHeader,
     genome     : Genome,
@@ -559,11 +559,11 @@ impl<R: Read> BamReader<R> {
         &'a mut self,
         join_pairs: bool,
         paired_end_strand_specific: bool
-    ) -> impl Stream<Item = io::Result<reads::Read>> + 'a {
+    ) -> Pin<Box<dyn Stream<Item = io::Result<reads::Read>> + 'a>> {
 
         let genome = self.genome.clone();
 
-        stream!{
+        Box::pin(stream!{
 
             self.options.read_cigar = true;
 
@@ -634,7 +634,7 @@ impl<R: Read> BamReader<R> {
                     }
                 }
             }
-        }
+        })
     }
 }
 
@@ -644,7 +644,7 @@ impl<R: Read> BamReader<R> {
 
     pub fn read_single_end<'a>(&'a mut self) -> impl Iterator<Item = io::Result<BamReaderType1>> + 'a {
 
-        let s = Box::pin(self.read_single_end_stream());
+        let s = self.read_single_end_stream();
 
         block_on_stream(s)
 
@@ -652,18 +652,29 @@ impl<R: Read> BamReader<R> {
 
     pub fn read_paired_end<'a>(&'a mut self) -> impl Iterator<Item = io::Result<BamReaderType2>> + 'a {
 
-        let s = Box::pin(self.read_paired_end_stream());
+        let s = self.read_paired_end_stream();
 
         block_on_stream(s)
 
     }
 
+    pub fn read_simple<'a>(
+        &'a mut self,
+        join_pairs: bool,
+        paired_end_strand_specific: bool
+    ) -> impl Iterator<Item = io::Result<reads::Read>> + 'a {
+
+        let s = self.read_simple_stream(join_pairs, paired_end_strand_specific);
+
+        block_on_stream(s)
+
+    }
 }
 
 /* -------------------------------------------------------------------------- */
 
 #[derive(Debug)]
-struct BamFile {
+pub struct BamFile {
     bam_reader: BamReader<BufReader<File>>,
 }
 
