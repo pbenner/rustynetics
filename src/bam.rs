@@ -21,7 +21,7 @@ use byteorder::{LittleEndian, ReadBytesExt};
 
 use crate::bgzf::BgzfReader;
 use crate::genome::Genome;
-use crate::granges_row::GRange;
+use crate::range::Range;
 use crate::reads;
 
 /* -------------------------------------------------------------------------- */
@@ -584,7 +584,9 @@ impl<R: Read> BamReader<R> {
                 }
 
                 channel.push(reads::Read {
-                    range     : GRange::new(seqname, from as usize, to as usize, strand as char),
+                    seqname   : seqname,
+                    range     : Range::new(from as usize, to as usize),
+                    strand    : strand as char,
                     mapq      : mapq as i64,
                     duplicate : duplicate,
                     paired_end: true,
@@ -601,7 +603,9 @@ impl<R: Read> BamReader<R> {
                 let paired    = r.block1.flag.read_paired();
 
                 channel.push(reads::Read {
-                    range     : GRange::new(seqname, from as usize, to as usize, strand as char),
+                    seqname   : seqname,
+                    range     : Range::new(from as usize, to as usize),
+                    strand    : strand as char,
                     mapq      : mapq as i64,
                     duplicate : duplicate,
                     paired_end: paired,
