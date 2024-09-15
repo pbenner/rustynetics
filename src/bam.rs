@@ -19,6 +19,11 @@ use std::fs::File;
 use std::io::{self, BufRead, BufReader, Read};
 use byteorder::{LittleEndian, ReadBytesExt};
 
+use async_stream::stream;
+use futures::executor::block_on_stream;
+use futures_core::stream::Stream;
+use futures_util::pin_mut;
+
 use crate::bgzf::BgzfReader;
 use crate::genome::Genome;
 use crate::range::Range;
@@ -368,19 +373,17 @@ struct BamBlock {
 
 /* -------------------------------------------------------------------------- */
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 struct BamReaderType1 {
-    bam_block: BamBlock,
-    error    : Option<io::Error>,
+    block: BamBlock,
 }
 
 /* -------------------------------------------------------------------------- */
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 struct BamReaderType2 {
     block1: BamBlock,
     block2: BamBlock,
-    error : Option<io::Error>,
 }
 
 /* -------------------------------------------------------------------------- */
@@ -449,167 +452,184 @@ impl<R: Read> BamReader<R> {
         Ok(bam_reader)
     }
 
-    pub fn read_single_end(&mut self) -> impl Iterator<Item = BamReaderType1> + '_ {
-        let mut channel = Vec::new();
-        self.read_single_end_into_channel(&mut channel);
-        channel.into_iter()
-    }
+    fn read_single_end_stream<'a>(&'a mut self) -> impl Stream<Item = io::Result<BamReaderType1>> + 'a {
 
-    fn read_single_end_into_channel(&mut self, channel: &mut Vec<BamReaderType1>) {
-        let mut block_size: i32;
-        let mut flag_nc   : u32;
-        let mut bin_mq_nl : u32;
+        stream! {
 
-        let mut block         = BamReaderType1::default();
-        let mut block_reserve = BamReaderType1::default();
+            let mut block_size: i32;
+            let mut flag_nc   : u32;
+            let mut bin_mq_nl : u32;
 
-        loop {
-            match self.bgzf_reader.read_i32::<LittleEndian>() {
-                Err(e) => {
-                    if e.kind() == io::ErrorKind::UnexpectedEof {
+            let mut block         = BamReaderType1::default();
+            let mut block_reserve = BamReaderType1::default();
+
+            loop {
+                match self.bgzf_reader.read_i32::<LittleEndian>() {
+                    Err(e) => {
+                        if e.kind() == io::ErrorKind::UnexpectedEof {
+                            return;
+                        }
+                        yield Err(e);
+
                         return;
+                    },
+                    Ok(v) => {
+                        block_size = v;
                     }
-                    channel.push(BamReaderType1 {
-                        error: Some(e),
-                        ..Default::default()
-                    });
-                    return;
-                },
-                Ok(v) => {
-                    block_size = v;
                 }
-            }
 
-            match self.bgzf_reader.read_i32::<LittleEndian>() {
-                Err(e) => {
-                    channel.push(BamReaderType1 {
-                        error: Some(e),
-                        ..Default::default()
-                    });
-                    return;
-                },
-                Ok(v) => {
-                    block.bam_block.ref_id = v;
+                match self.bgzf_reader.read_i32::<LittleEndian>() {
+                    Err(e) => {
+                        yield Err(e);
+                        return;
+                    },
+                    Ok(v) => {
+                        block.block.ref_id = v;
+                    }
                 }
+
+                // (continue similarly for other fields...)
+                // Populate the BamBlock structure
+
+                yield Ok(block.clone());
+
+                std::mem::swap(&mut block, &mut block_reserve);
+
             }
-
-            // (continue similarly for other fields...)
-            // Populate the BamBlock structure
-
-            // Add the block to the channel
-            channel.push(block.clone());
-            std::mem::swap(&mut block, &mut block_reserve);
         }
     }
 
-    pub fn read_paired_end(&mut self) -> impl Iterator<Item = BamReaderType2> + '_ {
-        let mut channel = Vec::new();
-        self.read_paired_end_into_channel(&mut channel);
-        channel.into_iter()
-    }
+    fn read_paired_end_stream<'a>(&'a mut self) -> impl Stream<Item = io::Result<BamReaderType2>> + 'a {
 
-    fn read_paired_end_into_channel(&mut self, channel: &mut Vec<BamReaderType2>) {
+        stream! {
 
-        let mut cache : std::collections::HashMap<String, BamBlock> = std::collections::HashMap::new();
+            let mut cache : std::collections::HashMap<String, BamBlock> = std::collections::HashMap::new();
 
-        self.options.read_name = true;
+            self.options.read_name = true;
 
-        for r in self.read_single_end() {
-            if let Some(e) = r.error {
-                channel.push(BamReaderType2 {
-                    error: Some(e),
-                    ..Default::default()
-                });
-                continue;
-            }
-            let block1 = r.bam_block;
+            for item in self.read_single_end() {
 
-            if block1.flag.read_paired() {
-                if let Some(block2) = cache.remove(&block1.read_name) {
-                    let paired_block = if block1.position < block2.position {
-                        BamReaderType2 {
-                            block1,
-                            block2,
-                            ..Default::default()
+                match item {
+
+                    Err(e) => yield Err(e),
+                    Ok (r) => {
+
+                        let block1 = r.block;
+
+                        if block1.flag.read_paired() {
+                            if let Some(block2) = cache.remove(&block1.read_name) {
+
+                                let paired_block = if block1.position < block2.position {
+                                    BamReaderType2 {
+                                        block1: block1,
+                                        block2: block2,
+                                    }
+                                } else {
+                                    BamReaderType2 {
+                                        block1: block2,
+                                        block2: block1,
+                                    }
+                                };
+
+                                yield Ok(paired_block);
+
+                            } else {
+
+                                cache.insert(block1.read_name.clone(), block1);
+
+                            }
                         }
-                    } else {
-                        BamReaderType2 {
-                            block1: block2,
-                            block2: block1,
-                            ..Default::default()
-                        }
-                    };
-                    channel.push(paired_block);
-                } else {
-                    cache.insert(block1.read_name.clone(), block1);
+                    }
                 }
             }
         }
+    }
+
+    pub fn read_single_end(&mut self) -> impl Iterator<Item = io::Result<BamReaderType1>> + '_ {
+
+        let s = self.read_single_end_stream();
+
+        pin_mut!(s);
+
+        block_on_stream(s)
+
+    }
+
+    pub fn read_paired_end(&mut self) -> impl Iterator<Item = io::Result<BamReaderType2>> + '_ {
+
+        let s = self.read_paired_end_stream();
+
+        pin_mut!(s);
+
+        block_on_stream(s)
+
     }
 
     pub fn read_simple(&mut self, join_pairs: bool, paired_end_strand_specific: bool) -> impl Iterator<Item = dyn Read> + '_ {
         self.options.read_cigar = true;
         let mut channel = Vec::new();
 
-        for r in self.read_paired_end() {
-            if let Some(e) = r.error {
+        for item in self.read_paired_end() {
+            if let Err(e) = item {
                 break;
             }
+            if let Ok(r) = item {
 
-            if r.block1.flag.read_paired() && join_pairs {
-                if r.block1.flag.unmapped() || !r.block1.flag.read_mapped_proper_paired() {
-                    continue;
-                }
-                if r.block2.flag.unmapped() || !r.block2.flag.read_mapped_proper_paired() {
-                    continue;
-                }
-
-                let seqname    = self.genome.seqnames[r.block1.ref_id as usize].clone();
-                let from       = r.block1.position;
-                let to         = r.block2.position + r.block2.cigar.alignment_length() as i32;
-                let mut strand = b'*';
-                let duplicate  = r.block1.flag.duplicate() || r.block2.flag.duplicate();
-                let mapq       = std::cmp::min(r.block1.mapq as i32, r.block2.mapq as i32);
-
-                if from < 0 {
-                    return Err(io::Error::new(io::ErrorKind::InvalidData, format!("invalid position detected: from={}", from)));
-                }
-
-                if paired_end_strand_specific {
-                    if r.block1.flag.second_in_pair() {
-                        strand = if r.block1.flag.reverse_strand() { b'-' } else { b'+' };
-                    } else {
-                        strand = if r.block2.flag.reverse_strand() { b'-' } else { b'+' };
+                if r.block1.flag.read_paired() && join_pairs {
+                    if r.block1.flag.unmapped() || !r.block1.flag.read_mapped_proper_paired() {
+                        continue;
                     }
+                    if r.block2.flag.unmapped() || !r.block2.flag.read_mapped_proper_paired() {
+                        continue;
+                    }
+
+                    let seqname    = self.genome.seqnames[r.block1.ref_id as usize].clone();
+                    let from       = r.block1.position;
+                    let to         = r.block2.position + r.block2.cigar.alignment_length() as i32;
+                    let mut strand = b'*';
+                    let duplicate  = r.block1.flag.duplicate() || r.block2.flag.duplicate();
+                    let mapq       = std::cmp::min(r.block1.mapq as i32, r.block2.mapq as i32);
+
+                    if from < 0 {
+                        return Err(io::Error::new(io::ErrorKind::InvalidData, format!("invalid position detected: from={}", from)));
+                    }
+
+                    if paired_end_strand_specific {
+                        if r.block1.flag.second_in_pair() {
+                            strand = if r.block1.flag.reverse_strand() { b'-' } else { b'+' };
+                        } else {
+                            strand = if r.block2.flag.reverse_strand() { b'-' } else { b'+' };
+                        }
+                    }
+
+                    channel.push(reads::Read {
+                        seqname   : seqname,
+                        range     : Range::new(from as usize, to as usize),
+                        strand    : strand as char,
+                        mapq      : mapq as i64,
+                        duplicate : duplicate,
+                        paired_end: true,
+                    });
+
+                } else if !r.block1.flag.unmapped() {
+
+                    let seqname   = self.genome.seqnames[r.block1.ref_id as usize].clone();
+                    let from      = r.block1.position;
+                    let to        = r.block1.position + r.block1.cigar.alignment_length() as i32;
+                    let strand    = if r.block1.flag.reverse_strand() { b'-' } else { b'+' };
+                    let mapq      = r.block1.mapq as i32;
+                    let duplicate = r.block1.flag.duplicate();
+                    let paired    = r.block1.flag.read_paired();
+
+                    channel.push(reads::Read {
+                        seqname   : seqname,
+                        range     : Range::new(from as usize, to as usize),
+                        strand    : strand as char,
+                        mapq      : mapq as i64,
+                        duplicate : duplicate,
+                        paired_end: paired,
+                    });
                 }
-
-                channel.push(reads::Read {
-                    seqname   : seqname,
-                    range     : Range::new(from as usize, to as usize),
-                    strand    : strand as char,
-                    mapq      : mapq as i64,
-                    duplicate : duplicate,
-                    paired_end: true,
-                });
-
-            } else if !r.block1.flag.unmapped() {
-
-                let seqname   = self.genome.seqnames[r.block1.ref_id as usize].clone();
-                let from      = r.block1.position;
-                let to        = r.block1.position + r.block1.cigar.alignment_length() as i32;
-                let strand    = if r.block1.flag.reverse_strand() { b'-' } else { b'+' };
-                let mapq      = r.block1.mapq as i32;
-                let duplicate = r.block1.flag.duplicate();
-                let paired    = r.block1.flag.read_paired();
-
-                channel.push(reads::Read {
-                    seqname   : seqname,
-                    range     : Range::new(from as usize, to as usize),
-                    strand    : strand as char,
-                    mapq      : mapq as i64,
-                    duplicate : duplicate,
-                    paired_end: paired,
-                });
             }
         }
 
