@@ -75,7 +75,6 @@ struct BamAuxiliary {
 
 /* -------------------------------------------------------------------------- */
 
-#[default]
 #[derive(Clone, Debug)]
 enum BamAuxValue {
     A         (u8),
@@ -96,6 +95,15 @@ enum BamAuxValue {
     BInt32    (Vec<i32>),
     BUint32   (Vec<u32>),
     BFloat32  (Vec<f32>),
+    None      (),
+}
+
+/* -------------------------------------------------------------------------- */
+
+impl Default for BamAuxValue {
+    fn default() -> Self {
+        Self::None()
+    }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -608,29 +616,22 @@ impl<R: Read> BamReader<R> {
 /* -------------------------------------------------------------------------- */
 
 #[derive(Debug)]
-struct BamFile<R: Read> {
-    bam_reader: BamReader<R>,
+struct BamFile<'a> {
+    bam_reader: BamReader<BufReader<&'a File>>,
     file      : Option<File>,
 }
 
 /* -------------------------------------------------------------------------- */
 
-impl<R: Read> BamFile<R> {
+impl BamFile<'_> {
     pub fn open(filename: &str, options: Option<BamReaderOptions>) -> io::Result<Self> {
         let file   = File::open(filename)?;
         let reader = BamReader::new(BufReader::new(&file), options)?;
 
         Ok(BamFile {
-            bam_reader : &dyn reader,
+            bam_reader : reader,
             file       : Some(file),
         })
-    }
-
-    pub fn close(&mut self) -> io::Result<()> {
-        if let Some(file) = self.file.take() {
-            file.sync_all()?;
-        }
-        Ok(())
     }
 }
 
@@ -645,5 +646,5 @@ pub fn bam_read_genome<R: Read>(reader: R) -> io::Result<Genome> {
 
 pub fn bam_import_genome(filename: &str) -> io::Result<Genome> {
     let file = File::open(filename)?;
-    bam_read_genome(BufReader::<R>::new(file))
+    bam_read_genome(BufReader::new(file))
 }
