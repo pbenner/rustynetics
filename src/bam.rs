@@ -469,39 +469,23 @@ impl<R: Read> BamReader<R> {
             let mut flag_nc   : u32;
             let mut bin_mq_nl : u32;
 
-            let mut block         = BamReaderType1::default();
-            let mut block_reserve = BamReaderType1::default();
+            let mut block = BamReaderType1::default();
 
             loop {
-                match self.bgzf_reader.read_i32::<LittleEndian>() {
-                    Err(e) => {
-                        if e.kind() == io::ErrorKind::UnexpectedEof {
-                            return;
-                        }
-                        yield Err(e);
-                        return;
-                    },
-                    Ok(v) => {
-                        block_size = v;
-                    }
-                }
 
-                match self.bgzf_reader.read_i32::<LittleEndian>() {
-                    Err(e) => {
-                        yield Err(e);
-                        return;
-                    },
-                    Ok(v) => {
-                        block.block.ref_id = v;
-                    }
-                }
+                block_size = match self.bgzf_reader.read_i32::<LittleEndian>() {
+                    Ok (v) => v,
+                    Err(e) => { yield Err(e); return; }
+                };
+                block.block.ref_id = match self.bgzf_reader.read_i32::<LittleEndian>() {
+                    Ok (v) => v,
+                    Err(e) => { yield Err(e); return; }
+                };
 
                 // (continue similarly for other fields...)
                 // Populate the BamBlock structure
 
                 yield Ok(block.clone());
-
-                std::mem::swap(&mut block, &mut block_reserve);
 
             }
         })
