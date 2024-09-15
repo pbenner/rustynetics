@@ -359,7 +359,7 @@ struct BamBlock {
 
 /* -------------------------------------------------------------------------- */
 
-#[derive(Clone, Default)]
+#[derive(Debug, Default)]
 struct BamReaderType1 {
     bam_block: BamBlock,
     error    : Option<io::Error>,
@@ -367,7 +367,7 @@ struct BamReaderType1 {
 
 /* -------------------------------------------------------------------------- */
 
-#[derive(Clone, Default)]
+#[derive(Debug, Default)]
 struct BamReaderType2 {
     block1: BamBlock,
     block2: BamBlock,
@@ -376,7 +376,7 @@ struct BamReaderType2 {
 
 /* -------------------------------------------------------------------------- */
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 struct BamReaderOptions {
     read_name     : bool,
     read_cigar    : bool,
@@ -387,7 +387,7 @@ struct BamReaderOptions {
 
 /* -------------------------------------------------------------------------- */
 
-#[derive(Default)]
+#[derive(Debug)]
 struct BamReader<R: Read> {
     options    : BamReaderOptions,
     header     : BamHeader,
@@ -400,19 +400,20 @@ struct BamReader<R: Read> {
 impl<R: Read> BamReader<R> {
     pub fn new(reader: R, options: Option<BamReaderOptions>) -> io::Result<Self> {
         let mut bam_reader = BamReader {
-            options: options.unwrap_or_default(),
-            ..Default::default()
+            options    : options.unwrap_or_default(),
+            genome     : Genome::default(),
+            header     : BamHeader::default(),
+            bgzf_reader: BgzfReader::new(reader)?,
         };
 
         // Default options
-        bam_reader.options.read_name = true;
-        bam_reader.options.read_cigar = true;
-        bam_reader.options.read_sequence = true;
+        bam_reader.options.read_name      = true;
+        bam_reader.options.read_cigar     = true;
+        bam_reader.options.read_sequence  = true;
         bam_reader.options.read_auxiliary = true;
-        bam_reader.options.read_qual = true;
+        bam_reader.options.read_qual      = true;
 
         let mut magic = [0; 4];
-        bam_reader.bgzf_reader = BgzfReader::new(reader)?;
         bam_reader.bgzf_reader.read_exact(&mut magic)?;
 
         if &magic != b"BAM\x01" {
@@ -605,7 +606,7 @@ impl<R: Read> BamReader<R> {
 
 /* -------------------------------------------------------------------------- */
 
-#[derive(Default)]
+#[derive(Debug)]
 struct BamFile<R: Read> {
     bam_reader: BamReader<R>,
     file      : Option<File>,
