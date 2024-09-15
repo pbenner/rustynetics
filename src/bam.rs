@@ -20,8 +20,10 @@ use std::io::{self, BufRead, BufReader, Read};
 use byteorder::{LittleEndian, ReadBytesExt};
 
 use async_stream::stream;
+use core::pin::Pin;
 use futures::executor::block_on_stream;
 use futures_core::stream::Stream;
+use futures::StreamExt;
 
 use crate::bgzf::BgzfReader;
 use crate::genome::Genome;
@@ -134,6 +136,7 @@ impl fmt::Display for BamAuxiliary {
             BamAuxValue::BInt32(v)    => write!(f, "{:?}", v),
             BamAuxValue::BUint32(v)   => write!(f, "{:?}", v),
             BamAuxValue::BFloat32(v)  => write!(f, "{:?}", v),
+            BamAuxValue::None()       => panic!("internal error"),
         }
     }
 }
@@ -456,9 +459,11 @@ impl<R: Read> BamReader<R> {
 
 impl<R: Read> BamReader<R> {
 
-    fn read_single_end_stream<'a>(&'a mut self) -> impl Stream<Item = io::Result<BamReaderType1>> + 'a {
+    fn read_single_end_stream<'a>(
+        &'a mut self
+    ) -> Pin<Box<dyn Stream<Item = io::Result<BamReaderType1>> + 'a>> {
 
-        stream! {
+        Box::pin(stream! {
 
             let mut block_size: i32;
             let mut flag_nc   : u32;
@@ -474,7 +479,6 @@ impl<R: Read> BamReader<R> {
                             return;
                         }
                         yield Err(e);
-
                         return;
                     },
                     Ok(v) => {
@@ -500,12 +504,14 @@ impl<R: Read> BamReader<R> {
                 std::mem::swap(&mut block, &mut block_reserve);
 
             }
-        }
+        })
     }
 
-    fn read_paired_end_stream<'a>(&'a mut self) -> impl Stream<Item = io::Result<BamReaderType2>> + 'a {
+    fn read_paired_end_stream<'a>(
+        &'a mut self
+    ) -> Pin<Box<dyn Stream<Item = io::Result<BamReaderType2>> + 'a>> {
 
-        stream! {
+        Box::pin(stream! {
 
             let mut cache : std::collections::HashMap<String, BamBlock> = std::collections::HashMap::new();
 
@@ -546,7 +552,7 @@ impl<R: Read> BamReader<R> {
                     }
                 }
             }
-        }
+        })
     }
 
     pub fn read_simple_stream<'a>(
@@ -554,6 +560,8 @@ impl<R: Read> BamReader<R> {
         join_pairs: bool,
         paired_end_strand_specific: bool
     ) -> impl Stream<Item = io::Result<reads::Read>> + 'a {
+
+        let genome = self.genome.clone();
 
         stream!{
 
@@ -565,7 +573,7 @@ impl<R: Read> BamReader<R> {
 
                 match item {
 
-                    Err(e) => {yield e; break},
+                    Err(e) => {yield Err(e); break},
                     Ok (r) => {
 
                         if r.block1.flag.read_paired() && join_pairs {
@@ -576,7 +584,7 @@ impl<R: Read> BamReader<R> {
                                 continue;
                             }
 
-                            let seqname    = self.genome.seqnames[r.block1.ref_id as usize].clone();
+                            let seqname    = genome.seqnames[r.block1.ref_id as usize].clone();
                             let from       = r.block1.position;
                             let to         = r.block2.position + r.block2.cigar.alignment_length() as i32;
                             let mut strand = b'*';
@@ -606,7 +614,7 @@ impl<R: Read> BamReader<R> {
 
                         } else if !r.block1.flag.unmapped() {
 
-                            let seqname   = self.genome.seqnames[r.block1.ref_id as usize].clone();
+                            let seqname   = genome.seqnames[r.block1.ref_id as usize].clone();
                             let from      = r.block1.position;
                             let to        = r.block1.position + r.block1.cigar.alignment_length() as i32;
                             let strand    = if r.block1.flag.reverse_strand() { b'-' } else { b'+' };
