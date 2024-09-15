@@ -448,7 +448,7 @@ impl<R: Read> BamReader<R> {
             bam_reader.genome.add_sequence(
                 String::from_utf8(name_bytes).unwrap().trim_matches('\0').to_string(),
                 length_seq as usize,
-            );
+            ).map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
         }
 
         Ok(bam_reader)
@@ -675,7 +675,7 @@ impl<R: Read> BamReader<R> {
 
 #[derive(Debug)]
 pub struct BamFile {
-    bam_reader: BamReader<BufReader<File>>,
+    pub reader: BamReader<BufReader<File>>,
 }
 
 /* -------------------------------------------------------------------------- */
@@ -686,7 +686,7 @@ impl BamFile {
         let reader = BamReader::new(BufReader::new(file), options)?;
 
         Ok(BamFile {
-            bam_reader : reader,
+            reader : reader,
         })
     }
 }

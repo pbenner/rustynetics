@@ -477,7 +477,7 @@ impl<'a> BbiRawBlockDecoder<'a> {
             header: BbiDataHeader::default(),
             buffer: &buffer[24..],
         }; 
-        decoder.header.read_buffer::<E>(buffer);
+        decoder.header.read_buffer::<E>(buffer)?;
 
         match decoder.header.kind {
             BBI_TYPE_BED_GRAPH => {
@@ -702,7 +702,7 @@ impl BbiRawBlockEncoderIterator {
         let mut buffer = Cursor::new(Vec::new());
         let mut tmp    = vec![0u8; 24];
 
-        self.header.write_buffer::<E>(&mut tmp);
+        self.header.write_buffer::<E>(&mut tmp)?;
         buffer.write_all(&tmp).unwrap();
 
         if self.encoder.fixed_step {
