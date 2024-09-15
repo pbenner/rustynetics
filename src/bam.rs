@@ -75,7 +75,8 @@ struct BamAuxiliary {
 
 /* -------------------------------------------------------------------------- */
 
-#[derive(Clone, Debug, Default)]
+#[default]
+#[derive(Clone, Debug)]
 enum BamAuxValue {
     A         (u8),
     C         (i8),
