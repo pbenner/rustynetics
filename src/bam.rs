@@ -550,8 +550,8 @@ impl<R: Read> BamReader<R> {
                 // Parse sequence
                 if self.options.read_sequence {
                     let seq_len = (block.l_seq + 1) / 2;
-                    block.seq = vec![0; seq_len as usize];
-                    if let Err(e) = self.bgzf_reader.read_exact(&mut block.seq) {
+                    block.seq = BamSeq(vec![0; seq_len as usize]);
+                    if let Err(e) = self.bgzf_reader.read_exact(&mut block.seq.0) {
                         yield Err(e); return;
                     }
                 } else {
@@ -562,8 +562,8 @@ impl<R: Read> BamReader<R> {
     
                 // Parse qual block
                 if self.options.read_qual {
-                    block.qual = vec![0; block.l_seq as usize];
-                    if let Err(e) = self.bgzf_reader.read_exact(&mut block.qual) {
+                    block.qual = BamQual(vec![0; block.l_seq as usize]);
+                    if let Err(e) = self.bgzf_reader.read_exact(&mut block.qual.0) {
                         yield Err(e); return;
                     }
                 } else {
@@ -573,7 +573,7 @@ impl<R: Read> BamReader<R> {
                 }
     
                 // Read auxiliary data
-                let mut position = (8 * 4 + block.rn_length as usize + 4 * block.n_cigar_op as usize
+                let mut position = (8 * 4 + block.rname_len as usize + 4 * block.n_cigar_op as usize
                     + (block.l_seq as usize + 1) / 2 + block.l_seq as usize) as i32;
     
                 if self.options.read_auxiliary {
