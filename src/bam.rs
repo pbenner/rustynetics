@@ -144,7 +144,9 @@ impl fmt::Display for BamAuxiliary {
 /* -------------------------------------------------------------------------- */
 
 impl BamAuxiliary {
-    fn read<R: BufRead>(reader: &mut R) -> io::Result<(u64, Self)> {
+    fn read<R: Read>(reader_: &mut R) -> io::Result<(u64, Self)> {
+
+        let mut reader = BufReader::new(reader_);
 
         let mut tag = [0; 2];
         let mut n   = 0 as u64;
