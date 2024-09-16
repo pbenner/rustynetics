@@ -144,83 +144,87 @@ impl fmt::Display for BamAuxiliary {
 /* -------------------------------------------------------------------------- */
 
 impl BamAuxiliary {
-    fn read<R: BufRead>(reader: &mut R) -> io::Result<Self> {
-        let mut tag = [0; 2];
-        reader.read_exact(&mut tag)?;
+    fn read<R: BufRead>(reader: &mut R) -> io::Result<(u64, Self)> {
 
-        let value_type = reader.read_u8()?;
+        let mut tag = [0; 2];
+        let mut n   = 0 as u64;
+
+        reader.read_exact(&mut tag)?; n += 2;
+
+        let value_type = reader.read_u8()?; n += 1;
+
         let value = match value_type {
-            b'A' => BamAuxValue::A(reader.read_u8()?),
-            b'c' => BamAuxValue::C(reader.read_i8()?),
-            b'C' => BamAuxValue::CUnsigned(reader.read_u8()?),
-            b's' => BamAuxValue::S(reader.read_i16::<LittleEndian>()?),
-            b'S' => BamAuxValue::SUnsigned(reader.read_u16::<LittleEndian>()?),
-            b'i' => BamAuxValue::I(reader.read_i32::<LittleEndian>()?),
-            b'I' => BamAuxValue::IUnsigned(reader.read_u32::<LittleEndian>()?),
-            b'f' => BamAuxValue::F(reader.read_f32::<LittleEndian>()?),
-            b'd' => BamAuxValue::D(reader.read_f64::<LittleEndian>()?),
+            b'A' => {n += 1; BamAuxValue::A(reader.read_u8()?)},
+            b'c' => {n += 1; BamAuxValue::C(reader.read_i8()?)},
+            b'C' => {n += 1; BamAuxValue::CUnsigned(reader.read_u8()?)},
+            b's' => {n += 2; BamAuxValue::S(reader.read_i16::<LittleEndian>()?)},
+            b'S' => {n += 2; BamAuxValue::SUnsigned(reader.read_u16::<LittleEndian>()?)},
+            b'i' => {n += 4; BamAuxValue::I(reader.read_i32::<LittleEndian>()?)},
+            b'I' => {n += 4; BamAuxValue::IUnsigned(reader.read_u32::<LittleEndian>()?)},
+            b'f' => {n += 4; BamAuxValue::F(reader.read_f32::<LittleEndian>()?)},
+            b'd' => {n += 8; BamAuxValue::D(reader.read_f64::<LittleEndian>()?)},
             b'Z' => {
-                let mut buffer = Vec::new();
-                reader.read_until(0, &mut buffer)?;
+                let mut buffer : Vec<u8> = Vec::new();
+                reader.read_until(0, &mut buffer)?; n += buffer.len() as u64;
                 buffer.pop(); // Remove the trailing null byte
                 BamAuxValue::Z(String::from_utf8_lossy(&buffer).to_string())
             }
             b'H' => {
-                let mut buffer = Vec::new();
-                reader.read_until(0, &mut buffer)?;
+                let mut buffer : Vec<u8>  = Vec::new();
+                reader.read_until(0, &mut buffer)?; n += buffer.len() as u64;
                 buffer.pop(); // Remove the trailing null byte
                 BamAuxValue::H(buffer.iter().map(|b| format!("{:X}", b)).collect::<String>())
             }
             b'B' => {
-                let array_type = reader.read_u8()?;
-                let array_len = reader.read_i32::<LittleEndian>()?;
+                let array_type = reader.read_u8()?; n += 1;
+                let array_len  = reader.read_i32::<LittleEndian>()?; n += 4;
                 match array_type {
                     b'c' => {
                         let mut vec = Vec::with_capacity(array_len as usize);
                         for _ in 0..array_len {
-                            vec.push(reader.read_i8()?);
+                            vec.push(reader.read_i8()?); n += 1;
                         }
                         BamAuxValue::BInt8(vec)
                     }
                     b'C' => {
                         let mut vec = Vec::with_capacity(array_len as usize);
                         for _ in 0..array_len {
-                            vec.push(reader.read_u8()?);
+                            vec.push(reader.read_u8()?); n += 1;
                         }
                         BamAuxValue::BUint8(vec)
                     }
                     b's' => {
                         let mut vec = Vec::with_capacity(array_len as usize);
                         for _ in 0..array_len {
-                            vec.push(reader.read_i16::<LittleEndian>()?);
+                            vec.push(reader.read_i16::<LittleEndian>()?); n += 2;
                         }
                         BamAuxValue::BInt16(vec)
                     }
                     b'S' => {
                         let mut vec = Vec::with_capacity(array_len as usize);
                         for _ in 0..array_len {
-                            vec.push(reader.read_u16::<LittleEndian>()?);
+                            vec.push(reader.read_u16::<LittleEndian>()?); n += 2;
                         }
                         BamAuxValue::BUint16(vec)
                     }
                     b'i' => {
                         let mut vec = Vec::with_capacity(array_len as usize);
                         for _ in 0..array_len {
-                            vec.push(reader.read_i32::<LittleEndian>()?);
+                            vec.push(reader.read_i32::<LittleEndian>()?); n += 4;
                         }
                         BamAuxValue::BInt32(vec)
                     }
                     b'I' => {
                         let mut vec = Vec::with_capacity(array_len as usize);
                         for _ in 0..array_len {
-                            vec.push(reader.read_u32::<LittleEndian>()?);
+                            vec.push(reader.read_u32::<LittleEndian>()?); n += 4;
                         }
                         BamAuxValue::BUint32(vec)
                     }
                     b'f' => {
                         let mut vec = Vec::with_capacity(array_len as usize);
                         for _ in 0..array_len {
-                            vec.push(reader.read_f32::<LittleEndian>()?);
+                            vec.push(reader.read_f32::<LittleEndian>()?); n += 4;
                         }
                         BamAuxValue::BFloat32(vec)
                     }
@@ -229,7 +233,8 @@ impl BamAuxiliary {
             }
             _ => return Err(io::Error::new(io::ErrorKind::InvalidData, "Invalid auxiliary type")),
         };
-        Ok(BamAuxiliary { tag, value })
+
+        Ok((n, BamAuxiliary { tag, value }))
     }
 }
 
@@ -578,9 +583,8 @@ impl<R: Read> BamReader<R> {
     
                 if self.options.read_auxiliary {
                     while position < block_size {
-                        let mut aux = BamAuxiliary::new();
-                        match aux.read(&mut self.bgzf_reader) {
-                            Ok (bytes_read) => {
+                        match BamAuxiliary::read(&mut self.bgzf_reader) {
+                            Ok ((bytes_read, aux)) => {
                                 block.auxiliary.push(aux);
                                 position += bytes_read as i32;
                             }
