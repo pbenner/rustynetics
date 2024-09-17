@@ -144,9 +144,7 @@ impl fmt::Display for BamAuxiliary {
 /* -------------------------------------------------------------------------- */
 
 impl BamAuxiliary {
-    fn read<R: Read>(reader_: &mut R) -> io::Result<(u64, Self)> {
-
-        let mut reader = BufReader::new(reader_);
+    fn read<R: BufRead>(reader: &mut R) -> io::Result<(u64, Self)> {
 
         let mut tag = [0; 2];
         let mut n   = 0 as u64;
@@ -410,10 +408,10 @@ pub struct BamReaderOptions {
 
 #[derive(Debug)]
 pub struct BamReader<R: Read> {
-    options    : BamReaderOptions,
-    header     : BamHeader,
-    genome     : Genome,
-    bgzf_reader: BgzfReader<R>,
+    options : BamReaderOptions,
+    header  : BamHeader,
+    genome  : Genome,
+    reader  : BufReader<BgzfReader<R>>,
 }
 
 /* -------------------------------------------------------------------------- */
@@ -421,10 +419,10 @@ pub struct BamReader<R: Read> {
 impl<R: Read> BamReader<R> {
     pub fn new(reader: R, options: Option<BamReaderOptions>) -> io::Result<Self> {
         let mut bam_reader = BamReader {
-            options    : options.unwrap_or_default(),
-            genome     : Genome::default(),
-            header     : BamHeader::default(),
-            bgzf_reader: BgzfReader::new(reader)?,
+            options : options.unwrap_or_default(),
+            genome  : Genome::default(),
+            header  : BamHeader::default(),
+            reader  : BufReader::new(BgzfReader::new(reader)?),
         };
 
         // Default options
@@ -435,23 +433,23 @@ impl<R: Read> BamReader<R> {
         bam_reader.options.read_qual      = true;
 
         let mut magic = [0; 4];
-        bam_reader.bgzf_reader.read_exact(&mut magic)?;
+        bam_reader.reader.read_exact(&mut magic)?;
 
         if &magic != b"BAM\x01" {
             return Err(io::Error::new(io::ErrorKind::InvalidData, "not a BAM file"));
         }
 
-        bam_reader.header.text_length = bam_reader.bgzf_reader.read_i32::<LittleEndian>()?;
+        bam_reader.header.text_length = bam_reader.reader.read_i32::<LittleEndian>()?;
         let mut text_bytes = vec![0; bam_reader.header.text_length as usize];
-        bam_reader.bgzf_reader.read_exact(&mut text_bytes)?;
+        bam_reader.reader.read_exact(&mut text_bytes)?;
         bam_reader.header.text = String::from_utf8(text_bytes).unwrap();
 
-        bam_reader.header.n_ref = bam_reader.bgzf_reader.read_i32::<LittleEndian>()?;
+        bam_reader.header.n_ref = bam_reader.reader.read_i32::<LittleEndian>()?;
         for _ in 0..bam_reader.header.n_ref {
-            let length_name = bam_reader.bgzf_reader.read_i32::<LittleEndian>()?;
+            let length_name = bam_reader.reader.read_i32::<LittleEndian>()?;
             let mut name_bytes = vec![0; length_name as usize];
-            bam_reader.bgzf_reader.read_exact(&mut name_bytes)?;
-            let length_seq = bam_reader.bgzf_reader.read_i32::<LittleEndian>()?;
+            bam_reader.reader.read_exact(&mut name_bytes)?;
+            let length_seq = bam_reader.reader.read_i32::<LittleEndian>()?;
             bam_reader.genome.add_sequence(
                 String::from_utf8(name_bytes).unwrap().trim_matches('\0').to_string(),
                 length_seq as usize,
@@ -464,7 +462,7 @@ impl<R: Read> BamReader<R> {
 
 /* -------------------------------------------------------------------------- */
 
-impl<R: Read> BamReader<R> {
+impl<R: BufRead> BamReader<R> {
 
     fn read_single_end_stream<'a>(
         &'a mut self
@@ -481,20 +479,20 @@ impl<R: Read> BamReader<R> {
             loop {
                 let mut buf = Vec::new();
 
-                block_size = match self.bgzf_reader.read_i32::<LittleEndian>() {
+                block_size = match self.reader.read_i32::<LittleEndian>() {
                     Ok (v) => v,
                     Err(e) => { yield Err(e); return; }
                 };
-                block.ref_id = match self.bgzf_reader.read_i32::<LittleEndian>() {
+                block.ref_id = match self.reader.read_i32::<LittleEndian>() {
                     Ok (v) => v,
                     Err(e) => { yield Err(e); return; }
                 };
-                block.position = match self.bgzf_reader.read_i32::<LittleEndian>() {
+                block.position = match self.reader.read_i32::<LittleEndian>() {
                     Ok (v) => v,
                     Err(e) => { yield Err(e); return; }
                 };
 
-                bin_mq_nl = match self.bgzf_reader.read_u32::<LittleEndian>() {
+                bin_mq_nl = match self.reader.read_u32::<LittleEndian>() {
                     Ok (v) => v,
                     Err(e) => { yield Err(e); return; }
                 };    
@@ -502,33 +500,33 @@ impl<R: Read> BamReader<R> {
                 block.mapq      = ((bin_mq_nl >>    8) & 0xff  ) as u8;
                 block.rname_len =  (bin_mq_nl  & 0xff) as u8;
 
-                flag_nc = match self.bgzf_reader.read_u32::<LittleEndian>() {
+                flag_nc = match self.reader.read_u32::<LittleEndian>() {
                     Ok (v) => v,
                     Err(e) => { yield Err(e); return; }
                 };
                 block.flag       = BamFlag((flag_nc >> 16) as u16);
                 block.n_cigar_op = (flag_nc & 0xffff) as u16;
     
-                block.l_seq = match self.bgzf_reader.read_i32::<LittleEndian>() {
+                block.l_seq = match self.reader.read_i32::<LittleEndian>() {
                     Ok (v) => v,
                     Err(e) => { yield Err(e); return; }
                 };
-                block.next_ref_id = match self.bgzf_reader.read_i32::<LittleEndian>() {
+                block.next_ref_id = match self.reader.read_i32::<LittleEndian>() {
                     Ok (v) => v,
                     Err(e) => { yield Err(e); return; }
                 };
-                block.next_position = match self.bgzf_reader.read_i32::<LittleEndian>() {
+                block.next_position = match self.reader.read_i32::<LittleEndian>() {
                     Ok (v) => v,
                     Err(e) => { yield Err(e); return; }
                 };
-                block.tlen = match self.bgzf_reader.read_i32::<LittleEndian>() {
+                block.tlen = match self.reader.read_i32::<LittleEndian>() {
                     Ok (v) => v,
                     Err(e) => { yield Err(e); return; }
                 };
     
                 // Parse the read name
                 loop {
-                    match self.bgzf_reader.read_u8() {
+                    match self.reader.read_u8() {
                         Ok (b) if b == 0 => {
                             block.read_name = String::from_utf8(buf.clone()).unwrap();
                             break;
@@ -542,13 +540,13 @@ impl<R: Read> BamReader<R> {
                 if self.options.read_cigar {
                     block.cigar = BamCigar(Vec::with_capacity(block.n_cigar_op as usize));
                     for _ in 0..block.n_cigar_op {
-                        if let Err(e) = self.bgzf_reader.read_u32::<LittleEndian>().map(|v| block.cigar.0.push(v)) {
+                        if let Err(e) = self.reader.read_u32::<LittleEndian>().map(|v| block.cigar.0.push(v)) {
                             yield Err(e); return;
                         }
                     }
                 } else {
                     for _ in 0..block.n_cigar_op {
-                        if let Err(e) = io::copy(&mut self.bgzf_reader, &mut io::sink()).map(|_| ()) {
+                        if let Err(e) = io::copy(&mut self.reader, &mut io::sink()).map(|_| ()) {
                             yield Err(e); return;
                         }
                     }
@@ -558,11 +556,11 @@ impl<R: Read> BamReader<R> {
                 if self.options.read_sequence {
                     let seq_len = (block.l_seq + 1) / 2;
                     block.seq = BamSeq(vec![0; seq_len as usize]);
-                    if let Err(e) = self.bgzf_reader.read_exact(&mut block.seq.0) {
+                    if let Err(e) = self.reader.read_exact(&mut block.seq.0) {
                         yield Err(e); return;
                     }
                 } else {
-                    if let Err(e) = io::copy(&mut self.bgzf_reader, &mut io::sink()).map(|_| ()) {
+                    if let Err(e) = io::copy(&mut self.reader, &mut io::sink()).map(|_| ()) {
                         yield Err(e); return;
                     }
                 }
@@ -570,11 +568,11 @@ impl<R: Read> BamReader<R> {
                 // Parse qual block
                 if self.options.read_qual {
                     block.qual = BamQual(vec![0; block.l_seq as usize]);
-                    if let Err(e) = self.bgzf_reader.read_exact(&mut block.qual.0) {
+                    if let Err(e) = self.reader.read_exact(&mut block.qual.0) {
                         yield Err(e); return;
                     }
                 } else {
-                    if let Err(e) = io::copy(&mut self.bgzf_reader, &mut io::sink()).map(|_| ()) {
+                    if let Err(e) = io::copy(&mut self.reader, &mut io::sink()).map(|_| ()) {
                         yield Err(e); return;
                     }
                 }
@@ -585,7 +583,7 @@ impl<R: Read> BamReader<R> {
     
                 if self.options.read_auxiliary {
                     while position < block_size {
-                        match BamAuxiliary::read(&mut self.bgzf_reader) {
+                        match BamAuxiliary::read(&mut self.reader) {
                             Ok ((bytes_read, aux)) => {
                                 block.auxiliary.push(aux);
                                 position += bytes_read as i32;
@@ -594,7 +592,7 @@ impl<R: Read> BamReader<R> {
                         }
                     }
                 } else {
-                    if let Err(e) = io::copy(&mut self.bgzf_reader, &mut io::sink()).map(|_| ()) {
+                    if let Err(e) = io::copy(&mut self.reader, &mut io::sink()).map(|_| ()) {
                         yield Err(e); return;
                     }
                 }
@@ -740,7 +738,7 @@ impl<R: Read> BamReader<R> {
 
 /* -------------------------------------------------------------------------- */
 
-impl<R: Read> BamReader<R> {
+impl<R: BufRead> BamReader<R> {
 
     pub fn read_single_end<'a>(&'a mut self) -> impl Iterator<Item = io::Result<BamReaderType1>> + 'a {
 
@@ -775,7 +773,7 @@ impl<R: Read> BamReader<R> {
 
 #[derive(Debug)]
 pub struct BamFile {
-    pub reader: BamReader<BufReader<File>>,
+    pub reader: BamReader<File>,
 }
 
 /* -------------------------------------------------------------------------- */
@@ -783,7 +781,7 @@ pub struct BamFile {
 impl BamFile {
     pub fn open(filename: &str, options: Option<BamReaderOptions>) -> io::Result<Self> {
         let file   = File::open(filename)?;
-        let reader = BamReader::new(BufReader::new(file), options)?;
+        let reader = BamReader::new(file, options)?;
 
         Ok(BamFile {
             reader : reader,
@@ -802,5 +800,5 @@ pub fn bam_read_genome<R: Read>(reader: R) -> io::Result<Genome> {
 
 pub fn bam_import_genome(filename: &str) -> io::Result<Genome> {
     let file = File::open(filename)?;
-    bam_read_genome(BufReader::new(file))
+    bam_read_genome(file)
 }
