@@ -27,11 +27,13 @@ use reqwest::blocking::{Client, Response};
 /* -------------------------------------------------------------------------- */
 
 // Wrapper for a file or HTTP stream that supports Read + Seek
+#[derive(Debug)]
 enum NetFileStream {
     File(File),
     Http(HttpSeekableReader),
 }
 
+#[derive(Debug)]
 pub struct NetFile {
     stream: NetFileStream,
 }
@@ -101,6 +103,7 @@ impl Seek for NetFile {
 /* -------------------------------------------------------------------------- */
 
 // HTTP reader that supports seeking using Range requests
+#[derive(Debug)]
 struct HttpSeekableReader {
     client        : Client,
     url           : String,

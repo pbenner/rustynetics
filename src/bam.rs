@@ -15,7 +15,6 @@
  */
 
 use std::fmt;
-use std::fs::File;
 use std::io::{self, BufRead, BufReader, Read};
 use std::error::Error;
 
@@ -775,14 +774,14 @@ impl<R: BufRead> BamReader<R> {
 
 #[derive(Debug)]
 pub struct BamFile {
-    pub reader: BamReader<File>,
+    pub reader: BamReader<NetFile>,
 }
 
 /* -------------------------------------------------------------------------- */
 
 impl BamFile {
-    pub fn open(filename: &str, options: Option<BamReaderOptions>) -> io::Result<Self> {
-        let file   = File::open(filename)?;
+    pub fn open(filename: &str, options: Option<BamReaderOptions>) -> Result<Self, Box<dyn Error>> {
+        let file = NetFile::open(filename)?;
         let reader = BamReader::new(file, options)?;
 
         Ok(BamFile {
@@ -793,7 +792,7 @@ impl BamFile {
 
 /* -------------------------------------------------------------------------- */
 
-pub fn bam_read_genome<R: Read>(reader: R) -> io::Result<Genome> {
+pub fn bam_read_genome<R: Read>(reader: R) -> Result<Genome, Box<dyn Error>> {
     let bam_reader = BamReader::<R>::new(reader, Some(BamReaderOptions::default()))?;
     Ok(bam_reader.genome)
 }
