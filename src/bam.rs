@@ -781,7 +781,7 @@ pub struct BamFile {
 
 impl BamFile {
     pub fn open(filename: &str, options: Option<BamReaderOptions>) -> Result<Self, Box<dyn Error>> {
-        let file = NetFile::open(filename)?;
+        let file   = NetFile::open(filename)?;
         let reader = BamReader::new(file, options)?;
 
         Ok(BamFile {
@@ -802,4 +802,35 @@ pub fn bam_read_genome<R: Read>(reader: R) -> Result<Genome, Box<dyn Error>> {
 pub fn bam_import_genome(filename: &str) -> Result<Genome, Box<dyn Error>> {
     let file = NetFile::open(filename)?;
     Ok(bam_read_genome(file)?)
+}
+
+/* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
+
+#[cfg(test)]
+mod tests {
+
+    use crate::bam::BamFile;
+
+    #[test]
+    fn test_bam_1() {
+
+        let result =  BamFile::open("src/bam_test.1.bam", None);
+
+        assert!(result.is_ok());
+
+        if let Ok(bam) = result {
+
+            let genome = bam.reader.genome;
+
+            assert_eq!(genome.len(), 2);
+
+            assert_eq!(genome.seqnames[0], "ref");
+            assert_eq!(genome.seqnames[1], "ref2");
+
+            assert_eq!(genome.lengths[0], 45);
+            assert_eq!(genome.lengths[1], 40);
+
+        }
+    }
 }
