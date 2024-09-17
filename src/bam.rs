@@ -17,9 +17,10 @@
 use std::fmt;
 use std::fs::File;
 use std::io::{self, BufRead, BufReader, Read};
-use byteorder::{LittleEndian, ReadBytesExt};
+use std::error::Error;
 
 use async_stream::stream;
+use byteorder::{LittleEndian, ReadBytesExt};
 use core::pin::Pin;
 use futures::executor::block_on_stream;
 use futures_core::stream::Stream;
@@ -27,6 +28,7 @@ use futures::StreamExt;
 
 use crate::bgzf::BgzfReader;
 use crate::genome::Genome;
+use crate::netfile::NetFile;
 use crate::range::Range;
 use crate::reads;
 
@@ -798,7 +800,7 @@ pub fn bam_read_genome<R: Read>(reader: R) -> io::Result<Genome> {
 
 /* -------------------------------------------------------------------------- */
 
-pub fn bam_import_genome(filename: &str) -> io::Result<Genome> {
-    let file = File::open(filename)?;
-    bam_read_genome(file)
+pub fn bam_import_genome(filename: &str) -> Result<Genome, Box<dyn Error>> {
+    let file = NetFile::open(filename)?;
+    Ok(bam_read_genome(file)?)
 }
