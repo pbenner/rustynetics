@@ -463,7 +463,7 @@ impl<R: Read> BamReader<R> {
 
 /* -------------------------------------------------------------------------- */
 
-impl<R: BufRead> BamReader<R> {
+impl<R: Read> BamReader<R> {
 
     fn read_single_end_stream<'a>(
         &'a mut self
@@ -739,7 +739,7 @@ impl<R: BufRead> BamReader<R> {
 
 /* -------------------------------------------------------------------------- */
 
-impl<R: BufRead> BamReader<R> {
+impl<R: Read> BamReader<R> {
 
     pub fn read_single_end<'a>(&'a mut self) -> impl Iterator<Item = io::Result<BamReaderType1>> + 'a {
 
@@ -833,4 +833,23 @@ mod tests {
 
         }
     }
+
+    #[test]
+    fn test_bam_2() {
+
+        let result =  BamFile::open("src/bam_test.1.bam", None);
+
+        assert!(result.is_ok());
+
+        let mut bam = result.unwrap();
+
+        for item in bam.reader.read_simple(true, true) {
+            if item.is_ok() {
+                println!("{}", item.unwrap());
+            }
+        }
+
+    }
+
+
 }

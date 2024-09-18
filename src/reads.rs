@@ -73,6 +73,21 @@ impl Read {
 
 /* -------------------------------------------------------------------------- */
 
+impl fmt::Display for Read {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "READ: {}:[{}-{}):{}, MAPQ={}, DUPLICATE={}, PAIRED_END={}",
+            self.seqname,
+            self.range.from,
+            self.range.to,
+            self.strand,
+            self.mapq,
+            self.duplicate,
+            self.paired_end)
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+
 #[derive(Debug)]
 pub struct StrandMissingError(char);
 
