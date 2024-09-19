@@ -20,7 +20,6 @@ use std::error::Error;
 
 use async_stream::stream;
 use byteorder::{LittleEndian, ReadBytesExt};
-use core::pin::Pin;
 use futures::executor::block_on_stream;
 use futures_core::stream::Stream;
 use futures::StreamExt;
@@ -467,9 +466,9 @@ impl<R: Read> BamReader<R> {
 
     fn read_single_end_stream<'a>(
         &'a mut self
-    ) -> Pin<Box<dyn Stream<Item = io::Result<BamReaderType1>> + 'a>> {
+    ) -> impl Stream<Item = io::Result<BamReaderType1>> + 'a {
 
-        Box::pin(stream! {
+        stream! {
 
             let mut block_size: i32;
             let mut flag_nc   : u32;
@@ -603,20 +602,22 @@ impl<R: Read> BamReader<R> {
                 });
 
             }
-        })
+        }
     }
 
     fn read_paired_end_stream<'a>(
         &'a mut self
-    ) -> Pin<Box<dyn Stream<Item = io::Result<BamReaderType2>> + 'a>> {
+    ) -> impl Stream<Item = io::Result<BamReaderType2>> + 'a {
 
-        Box::pin(stream! {
+        self.options.read_name = true;
+
+        stream! {
 
             let mut cache : std::collections::HashMap<String, BamBlock> = std::collections::HashMap::new();
 
-            self.options.read_name = true;
+            let mut iterator = Box::pin(self.read_single_end_stream());
 
-            for item in self.read_single_end() {
+            while let Some(item) = iterator.next().await {
 
                 match item {
 
@@ -651,22 +652,22 @@ impl<R: Read> BamReader<R> {
                     }
                 }
             }
-        })
+        }
     }
 
     pub fn read_simple_stream<'a>(
         &'a mut self,
         join_pairs: bool,
         paired_end_strand_specific: bool
-    ) -> Pin<Box<dyn Stream<Item = io::Result<reads::Read>> + 'a>> {
+    ) -> impl Stream<Item = io::Result<reads::Read>> + 'a {
 
         let genome = self.genome.clone();
 
-        Box::pin(stream!{
+        stream!{
 
             self.options.read_cigar = true;
 
-            let mut iterator = self.read_paired_end_stream();
+            let mut iterator = Box::pin(self.read_paired_end_stream());
 
             while let Some(item) = iterator.next().await {
 
@@ -733,7 +734,7 @@ impl<R: Read> BamReader<R> {
                     }
                 }
             }
-        })
+        }
     }
 }
 
@@ -743,7 +744,7 @@ impl<R: Read> BamReader<R> {
 
     pub fn read_single_end<'a>(&'a mut self) -> impl Iterator<Item = io::Result<BamReaderType1>> + 'a {
 
-        let s = self.read_single_end_stream();
+        let s = Box::pin(self.read_single_end_stream());
 
         block_on_stream(s)
 
@@ -751,7 +752,7 @@ impl<R: Read> BamReader<R> {
 
     pub fn read_paired_end<'a>(&'a mut self) -> impl Iterator<Item = io::Result<BamReaderType2>> + 'a {
 
-        let s = self.read_paired_end_stream();
+        let s = Box::pin(self.read_paired_end_stream());
 
         block_on_stream(s)
 
@@ -763,7 +764,7 @@ impl<R: Read> BamReader<R> {
         paired_end_strand_specific: bool
     ) -> impl Iterator<Item = io::Result<reads::Read>> + 'a {
 
-        let s = self.read_simple_stream(join_pairs, paired_end_strand_specific);
+        let s = Box::pin(self.read_simple_stream(join_pairs, paired_end_strand_specific));
 
         block_on_stream(s)
 
