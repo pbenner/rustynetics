@@ -464,7 +464,7 @@ impl<R: Read> BamReader<R> {
 
 impl<R: Read> BamReader<R> {
 
-    fn read_single_end_stream<'a>(
+    pub fn read_single_end_stream<'a>(
         &'a mut self
     ) -> impl Stream<Item = io::Result<BamReaderType1>> + 'a {
 
@@ -605,7 +605,7 @@ impl<R: Read> BamReader<R> {
         }
     }
 
-    fn read_paired_end_stream<'a>(
+    pub fn read_paired_end_stream<'a>(
         &'a mut self
     ) -> impl Stream<Item = io::Result<BamReaderType2>> + 'a {
 
