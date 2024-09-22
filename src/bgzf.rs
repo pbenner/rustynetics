@@ -21,7 +21,7 @@ use byteorder::{LittleEndian, ReadBytesExt};
 /* -------------------------------------------------------------------------- */
 
 // Structure to hold the BGZF extra fields
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct BgzfExtra {
     pub si1  : u8,
     pub si2  : u8,
@@ -90,40 +90,46 @@ mod tests {
     use byteorder::ReadBytesExt;
     use byteorder::LittleEndian;
 
-    use crate::bgzf::BgzfReader;
+    use crate::bgzf::{BgzfExtra, BgzfReader};
     use crate::netfile::NetFile;
 
     #[test]
     fn test_bgzf() {
 
-        println!("OPENING");
-        let file = File::open("src/bam_test.2.bam");
-        let result = BgzfReader::new(file.unwrap());
+        let file = File::open("src/bam_test.1.bam");
+        let bgzf = BgzfReader::new(file.unwrap());
 
-        assert!(result.is_ok());
+        let mut reader = bgzf.unwrap();
 
-        let mut reader = result.unwrap();
+        assert_eq!(
+            reader.read_i64::<LittleEndian>().unwrap(),
+            150345695554
+        );
 
-        println!("f: {}", reader.read_f64::<LittleEndian>().unwrap());
-
-        println!("END");
+        assert_eq!(
+            reader.get_extra().unwrap(),
+            BgzfExtra{si1: 66, si2: 67, slen: 2, bsize: 77}
+        );
 
     }
 
     #[test]
     fn test_bgzf_netfile() {
 
-        println!("OPENING");
-        let file = NetFile::open("src/bam_test.2.bam");
-        let result = BgzfReader::new(file.unwrap());
+        let file = NetFile::open("src/bam_test.1.bam");
+        let bgzf = BgzfReader::new(file.unwrap());
 
-        assert!(result.is_ok());
+        let mut reader = bgzf.unwrap();
 
-        let mut reader = result.unwrap();
+        assert_eq!(
+            reader.read_i64::<LittleEndian>().unwrap(),
+            150345695554
+        );
 
-        println!("f: {}", reader.read_f64::<LittleEndian>().unwrap());
-
-        println!("END");
+        assert_eq!(
+            reader.get_extra().unwrap(),
+            BgzfExtra{si1: 66, si2: 67, slen: 2, bsize: 77}
+        );
 
     }
 
