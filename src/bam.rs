@@ -478,7 +478,13 @@ impl<R: Read> BamReader<R> {
 
                 block_size = match self.reader.read_i32::<LittleEndian>() {
                     Ok (v) => v,
-                    Err(e) => { yield Err(e); return; }
+                    Err(e) => {
+                        // No more reads available, exiting
+                        if e.kind() == std::io::ErrorKind::UnexpectedEof {
+                            return;
+                        }
+                        yield Err(e); return;
+                    }
                 };
                 block.ref_id = match self.reader.read_i32::<LittleEndian>() {
                     Ok (v) => v,
