@@ -818,35 +818,36 @@ mod tests {
 
     #[test]
     fn test_bam_genome() {
-        let result =  BamFile::open("src/bam_test.1.bam", None);
+        let result = BamFile::open("src/bam_test.1.bam", None);
         assert!(result.is_ok());
         if let Ok(bam) = result {
             let genome = bam.reader.genome;
             assert_eq!(genome.len(), 2);
             assert_eq!(genome.seqnames[0], "ref");
             assert_eq!(genome.seqnames[1], "ref2");
-            assert_eq!(genome.lengths[0], 45);
-            assert_eq!(genome.lengths[1], 40);
+            assert_eq!(genome.lengths [0], 45);
+            assert_eq!(genome.lengths [1], 40);
         }
     }
 
     #[test]
     fn test_bam_read_simple() {
 
-        let result =  BamFile::open("src/bam_test.2.bam", None);
+        let result = BamFile::open("src/bam_test.2.bam", None);
 
         assert!(result.is_ok());
 
         let mut bam = result.unwrap();
+        let mut cnt = 0;
 
         for item in bam.reader.read_simple(true, true) {
-            if item.is_ok() {
-                println!("{}", item.unwrap());
-            } else {
-                println!("{:?}", item)
+            if !item.is_ok() {
+                break;
             }
+            cnt += 1;
         }
 
+        assert_eq!(cnt, 2335);
     }
 
 
