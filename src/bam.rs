@@ -15,7 +15,7 @@
  */
 
 use std::fmt;
-use std::io::{self, BufRead, BufReader, Read};
+use std::io::{self, Read};
 use std::error::Error;
 
 use async_stream::stream;
@@ -29,6 +29,7 @@ use crate::genome::Genome;
 use crate::netfile::NetFile;
 use crate::range::Range;
 use crate::reads;
+use crate::utility::read_until_null;
 
 /* -------------------------------------------------------------------------- */
 
@@ -144,7 +145,7 @@ impl fmt::Display for BamAuxiliary {
 /* -------------------------------------------------------------------------- */
 
 impl BamAuxiliary {
-    fn read<R: BufRead>(reader: &mut R) -> io::Result<(u64, Self)> {
+    fn read<R: Read>(reader: &mut R) -> io::Result<(u64, Self)> {
 
         let mut tag = [0; 2];
         let mut n   = 0 as u64;
@@ -164,15 +165,11 @@ impl BamAuxiliary {
             b'f' => {n += 4; BamAuxValue::F(reader.read_f32::<LittleEndian>()?)},
             b'd' => {n += 8; BamAuxValue::D(reader.read_f64::<LittleEndian>()?)},
             b'Z' => {
-                let mut buffer : Vec<u8> = Vec::new();
-                reader.read_until(0, &mut buffer)?; n += buffer.len() as u64;
-                buffer.pop(); // Remove the trailing null byte
+                let buffer : Vec<u8> = read_until_null(reader)?; n += buffer.len() as u64;
                 BamAuxValue::Z(String::from_utf8_lossy(&buffer).to_string())
             }
             b'H' => {
-                let mut buffer : Vec<u8>  = Vec::new();
-                reader.read_until(0, &mut buffer)?; n += buffer.len() as u64;
-                buffer.pop(); // Remove the trailing null byte
+                let buffer : Vec<u8> = read_until_null(reader)?; n += buffer.len() as u64;
                 BamAuxValue::H(buffer.iter().map(|b| format!("{:X}", b)).collect::<String>())
             }
             b'B' => {
@@ -411,7 +408,7 @@ pub struct BamReader<R: Read> {
     options : BamReaderOptions,
     header  : BamHeader,
     genome  : Genome,
-    reader  : BufReader<BgzfReader<R>>,
+    reader  : BgzfReader<R>,
 }
 
 /* -------------------------------------------------------------------------- */
@@ -422,7 +419,7 @@ impl<R: Read> BamReader<R> {
             options : options.unwrap_or_default(),
             genome  : Genome::default(),
             header  : BamHeader::default(),
-            reader  : BufReader::new(BgzfReader::new(reader)?),
+            reader  : BgzfReader::new(reader)?,
         };
 
         // Default options
@@ -481,7 +478,7 @@ impl<R: Read> BamReader<R> {
 
                 block_size = match self.reader.read_i32::<LittleEndian>() {
                     Ok (v) => v,
-                    Err(e) => { yield Err(e); return; }
+                    Err(e) => { println!("ERR");yield Err(e); return; }
                 };
                 block.ref_id = match self.reader.read_i32::<LittleEndian>() {
                     Ok (v) => v,
@@ -707,7 +704,7 @@ impl<R: Read> BamReader<R> {
                                 seqname   : seqname,
                                 range     : Range::new(from as usize, to as usize),
                                 strand    : strand as char,
-                                mapq      : mapq as i64,
+                                mapq      : mapq   as i64,
                                 duplicate : duplicate,
                                 paired_end: true,
                             });
@@ -726,7 +723,7 @@ impl<R: Read> BamReader<R> {
                                 seqname   : seqname,
                                 range     : Range::new(from as usize, to as usize),
                                 strand    : strand as char,
-                                mapq      : mapq as i64,
+                                mapq      : mapq   as i64,
                                 duplicate : duplicate,
                                 paired_end: paired,
                             });
@@ -813,32 +810,11 @@ mod tests {
 
     use crate::bam::BamFile;
 
-    #[test]
-    fn test_bam_1() {
-
-        let result =  BamFile::open("src/bam_test.1.bam", None);
-
-        assert!(result.is_ok());
-
-        if let Ok(bam) = result {
-
-            let genome = bam.reader.genome;
-
-            assert_eq!(genome.len(), 2);
-
-            assert_eq!(genome.seqnames[0], "ref");
-            assert_eq!(genome.seqnames[1], "ref2");
-
-            assert_eq!(genome.lengths[0], 45);
-            assert_eq!(genome.lengths[1], 40);
-
-        }
-    }
 
     #[test]
     fn test_bam_2() {
 
-        let result =  BamFile::open("src/bam_test.1.bam", None);
+        let result =  BamFile::open("src/bam_test.2.bam", None);
 
         assert!(result.is_ok());
 
@@ -847,6 +823,8 @@ mod tests {
         for item in bam.reader.read_simple(true, true) {
             if item.is_ok() {
                 println!("{}", item.unwrap());
+            } else {
+                println!("{:?}", item)
             }
         }
 

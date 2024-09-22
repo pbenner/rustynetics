@@ -79,3 +79,52 @@ impl<R: Read> Read for BgzfReader<R> {
     }
 
 }
+
+/* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
+
+#[cfg(test)]
+mod tests {
+
+    use std::fs::File;
+    use byteorder::ReadBytesExt;
+    use byteorder::LittleEndian;
+
+    use crate::bgzf::BgzfReader;
+    use crate::netfile::NetFile;
+
+    #[test]
+    fn test_bgzf() {
+
+        println!("OPENING");
+        let file = File::open("src/bam_test.2.bam");
+        let result = BgzfReader::new(file.unwrap());
+
+        assert!(result.is_ok());
+
+        let mut reader = result.unwrap();
+
+        println!("f: {}", reader.read_f64::<LittleEndian>().unwrap());
+
+        println!("END");
+
+    }
+
+    #[test]
+    fn test_bgzf_netfile() {
+
+        println!("OPENING");
+        let file = NetFile::open("src/bam_test.2.bam");
+        let result = BgzfReader::new(file.unwrap());
+
+        assert!(result.is_ok());
+
+        let mut reader = result.unwrap();
+
+        println!("f: {}", reader.read_f64::<LittleEndian>().unwrap());
+
+        println!("END");
+
+    }
+
+}
