@@ -15,7 +15,7 @@
  */
 
 use std::io::{self, Read};
-use flate2::read::GzDecoder;
+use flate2::read::MultiGzDecoder;
 use byteorder::{LittleEndian, ReadBytesExt};
 
 /* -------------------------------------------------------------------------- */
@@ -34,7 +34,7 @@ pub struct BgzfExtra {
 // BGZF reader structure that wraps GzDecoder
 #[derive(Debug)]
 pub struct BgzfReader<R: Read> {
-    decoder: GzDecoder<R>,
+    decoder: MultiGzDecoder<R>,
 }
 
 /* -------------------------------------------------------------------------- */
@@ -42,7 +42,7 @@ pub struct BgzfReader<R: Read> {
 impl<R: Read> BgzfReader<R> {
     // Function to create a new BgzfReader
     pub fn new(reader: R) -> io::Result<BgzfReader<R>> {
-        let decoder = GzDecoder::new(reader);
+        let decoder = MultiGzDecoder::new(reader);
         Ok(BgzfReader { decoder })
     }
 
