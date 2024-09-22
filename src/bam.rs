@@ -810,9 +810,22 @@ mod tests {
 
     use crate::bam::BamFile;
 
+    #[test]
+    fn test_bam_genome() {
+        let result =  BamFile::open("src/bam_test.1.bam", None);
+        assert!(result.is_ok());
+        if let Ok(bam) = result {
+            let genome = bam.reader.genome;
+            assert_eq!(genome.len(), 2);
+            assert_eq!(genome.seqnames[0], "ref");
+            assert_eq!(genome.seqnames[1], "ref2");
+            assert_eq!(genome.lengths[0], 45);
+            assert_eq!(genome.lengths[1], 40);
+        }
+    }
 
     #[test]
-    fn test_bam_2() {
+    fn test_bam_read_simple() {
 
         let result =  BamFile::open("src/bam_test.2.bam", None);
 
