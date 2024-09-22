@@ -165,11 +165,11 @@ impl BamAuxiliary {
             b'f' => {n += 4; BamAuxValue::F(reader.read_f32::<LittleEndian>()?)},
             b'd' => {n += 8; BamAuxValue::D(reader.read_f64::<LittleEndian>()?)},
             b'Z' => {
-                let buffer : Vec<u8> = read_until_null(reader)?; n += buffer.len() as u64;
+                let buffer : Vec<u8> = read_until_null(reader)?; n += buffer.len()+1 as u64;
                 BamAuxValue::Z(String::from_utf8_lossy(&buffer).to_string())
             }
             b'H' => {
-                let buffer : Vec<u8> = read_until_null(reader)?; n += buffer.len() as u64;
+                let buffer : Vec<u8> = read_until_null(reader)?; n += buffer.len()+1 as u64;
                 BamAuxValue::H(buffer.iter().map(|b| format!("{:X}", b)).collect::<String>())
             }
             b'B' => {
