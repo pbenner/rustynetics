@@ -39,7 +39,9 @@ impl GRanges {
         let mut flag     = Vec::new();
         let mut qual     = Vec::new();
 
-        for block in bam_reader.read_single_end() {
+        for item in bam_reader.read_single_end() {
+
+            let block = item?.block;
 
             if let Some(err) = block.error {
                 return Err(err);
