@@ -239,7 +239,7 @@ impl BamAuxiliary {
 
 // Represents BAM flags
 #[derive(Clone, Debug, Default)]
-pub struct BamFlag(u16);
+pub struct BamFlag(pub u16);
 
 /* -------------------------------------------------------------------------- */
 
@@ -297,7 +297,7 @@ impl BamFlag {
 
 // Represents a BAM CIGAR string
 #[derive(Clone, Debug, Default)]
-pub struct BamCigar(Vec<u32>);
+pub struct BamCigar(pub Vec<u32>);
 
 /* -------------------------------------------------------------------------- */
 
