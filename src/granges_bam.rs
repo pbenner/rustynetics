@@ -27,7 +27,7 @@ impl GRanges {
 
     fn read_bam_single_end<R: Read>(&mut self, reader: R, options: BamReaderOptions) -> io::Result<()> {
 
-        let mut bam_reader = BamReader::new(reader, options)?;
+        let mut bam_reader = BamReader::new(reader, Some(options))?;
 
         let mut seqnames = Vec::new();
         let mut from     = Vec::new();
@@ -39,46 +39,45 @@ impl GRanges {
         let mut flag     = Vec::new();
         let mut qual     = Vec::new();
 
+        let genome = bam_reader.get_genome().clone();
+
         for item in bam_reader.read_single_end() {
 
             let block = item?.block;
 
-            if let Some(err) = block.error {
-                return Err(err);
-            }
-            if block.ref_id == -1 || block.flag.unmapped() || block.ref_id < 0 || block.ref_id as usize >= bam_reader.genome.seqnames.len() {
+            if block.ref_id == -1 || block.flag.unmapped() || block.ref_id < 0 || block.ref_id as usize >= genome.seqnames.len() {
                 continue;
             }
 
-            seqnames.push(bam_reader.genome.seqnames[block.ref_id as usize].clone());
-            from    .push(block.position as i32);
-            to      .push((block.position + block.alignment_length() as u32) as i32);
+            seqnames.push(genome.seqnames[block.ref_id as usize].clone());
+            from    .push(block.position as usize);
+            to      .push((block.position + block.alignment_length() as usize) as i32);
             strand  .push(if block.flag.reverse_strand() { '-' } else { '+' });
             flag    .push(block.flag.0 as i32);
-            mapq    .push(block.mapq as i32);
+            mapq    .push(block.mapq as i64);
 
             if options.read_sequence {
-                sequence.push(block.seq);
+                sequence.push(block.seq.to_string());
             }
             if options.read_cigar {
-                cigar.push(block.cigar);
+                cigar.push(block.cigar.to_string());
             }
             if options.read_qual {
-                qual.push(block.qual);
+                qual.push(block.qual.to_string());
             }
         }
 
         *self = GRanges::new(seqnames, from, to, strand);
         self.meta.add("flag", flag);
-        self.meta.add("mapq", mapq);
+        self.meta.add("mapq", MetaData::IntArray(mapq));
         if options.read_sequence {
-            self.meta.add("sequence", sequence);
+            self.meta.add("sequence", MetaData::StringArray(sequence));
         }
         if options.read_cigar {
-            self.meta.add("cigar", cigar);
+            self.meta.add("cigar", MetaData::StringArray(cigar));
         }
         if options.read_qual {
-            self.meta.add("qual", qual);
+            self.meta.add("qual", MetaData::StringArray(qual));
         }
 
         Ok(())

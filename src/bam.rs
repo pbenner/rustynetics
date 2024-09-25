@@ -455,6 +455,10 @@ impl<R: Read> BamReader<R> {
 
         Ok(bam_reader)
     }
+
+    pub fn get_genome(&self) -> &Genome {
+        &self.genome
+    }
 }
 
 /* -------------------------------------------------------------------------- */
