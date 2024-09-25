@@ -49,12 +49,16 @@ impl GRanges {
                 continue;
             }
 
+            let pos = block.position as usize;
+            let len = block.cigar.alignment_length();
+
             seqnames.push(genome.seqnames[block.ref_id as usize].clone());
-            from    .push(block.position as usize);
-            to      .push((block.position + block.alignment_length() as usize) as i32);
+            from    .push(pos);
+            to      .push(pos+len);
             strand  .push(if block.flag.reverse_strand() { '-' } else { '+' });
-            flag    .push(block.flag.0 as i32);
-            mapq    .push(block.mapq as i64);
+
+            flag    .push(block.flag.0 as i64);
+            mapq    .push(block.mapq   as i64);
 
             if options.read_sequence {
                 sequence.push(block.seq.to_string());
@@ -68,7 +72,7 @@ impl GRanges {
         }
 
         *self = GRanges::new(seqnames, from, to, strand);
-        self.meta.add("flag", flag);
+        self.meta.add("flag", MetaData::IntArray(flag));
         self.meta.add("mapq", MetaData::IntArray(mapq));
         if options.read_sequence {
             self.meta.add("sequence", MetaData::StringArray(sequence));

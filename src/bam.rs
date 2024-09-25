@@ -313,18 +313,18 @@ impl fmt::Display for BamCigar {
 /* -------------------------------------------------------------------------- */
 
 impl BamCigar {
-    fn alignment_length(&self) -> i32 {
+    pub fn alignment_length(&self) -> usize {
         let mut length = 0;
         for cigar_block in self.parse_cigar() {
             match cigar_block.type_ {
-                'M' | 'D' | 'N' | '=' | 'X' => length += cigar_block.n,
+                'M' | 'D' | 'N' | '=' | 'X' => length += cigar_block.n as usize,
                 _ => {}
             }
         }
         length
     }
 
-    fn parse_cigar(&self) -> impl Iterator<Item = CigarBlock> + '_ {
+    pub fn parse_cigar(&self) -> impl Iterator<Item = CigarBlock> + '_ {
         let types = b"MIDNSHP=X";
         self.0.iter().map(move |&c| {
             let n = c >> 4;
@@ -392,7 +392,7 @@ pub struct BamReaderType2 {
 
 /* -------------------------------------------------------------------------- */
 
-#[derive(Debug, Default)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct BamReaderOptions {
     pub read_name     : bool,
     pub read_cigar    : bool,
