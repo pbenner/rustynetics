@@ -14,18 +14,21 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-use std::fs::File;
-use std::io::{self, Read};
+use std::io::Read;
+use std::error::Error;
 
 use crate::bam::{BamReader, BamReaderOptions};
 use crate::granges::GRanges;
 use crate::meta::MetaData;
+use crate::netfile::NetFile;
 
 /* -------------------------------------------------------------------------- */
 
 impl GRanges {
 
-    fn read_bam_single_end<R: Read>(&mut self, reader: R, options: BamReaderOptions) -> io::Result<()> {
+    pub fn read_bam_single_end<R: Read>(&mut self, reader: R, options_arg: Option<BamReaderOptions>) -> Result<(), Box<dyn Error>> {
+
+        let options = options_arg.unwrap_or_default();
 
         let mut bam_reader = BamReader::new(reader, Some(options))?;
 
@@ -72,23 +75,23 @@ impl GRanges {
         }
 
         *self = GRanges::new(seqnames, from, to, strand);
-        self.meta.add("flag", MetaData::IntArray(flag));
-        self.meta.add("mapq", MetaData::IntArray(mapq));
+        self.meta.add("flag", MetaData::IntArray(flag))?;
+        self.meta.add("mapq", MetaData::IntArray(mapq))?;
         if options.read_sequence {
-            self.meta.add("sequence", MetaData::StringArray(sequence));
+            self.meta.add("sequence", MetaData::StringArray(sequence))?;
         }
         if options.read_cigar {
-            self.meta.add("cigar", MetaData::StringArray(cigar));
+            self.meta.add("cigar", MetaData::StringArray(cigar))?;
         }
         if options.read_qual {
-            self.meta.add("qual", MetaData::StringArray(qual));
+            self.meta.add("qual", MetaData::StringArray(qual))?;
         }
 
         Ok(())
     }
 
-    fn import_bam_single_end(&mut self, filename: &str, options: BamReaderOptions) -> io::Result<()> {
-        let file = File::open(filename)?;
+    pub fn import_bam_single_end(&mut self, filename: &str, options: Option<BamReaderOptions>) -> Result<(), Box<dyn Error>> {
+        let file = NetFile::open(filename)?;
         self.read_bam_single_end(file, options)
     }
 }
