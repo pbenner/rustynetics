@@ -28,6 +28,7 @@ pub mod genes;
 pub mod genes_ucsc;
 pub mod genome;
 pub mod granges;
+pub mod granges_bam;
 pub mod granges_bed;
 pub mod granges_gtf;
 pub mod granges_row;

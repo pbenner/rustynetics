@@ -394,11 +394,11 @@ pub struct BamReaderType2 {
 
 #[derive(Debug, Default)]
 pub struct BamReaderOptions {
-    read_name     : bool,
-    read_cigar    : bool,
-    read_sequence : bool,
-    read_auxiliary: bool,
-    read_qual     : bool,
+    pub read_name     : bool,
+    pub read_cigar    : bool,
+    pub read_sequence : bool,
+    pub read_auxiliary: bool,
+    pub read_qual     : bool,
 }
 
 /* -------------------------------------------------------------------------- */
