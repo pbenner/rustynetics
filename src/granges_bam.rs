@@ -101,14 +101,21 @@ impl GRanges {
 #[cfg(test)]
 mod tests {
 
+    use crate::bam::BamReaderOptions;
     use crate::granges::GRanges;
 
     #[test]
     fn test_granges_bam_read_simple() {
 
         let mut granges = GRanges::default();
+        let mut options = BamReaderOptions::default();
 
-        granges.import_bam_single_end("src/bam_test.2.bam", None);
+        options.read_cigar = true;
+        options.read_qual  = true;
+
+        assert!(
+            granges.import_bam_single_end("src/bam_test.2.bam", Some(options)).is_ok()
+        );
 
         println!("{}", granges);
 
