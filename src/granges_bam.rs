@@ -95,4 +95,23 @@ impl GRanges {
         self.read_bam_single_end(file, options)
     }
 }
+/* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 
+#[cfg(test)]
+mod tests {
+
+    use crate::granges::GRanges;
+
+    #[test]
+    fn test_granges_bam_read_simple() {
+
+        let mut granges = GRanges::default();
+
+        granges.import_bam_single_end("src/bam_test.2.bam", None);
+
+        println!("{}", granges);
+
+    }
+
+}
