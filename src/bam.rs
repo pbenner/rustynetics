@@ -414,20 +414,23 @@ pub struct BamReader<R: Read> {
 /* -------------------------------------------------------------------------- */
 
 impl<R: Read> BamReader<R> {
-    pub fn new(reader: R, options: Option<BamReaderOptions>) -> io::Result<Self> {
+    pub fn new(reader: R, options_arg: Option<BamReaderOptions>) -> io::Result<Self> {
+
         let mut bam_reader = BamReader {
-            options : options.unwrap_or_default(),
+            options : options_arg.unwrap_or_default(),
             genome  : Genome::default(),
             header  : BamHeader::default(),
             reader  : BgzfReader::new(reader)?,
         };
 
-        // Default options
-        bam_reader.options.read_name      = true;
-        bam_reader.options.read_cigar     = true;
-        bam_reader.options.read_sequence  = true;
-        bam_reader.options.read_auxiliary = true;
-        bam_reader.options.read_qual      = true;
+        if options_arg.is_none() {
+            // Default options
+            bam_reader.options.read_name      = true;
+            bam_reader.options.read_cigar     = true;
+            bam_reader.options.read_sequence  = true;
+            bam_reader.options.read_auxiliary = true;
+            bam_reader.options.read_qual      = true;
+        }
 
         let mut magic = [0; 4];
         bam_reader.reader.read_exact(&mut magic)?;
