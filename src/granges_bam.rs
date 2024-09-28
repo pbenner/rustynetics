@@ -183,15 +183,14 @@ impl GRanges {
             let len2 = block2.cigar.alignment_length();
 
             seqnames.push(genome.seqnames[block1.ref_id as usize].clone());
-            from.push(pos1);
-            to.push(pos2 + len2);
-            strand.push('*');  // Paired-end, strand is ambiguous, so it's set to '*'
-
+            from    .push(pos1);
+            to      .push(pos2 + len2);
+            strand  .push('*');  // Paired-end, strand is ambiguous, so it's set to '*'
             // Capture metadata
-            flag1.push(block1.flag.0 as i64);
-            flag2.push(block2.flag.0 as i64);
-            mapq1.push(block1.mapq as i64);
-            mapq2.push(block2.mapq as i64);
+            flag1   .push(block1.flag.0 as i64);
+            flag2   .push(block2.flag.0 as i64);
+            mapq1   .push(block1.mapq   as i64);
+            mapq2   .push(block2.mapq   as i64);
 
             if options.read_sequence {
                 sequence1.push(block1.seq.to_string());
