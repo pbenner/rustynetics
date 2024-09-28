@@ -263,6 +263,8 @@ mod tests {
     #[test]
     fn test_granges_bam_read_simple() {
 
+        let n = 4891;
+
         let mut granges = GRanges::default();
         let mut options = BamReaderOptions::default();
 
@@ -273,7 +275,37 @@ mod tests {
             granges.import_bam_single_end("src/bam_test.2.bam", Some(options)).is_ok()
         );
 
-        println!("{}", granges);
+        let flag  = granges.meta.get_column_int("flag" ).unwrap();
+        let mapq  = granges.meta.get_column_int("mapq" ).unwrap();
+        let cigar = granges.meta.get_column_str("cigar").unwrap();
+        let qual  = granges.meta.get_column_str("qual" ).unwrap();
+
+        // Check values of last row, which should be ok if everything before was
+        // read without error
+        assert_eq!(
+            granges.num_rows(), n
+        );
+        assert_eq!(
+            granges.seqnames[n-1], "chr11"
+        );
+        assert_eq!(
+            granges.ranges[n-1].from, 4737786
+        );
+        assert_eq!(
+            granges.ranges[n-1].to, 4737837
+        );
+        assert_eq!(
+            flag[n-1], 163
+        );
+        assert_eq!(
+            mapq[n-1], 60
+        );
+        assert_eq!(
+            cigar[n-1], "51M"
+        );
+        assert_eq!(
+            qual[n-1], "@@<DDBDDFD+C?A:1CFDHBFHC<?F9+CGGI:49CCGFACE99?DC990"
+        );
 
     }
 
