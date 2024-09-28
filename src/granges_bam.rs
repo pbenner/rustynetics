@@ -115,11 +115,143 @@ impl GRanges {
         Ok(())
     }
 
+    pub fn read_bam_paired_end<R: Read>(&mut self, reader: R, options_arg: Option<BamReaderOptions>) -> Result<(), Box<dyn Error>> {
+
+        let mut options = options_arg.unwrap_or_default();
+
+        // Ensure that CIGAR strings are always read
+        options.read_cigar = true;
+
+        let mut bam_reader = BamReader::new(reader, Some(options))?;
+
+        let mut seqnames  = Vec::new();
+        let mut from      = Vec::new();
+        let mut to        = Vec::new();
+        let mut strand    = Vec::new();
+        let mut sequence1 = Vec::new();
+        let mut sequence2 = Vec::new();
+        let mut mapq1     = Vec::new();
+        let mut mapq2     = Vec::new();
+        let mut cigar1    = Vec::new();
+        let mut cigar2    = Vec::new();
+        let mut flag1     = Vec::new();
+        let mut flag2     = Vec::new();
+
+        let genome = bam_reader.get_genome().clone();
+
+        for item in bam_reader.read_paired_end() {
+
+            if seqnames.capacity() == seqnames.len() {
+                seqnames .reserve(BUFSIZE);
+                from     .reserve(BUFSIZE);
+                to       .reserve(BUFSIZE);
+                strand   .reserve(BUFSIZE);
+                sequence1.reserve(BUFSIZE);
+                sequence2.reserve(BUFSIZE);
+                mapq1    .reserve(BUFSIZE);
+                mapq2    .reserve(BUFSIZE);
+                cigar1   .reserve(BUFSIZE);
+                cigar2   .reserve(BUFSIZE);
+                flag1    .reserve(BUFSIZE);
+                flag2    .reserve(BUFSIZE);
+            }
+
+            let r = item?;
+
+            let block1 = &r.block1;
+            let block2 = &r.block2;
+
+            // Skip unmapped reads or reads not mapped properly as pairs
+            if block1.flag.unmapped() || !block1.flag.read_mapped_proper_paired() {
+                continue;
+            }
+            if block2.flag.unmapped() || !block2.flag.read_mapped_proper_paired() {
+                continue;
+            }
+
+            // Check for valid reference ID
+            if block1.ref_id == -1 || block1.ref_id != block2.ref_id {
+                continue;
+            }
+
+            if block1.ref_id < 0 || block1.ref_id as usize >= genome.seqnames.len() {
+                return Err(format!("bam file contains invalid RefID '{}'", block1.ref_id).into());
+            }
+
+            let pos1 = block1.position as usize;
+            let pos2 = block2.position as usize;
+            let len2 = block2.cigar.alignment_length();
+
+            seqnames.push(genome.seqnames[block1.ref_id as usize].clone());
+            from.push(pos1);
+            to.push(pos2 + len2);
+            strand.push('*');  // Paired-end, strand is ambiguous, so it's set to '*'
+
+            // Capture metadata
+            flag1.push(block1.flag.0 as i64);
+            flag2.push(block2.flag.0 as i64);
+            mapq1.push(block1.mapq as i64);
+            mapq2.push(block2.mapq as i64);
+
+            if options.read_sequence {
+                sequence1.push(block1.seq.to_string());
+                sequence2.push(block2.seq.to_string());
+            }
+            if options.read_cigar {
+                cigar1.push(block1.cigar.to_string());
+                cigar2.push(block2.cigar.to_string());
+            }
+        }
+
+        seqnames .shrink_to_fit();
+        from     .shrink_to_fit();
+        to       .shrink_to_fit();
+        strand   .shrink_to_fit();
+        sequence1.shrink_to_fit();
+        sequence2.shrink_to_fit();
+        mapq1    .shrink_to_fit();
+        mapq2    .shrink_to_fit();
+        cigar1   .shrink_to_fit();
+        cigar2   .shrink_to_fit();
+        flag1    .shrink_to_fit();
+        flag2    .shrink_to_fit();
+
+        *self = GRanges::new(seqnames, from, to, strand);
+        self.meta.add("flag1", MetaData::IntArray(flag1))?;
+        self.meta.add("flag2", MetaData::IntArray(flag2))?;
+        self.meta.add("mapq1", MetaData::IntArray(mapq1))?;
+        self.meta.add("mapq2", MetaData::IntArray(mapq2))?;
+
+        if options.read_sequence {
+            self.meta.add("sequence1", MetaData::StringArray(sequence1))?;
+            self.meta.add("sequence2", MetaData::StringArray(sequence2))?;
+        }
+        if options.read_cigar {
+            self.meta.add("cigar1", MetaData::StringArray(cigar1))?;
+            self.meta.add("cigar2", MetaData::StringArray(cigar2))?;
+        }
+
+        Ok(())
+    }
+
+}
+
+/* -------------------------------------------------------------------------- */
+
+impl GRanges {
+
     pub fn import_bam_single_end(&mut self, filename: &str, options: Option<BamReaderOptions>) -> Result<(), Box<dyn Error>> {
         let file = NetFile::open(filename)?;
         self.read_bam_single_end(file, options)
     }
+
+    pub fn import_bam_paired_end(&mut self, filename: &str, options: Option<BamReaderOptions>) -> Result<(), Box<dyn Error>> {
+        let file = NetFile::open(filename)?;
+        self.read_bam_paired_end(file, options)
+    }
 }
+
+
 /* -------------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------- */
 
