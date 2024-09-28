@@ -136,6 +136,8 @@ impl GRanges {
         let mut cigar2    = Vec::new();
         let mut flag1     = Vec::new();
         let mut flag2     = Vec::new();
+        let mut qual1     = Vec::new();
+        let mut qual2     = Vec::new();
 
         let genome = bam_reader.get_genome().clone();
 
@@ -154,6 +156,8 @@ impl GRanges {
                 cigar2   .reserve(BUFSIZE);
                 flag1    .reserve(BUFSIZE);
                 flag2    .reserve(BUFSIZE);
+                qual1    .reserve(BUFSIZE);
+                qual2    .reserve(BUFSIZE);
             }
 
             let r = item?;
@@ -200,6 +204,10 @@ impl GRanges {
                 cigar1.push(block1.cigar.to_string());
                 cigar2.push(block2.cigar.to_string());
             }
+            if options.read_qual {
+                qual1.push(block1.qual.to_string());
+                qual2.push(block2.qual.to_string());
+            }
         }
 
         seqnames .shrink_to_fit();
@@ -214,6 +222,8 @@ impl GRanges {
         cigar2   .shrink_to_fit();
         flag1    .shrink_to_fit();
         flag2    .shrink_to_fit();
+        qual1    .shrink_to_fit();
+        qual2    .shrink_to_fit();
 
         *self = GRanges::new(seqnames, from, to, strand);
         self.meta.add("flag1", MetaData::IntArray(flag1))?;
@@ -228,6 +238,10 @@ impl GRanges {
         if options.read_cigar {
             self.meta.add("cigar1", MetaData::StringArray(cigar1))?;
             self.meta.add("cigar2", MetaData::StringArray(cigar2))?;
+        }
+        if options.read_qual {
+            self.meta.add("qual1", MetaData::StringArray(qual1))?;
+            self.meta.add("qual2", MetaData::StringArray(qual2))?;
         }
 
         Ok(())
@@ -261,7 +275,7 @@ mod tests {
     use crate::granges::GRanges;
 
     #[test]
-    fn test_granges_bam_read_simple() {
+    fn test_granges_bam_read_single_end() {
 
         let n = 4891;
 
@@ -274,6 +288,9 @@ mod tests {
         assert!(
             granges.import_bam_single_end("src/bam_test.2.bam", Some(options)).is_ok()
         );
+        assert_eq!(
+            granges.num_rows(), n
+        );
 
         let flag  = granges.meta.get_column_int("flag" ).unwrap();
         let mapq  = granges.meta.get_column_int("mapq" ).unwrap();
@@ -282,9 +299,6 @@ mod tests {
 
         // Check values of last row, which should be ok if everything before was
         // read without error
-        assert_eq!(
-            granges.num_rows(), n
-        );
         assert_eq!(
             granges.seqnames[n-1], "chr11"
         );
@@ -305,6 +319,81 @@ mod tests {
         );
         assert_eq!(
             qual[n-1], "@@<DDBDDFD+C?A:1CFDHBFHC<?F9+CGGI:49CCGFACE99?DC990"
+        );
+
+    }
+
+    #[test]
+    fn test_granges_bam_read_paired_end() {
+
+        let n = 2335;
+
+        let mut granges = GRanges::default();
+        let mut options = BamReaderOptions::default();
+
+        options.read_cigar    = true;
+        options.read_qual     = true;
+        options.read_sequence = true;
+
+        assert!(
+            granges.import_bam_paired_end("src/bam_test.2.bam", Some(options)).is_ok()
+        );
+        assert_eq!(
+            granges.num_rows(), n
+        );
+
+        let flag1  = granges.meta.get_column_int("flag1" ).unwrap();
+        let flag2  = granges.meta.get_column_int("flag2" ).unwrap();
+        let mapq1  = granges.meta.get_column_int("mapq1" ).unwrap();
+        let mapq2  = granges.meta.get_column_int("mapq2" ).unwrap();
+        let cigar1 = granges.meta.get_column_str("cigar1").unwrap();
+        let cigar2 = granges.meta.get_column_str("cigar2").unwrap();
+        let seq1   = granges.meta.get_column_str("sequence1").unwrap();
+        let seq2   = granges.meta.get_column_str("sequence2").unwrap();
+        let qual1  = granges.meta.get_column_str("qual1" ).unwrap();
+        let qual2  = granges.meta.get_column_str("qual2" ).unwrap();
+
+        // Check values of last row, which should be ok if everything before was
+        // read without error
+
+        assert_eq!(
+            granges.seqnames[n-1], "chr11"
+        );
+        assert_eq!(
+            granges.ranges[n-1].from, 4737786
+        );
+        assert_eq!(
+            granges.ranges[n-1].to, 4737889
+        );
+        assert_eq!(
+            flag1[n-1], 163
+        );
+        assert_eq!(
+            flag2[n-1], 83
+        );
+        assert_eq!(
+            mapq1[n-1], 60
+        );
+        assert_eq!(
+            mapq2[n-1], 60
+        );
+        assert_eq!(
+            cigar1[n-1], "51M"
+        );
+        assert_eq!(
+            cigar2[n-1], "51M"
+        );
+        assert_eq!(
+            seq1[n-1], "AGGGACAGATCCGTACTATGTTGCTCAGGATGGTCCCAAATTCCTGATTCA"
+        );
+        assert_eq!(
+            seq2[n-1], "ACAATCCTCTTGCCTCAGCCTCTTAACTAAGTAGCTGTCACACTGCATGGT"
+        );
+        assert_eq!(
+            qual1[n-1], "@@<DDBDDFD+C?A:1CFDHBFHC<?F9+CGGI:49CCGFACE99?DC990"
+        );
+        assert_eq!(
+            qual2[n-1], "DB9;HCD?D??:?:):)CCA<C2:@HFAHEEHF@<?<?:ACADB;:BB1@?"
         );
 
     }
