@@ -355,7 +355,6 @@ mod tests {
 
         // Check values of last row, which should be ok if everything before was
         // read without error
-
         assert_eq!(
             granges.seqnames[n-1], "chr11"
         );
