@@ -24,6 +24,10 @@ use crate::netfile::NetFile;
 
 /* -------------------------------------------------------------------------- */
 
+const BUFSIZE : usize = 10000;
+
+/* -------------------------------------------------------------------------- */
+
 impl GRanges {
 
     pub fn read_bam_single_end<R: Read>(&mut self, reader: R, options_arg: Option<BamReaderOptions>) -> Result<(), Box<dyn Error>> {
@@ -47,15 +51,15 @@ impl GRanges {
         for item in bam_reader.read_single_end() {
 
             if seqnames.capacity() == seqnames.len() {
-                seqnames.reserve(10000);
-                from    .reserve(10000);
-                to      .reserve(10000);
-                strand  .reserve(10000);
-                sequence.reserve(10000);
-                mapq    .reserve(10000);
-                cigar   .reserve(10000);
-                flag    .reserve(10000);
-                qual    .reserve(10000);
+                seqnames.reserve(BUFSIZE);
+                from    .reserve(BUFSIZE);
+                to      .reserve(BUFSIZE);
+                strand  .reserve(BUFSIZE);
+                sequence.reserve(BUFSIZE);
+                mapq    .reserve(BUFSIZE);
+                cigar   .reserve(BUFSIZE);
+                flag    .reserve(BUFSIZE);
+                qual    .reserve(BUFSIZE);
             }
 
             let block = item?.block;
