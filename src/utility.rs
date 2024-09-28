@@ -17,7 +17,6 @@
 /* -------------------------------------------------------------------------- */
 
 use std::collections::HashSet;
-use std::io::{self, Read};
 use std::path::Path;
 
 use num::traits::PrimInt;
@@ -51,21 +50,4 @@ pub fn div_int_down<T : PrimInt>(n: T, d: T) -> T {
 
 pub fn is_gzip<P: AsRef<Path>>(filename: P) -> bool {
     filename.as_ref().extension().map_or(false, |ext| ext == "gz")
-}
-
-/* -------------------------------------------------------------------------- */
-
-pub fn read_until_null<R: Read>(reader: &mut R) -> io::Result<Vec<u8>> {
-    let mut buffer = Vec::new();
-    let mut byte = [0; 1]; // Buffer to hold a single byte
-
-    loop {
-        let bytes_read = reader.read(&mut byte)?;
-        if bytes_read == 0 || byte[0] == 0 {
-            break;
-        }
-        buffer.push(byte[0]);
-    }
-
-    Ok(buffer)
 }

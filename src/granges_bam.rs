@@ -46,6 +46,18 @@ impl GRanges {
 
         for item in bam_reader.read_single_end() {
 
+            if seqnames.capacity() == seqnames.len() {
+                seqnames.reserve(10000);
+                from    .reserve(10000);
+                to      .reserve(10000);
+                strand  .reserve(10000);
+                sequence.reserve(10000);
+                mapq    .reserve(10000);
+                cigar   .reserve(10000);
+                flag    .reserve(10000);
+                qual    .reserve(10000);
+            }
+
             let block = item?.block;
 
             if block.ref_id == -1 || block.flag.unmapped() || block.ref_id < 0 || block.ref_id as usize >= genome.seqnames.len() {
@@ -73,6 +85,15 @@ impl GRanges {
                 qual.push(block.qual.to_string());
             }
         }
+        seqnames.shrink_to_fit();
+        from    .shrink_to_fit();
+        to      .shrink_to_fit();
+        strand  .shrink_to_fit();
+        sequence.shrink_to_fit();
+        mapq    .shrink_to_fit();
+        cigar   .shrink_to_fit();
+        flag    .shrink_to_fit();
+        qual    .shrink_to_fit();
 
         *self = GRanges::new(seqnames, from, to, strand);
         self.meta.add("flag", MetaData::IntArray(flag))?;

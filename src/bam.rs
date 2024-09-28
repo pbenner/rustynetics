@@ -29,7 +29,7 @@ use crate::genome::Genome;
 use crate::netfile::NetFile;
 use crate::range::Range;
 use crate::reads;
-use crate::utility::read_until_null;
+use crate::utility_io::{read_until_null, skip_n_bytes};
 
 /* -------------------------------------------------------------------------- */
 
@@ -555,10 +555,8 @@ impl<R: Read> BamReader<R> {
                         }
                     }
                 } else {
-                    for _ in 0..block.n_cigar_op {
-                        if let Err(e) = io::copy(&mut self.reader, &mut io::sink()).map(|_| ()) {
-                            yield Err(e); return;
-                        }
+                    if let Err(e) = skip_n_bytes(&mut self.reader, (block.n_cigar_op * 4) as usize) {
+                        yield Err(e); return;
                     }
                 }
     
@@ -566,11 +564,14 @@ impl<R: Read> BamReader<R> {
                 if self.options.read_sequence {
                     let seq_len = (block.l_seq + 1) / 2;
                     block.seq = BamSeq(vec![0; seq_len as usize]);
+
                     if let Err(e) = self.reader.read_exact(&mut block.seq.0) {
                         yield Err(e); return;
                     }
                 } else {
-                    if let Err(e) = io::copy(&mut self.reader, &mut io::sink()).map(|_| ()) {
+                    let seq_len = (block.l_seq + 1) / 2;
+
+                    if let Err(e) = skip_n_bytes(&mut self.reader, seq_len as usize) {
                         yield Err(e); return;
                     }
                 }
@@ -582,7 +583,7 @@ impl<R: Read> BamReader<R> {
                         yield Err(e); return;
                     }
                 } else {
-                    if let Err(e) = io::copy(&mut self.reader, &mut io::sink()).map(|_| ()) {
+                    if let Err(e) = skip_n_bytes(&mut self.reader, block.l_seq as usize) {
                         yield Err(e); return;
                     }
                 }
@@ -602,7 +603,7 @@ impl<R: Read> BamReader<R> {
                         }
                     }
                 } else {
-                    if let Err(e) = io::copy(&mut self.reader, &mut io::sink()).map(|_| ()) {
+                    if let Err(e) = skip_n_bytes(&mut self.reader, (block_size - position) as usize) {
                         yield Err(e); return;
                     }
                 }

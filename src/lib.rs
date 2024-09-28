@@ -66,6 +66,7 @@ mod meta_table_writer;
 mod netfile;
 mod utility;
 mod utility_cumdist;
+mod utility_io;
 
 // Macros
 extern crate approx;
