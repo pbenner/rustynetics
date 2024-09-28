@@ -126,6 +126,7 @@ fn write_all<W: Write>(granges: &GRanges, writer: &mut W, meta_reader: &mut dyn 
             "{:width0$} {:width1$} {:width2$} {:width3$}",
             "", "...", "...", "",
             width0=widths_header[0], width1=widths_header[1], width2=widths_header[2], width3=widths_header[3])?;
+        write_meta_row(granges, writer, meta_reader)?;
         // Print last n/2 rows
         for i in granges.num_rows() - n / 2..granges.num_rows() {
             write_row(granges, writer, meta_reader, &widths_row, i)?;
