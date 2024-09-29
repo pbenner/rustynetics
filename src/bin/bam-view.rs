@@ -42,11 +42,11 @@ fn bam_view(config: Config, filename_in: &str) -> Result<(), Box<dyn Error>> {
 
     // Options for the BAM reader
     let options = BamReaderOptions {
-        read_name: config.print_read_name,
-        read_cigar: config.print_cigar,
-        read_sequence: config.print_sequence,
+        read_name     : config.print_read_name,
+        read_cigar    : config.print_cigar,
+        read_sequence : config.print_sequence,
         read_auxiliary: config.print_auxiliary,
-        read_qual: false,
+        read_qual     : false,
     };
 
     let mut bam_reader = BamReader::new(reader, Some(options))?;
