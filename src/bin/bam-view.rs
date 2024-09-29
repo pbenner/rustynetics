@@ -54,7 +54,7 @@ fn bam_view(config: Config, filename_in: &str) -> Result<(), Box<dyn Error>> {
     let genome = bam_reader.get_genome().clone();
 
     // Print header
-    print!("{:<10} {:<15} {:>17} {:>5}", "Seqname", "Position", "Flag", "MapQ");
+    print!("{:>10} {:>15} {:>17} {:>4}", "Seqname", "Position", "Flag", "MapQ");
 
     if options.read_cigar {
         print!(" {:>20}", "Cigar");
@@ -87,7 +87,7 @@ fn bam_view(config: Config, filename_in: &str) -> Result<(), Box<dyn Error>> {
             &pos_str
         };
 
-        print!("{:<10} {:<15} {:>5}:{:011b} {:>5}",
+        print!("{:>10} {:>15} {:>5}:{:011b} {:>4}",
             seqname,
             position,
             block.flag.0,
