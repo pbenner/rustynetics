@@ -478,10 +478,9 @@ impl<R: Read> BamReader<R> {
             let mut flag_nc   : u32;
             let mut bin_mq_nl : u32;
 
-            let mut block = BamBlock::default();
-
             loop {
-                let mut buf = Vec::new();
+                let mut block = BamBlock::default();
+                let mut buf   = Vec::new();
 
                 block_size = match self.reader.read_i32::<LittleEndian>() {
                     Ok (v) => v,
@@ -609,7 +608,7 @@ impl<R: Read> BamReader<R> {
                 }
 
                 yield Ok(BamReaderType1{
-                    block: block.clone()
+                    block
                 });
 
             }
