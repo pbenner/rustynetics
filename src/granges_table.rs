@@ -26,8 +26,14 @@ use crate::granges::GRanges;
 use crate::granges_table_reader::GRangesTableReader;
 use crate::granges_table_writer::GRangesTableWriter;
 use crate::meta_table_reader::MetaTableReader;
-use crate::options_print::OptionPrintStrand;
-use crate::options_print::OptionPrintScientific;
+
+/* -------------------------------------------------------------------------- */
+
+#[derive(Debug)]
+pub struct OptionPrintScientific(pub bool);
+
+#[derive(Debug)]
+pub struct OptionPrintStrand(pub bool);
 
 /* -------------------------------------------------------------------------- */
 
@@ -73,10 +79,10 @@ impl GRanges {
 
         for arg in args {
             if let Some(option) = arg.downcast_ref::<OptionPrintScientific>() {
-                use_scientific = option.value;
+                use_scientific = option.0;
             }
             if let Some(option) = arg.downcast_ref::<OptionPrintStrand>() {
-                use_strand = option.value;
+                use_strand = option.0;
             }
         }
 

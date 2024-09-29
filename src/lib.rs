@@ -42,7 +42,6 @@ pub mod meta;
 pub mod range;
 pub mod reads;
 pub mod error;
-pub mod options_print;
 pub mod track;
 pub mod track_bed;
 pub mod track_bigwig;

@@ -20,7 +20,7 @@ use std::io::{self, BufRead, BufReader, Read, Write};
 use crate::meta::Meta;
 use crate::meta_table_reader::MetaTableReader;
 use crate::meta_table_writer::MetaTableWriter;
-use crate::options_print::OptionPrintScientific;
+use crate::granges_table::OptionPrintScientific;
 
 /* -------------------------------------------------------------------------- */
 
@@ -30,7 +30,7 @@ impl Meta {
         let mut use_scientific = false;
         for arg in args {
             if let Some(option) = arg.downcast_ref::<OptionPrintScientific>() {
-                use_scientific = option.value;
+                use_scientific = option.0;
             }
         }
         let mut mwriter = MetaTableWriter::new(self, use_scientific);
