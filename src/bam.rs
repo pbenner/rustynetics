@@ -35,7 +35,7 @@ use crate::utility_io::{read_until_null, skip_n_bytes};
 
 // Represents a BAM sequence
 #[derive(Clone, Debug, Default)]
-pub struct BamSeq(Vec<u8>);
+pub struct BamSeq(pub Vec<u8>);
 
 /* -------------------------------------------------------------------------- */
 
@@ -58,7 +58,7 @@ impl fmt::Display for BamSeq {
 
 // Represents BAM quality scores
 #[derive(Clone, Debug, Default)]
-pub struct BamQual(Vec<u8>);
+pub struct BamQual(pub Vec<u8>);
 
 /* -------------------------------------------------------------------------- */
 

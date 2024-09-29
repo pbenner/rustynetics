@@ -62,7 +62,7 @@ fn main() {
         .get_matches();
 
     let filename_in = matches.get_one::<String>("input").expect("Input file is required");
-    let verbose = matches.get_flag("verbose");
+    let verbose     = matches.get_flag("verbose");
 
     if let Err(e) = get_genome(filename_in, verbose) {
         eprintln!("Error: {}", e);
