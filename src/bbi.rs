@@ -2300,7 +2300,7 @@ impl BbiFile {
                 }
             }
 
-            let traverser = RTreeTraverser::new(&self.index, chrom_id, from, to);
+            let traverser  = RTreeTraverser::new(&self.index, chrom_id, from, to);
             let mut result = BbiQueryType::default();
 
             for r in traverser {
@@ -2360,7 +2360,7 @@ impl BbiFile {
 
         if bin_size != 0 {
             let from = (from / bin_size) * bin_size;
-            let to = ((to + bin_size - 1) / bin_size) * bin_size;
+            let to   = ((to + bin_size - 1) / bin_size) * bin_size;
 
             let mut zoom_idx = -1;
             for (i, zoom_header) in self.header.zoom_headers.iter().enumerate() {
