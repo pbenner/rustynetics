@@ -33,7 +33,7 @@ fn print_info(filename_in: &str, verbose: bool) {
         process::exit(1);
     });
 
-    println!("BigWig Header:\n{}", reader.header());
+    print!("{}", reader.header());
 }
 
 /* -------------------------------------------------------------------------- */

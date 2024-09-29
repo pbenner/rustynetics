@@ -31,6 +31,8 @@ use core::pin::Pin;
 use futures::executor::block_on_stream;
 use futures_core::stream::Stream;
 
+use crate::utility_io::indent_fmt;
+
 /* -------------------------------------------------------------------------- */
 
 const CIRTREE_MAGIC      : u32   = 0x78ca8c91;
@@ -1203,13 +1205,14 @@ pub struct BbiHeaderZoom {
 
 impl fmt::Display for BbiHeaderZoom {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "BbiHeaderZoom:")?;
-        writeln!(f, "  reduction_level: {}", self.reduction_level)?;
-        writeln!(f, "  reserved:        {}", self.reserved)?;
-        writeln!(f, "  data_offset:     {}", self.data_offset)?;
-        writeln!(f, "  index_offset:    {}", self.index_offset)?;
-        writeln!(f, "  n_blocks:        {}", self.n_blocks)?;
+        // Use the width provided in the Formatter, default to 4 if not provided
+        let indent = f.width().unwrap_or(0);
 
+        indent_fmt(f, indent, &format!("reduction_level: {}", self.reduction_level))?;
+        indent_fmt(f, indent, &format!("reserved:        {}", self.reserved))?;
+        indent_fmt(f, indent, &format!("data_offset:     {}", self.data_offset))?;
+        indent_fmt(f, indent, &format!("index_offset:    {}", self.index_offset))?;
+        indent_fmt(f, indent, &format!("n_blocks:        {}", self.n_blocks))?;
         Ok(())
     }
 }
@@ -1344,32 +1347,35 @@ impl Default for BbiHeader {
 
 impl fmt::Display for BbiHeader {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "BbiHeader:")?;
-        writeln!(f, "  magic:                  {}", self.magic)?;
-        writeln!(f, "  version:                {}", self.version)?;
-        writeln!(f, "  zoom_levels:            {}", self.zoom_levels)?;
-        writeln!(f, "  ct_offset:              {}", self.ct_offset)?;
-        writeln!(f, "  data_offset:            {}", self.data_offset)?;
-        writeln!(f, "  index_offset:           {}", self.index_offset)?;
-        writeln!(f, "  field_count:            {}", self.field_count)?;
-        writeln!(f, "  defined_field_count:    {}", self.defined_field_count)?;
-        writeln!(f, "  sql_offset:             {}", self.sql_offset)?;
-        writeln!(f, "  summary_offset:         {}", self.summary_offset)?;
-        writeln!(f, "  uncompress_buf_size:    {}", self.uncompress_buf_size)?;
-        writeln!(f, "  extension_offset:       {}", self.extension_offset)?;
-        writeln!(f, "  n_bases_covered:        {}", self.n_bases_covered)?;
-        writeln!(f, "  min_val:                {}", self.min_val)?;
-        writeln!(f, "  max_val:                {}", self.max_val)?;
-        writeln!(f, "  sum_data:               {}", self.sum_data)?;
-        writeln!(f, "  sum_squares:            {}", self.sum_squares)?;
-        writeln!(f, "  n_blocks:               {}", self.n_blocks)?;
+        // Use the width provided in the Formatter, default to 4 if not provided
+        let indent = f.width().unwrap_or(0);
 
-        // For zoom headers, we assume BbiHeaderZoom implements Display too.
-        writeln!(f, "  zoom_headers: [")?;
+        indent_fmt(f, indent, "BbiHeader:")?;
+        indent_fmt(f, indent + 2, &format!("magic:                  {}", self.magic))?;
+        indent_fmt(f, indent + 2, &format!("version:                {}", self.version))?;
+        indent_fmt(f, indent + 2, &format!("zoom_levels:            {}", self.zoom_levels))?;
+        indent_fmt(f, indent + 2, &format!("ct_offset:              {}", self.ct_offset))?;
+        indent_fmt(f, indent + 2, &format!("data_offset:            {}", self.data_offset))?;
+        indent_fmt(f, indent + 2, &format!("index_offset:           {}", self.index_offset))?;
+        indent_fmt(f, indent + 2, &format!("field_count:            {}", self.field_count))?;
+        indent_fmt(f, indent + 2, &format!("defined_field_count:    {}", self.defined_field_count))?;
+        indent_fmt(f, indent + 2, &format!("sql_offset:             {}", self.sql_offset))?;
+        indent_fmt(f, indent + 2, &format!("summary_offset:         {}", self.summary_offset))?;
+        indent_fmt(f, indent + 2, &format!("uncompress_buf_size:    {}", self.uncompress_buf_size))?;
+        indent_fmt(f, indent + 2, &format!("extension_offset:       {}", self.extension_offset))?;
+        indent_fmt(f, indent + 2, &format!("n_bases_covered:        {}", self.n_bases_covered))?;
+        indent_fmt(f, indent + 2, &format!("min_val:                {}", self.min_val))?;
+        indent_fmt(f, indent + 2, &format!("max_val:                {}", self.max_val))?;
+        indent_fmt(f, indent + 2, &format!("sum_data:               {}", self.sum_data))?;
+        indent_fmt(f, indent + 2, &format!("sum_squares:            {}", self.sum_squares))?;
+        indent_fmt(f, indent + 2, &format!("n_blocks:               {}", self.n_blocks))?;
+
+        // For zoom headers, assuming BbiHeaderZoom implements Display
+        indent_fmt(f, indent + 2, "zoom_headers: [")?;
         for (i, zoom_header) in self.zoom_headers.iter().enumerate() {
-            writeln!(f, "    {}: {}", i + 1, zoom_header)?;
+            write!(f, "{:indent$}{}:\n{:>8}", "", i + 1, zoom_header, indent = indent + 4)?;
         }
-        writeln!(f, "  ]")?;
+        indent_fmt(f, indent + 2, "]")?;
 
         Ok(())
     }

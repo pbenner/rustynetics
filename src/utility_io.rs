@@ -14,7 +14,14 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+use std::fmt;
 use std::io::{self, Read};
+
+/* -------------------------------------------------------------------------- */
+
+pub fn indent_fmt(f: &mut fmt::Formatter<'_>, indent: usize, content: &str) -> fmt::Result {
+    writeln!(f, "{:indent$}{}", "", content, indent = indent)
+}
 
 /* -------------------------------------------------------------------------- */
 
