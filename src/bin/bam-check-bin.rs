@@ -51,11 +51,11 @@ fn check_bin(filename_in: &str, verbose: bool) -> Result<(), Box<dyn Error>> {
     let reader = BufReader::new(file);
 
     let options = BamReaderOptions {
-        read_name: true,
-        read_cigar: true,
-        read_sequence: true,
+        read_name     : true,
+        read_cigar    : true,
+        read_sequence : true,
         read_auxiliary: false,
-        read_qual: false,
+        read_qual     : false,
     };
 
     let mut bam_reader = BamReader::new(reader, Some(options))?;
