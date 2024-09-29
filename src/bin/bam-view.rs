@@ -51,19 +51,19 @@ fn bam_view(config: Config, filename_in: &str) -> Result<(), Box<dyn Error>> {
     let genome = bam_reader.get_genome().clone();
 
     // Print header
-    print!("{:<10} {:<15} {:<17} {:<4}", "Seqname", "Position", "Flag", "MapQ");
+    print!("{:<10} {:<15} {:>17} {:>5}", "Seqname", "Position", "Flag", "MapQ");
 
     if options.read_cigar {
-        print!("{:<20}", "Cigar");
+        print!(" {:>20}", "Cigar");
     }
     if options.read_name {
-        print!("{:<40}", "ReadName");
+        print!(" {:>40}", "ReadName");
     }
     if options.read_sequence {
-        print!("{}", "Sequence");
+        print!(" {}", "Sequence");
     }
     if options.read_auxiliary {
-        print!("{}", "Auxiliary");
+        print!(" {}", "Auxiliary");
     }
     println!();
 
@@ -71,7 +71,7 @@ fn bam_view(config: Config, filename_in: &str) -> Result<(), Box<dyn Error>> {
     for result in bam_reader.read_single_end() {
         let block = result?.block;
 
-        print!("{:<10} {:<15} {:<5}:{:011b} {:<4}", 
+        print!("{:<10} {:<15} {:>5}:{:011b} {:>5}",
             genome.seqnames[block.ref_id as usize],
             block.position,
             block.flag.0,
@@ -81,23 +81,23 @@ fn bam_view(config: Config, filename_in: &str) -> Result<(), Box<dyn Error>> {
 
         if options.read_cigar {
             if block.cigar.0.len() > 0 {
-                print!("{:<20}", block.cigar);
+                print!(" {:>20}", block.cigar.to_string());
             } else {
-                print!("{:<20}", "-");
+                print!(" {:>20}", "-");
             }
         }
         if options.read_name {
             if block.read_name.len() > 0 {
-                print!("{:<40}", block.read_name);
+                print!(" {:>40}", block.read_name);
             } else {
-                print!("{:<40}", "-");
+                print!(" {:>40}", "-");
             }
         }
         if options.read_sequence {
             if block.seq.0.len() > 0 {
-                print!("{}", block.seq);
+                print!(" {}", block.seq);
             } else {
-                print!("-");
+                print!(" -");
             }
         }
         if options.read_auxiliary {
