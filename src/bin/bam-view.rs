@@ -34,8 +34,11 @@ struct Config {
 /* -------------------------------------------------------------------------- */
 
 fn bam_view(config: Config, filename_in: &str) -> Result<(), Box<dyn Error>> {
-    let file = File::open(filename_in)?;
+
+    let file   = File::open(filename_in)?;
     let reader = BufReader::new(file);
+    let star   = "*".to_string();
+    let mut pos_str;
 
     // Options for the BAM reader
     let options = BamReaderOptions {
@@ -69,11 +72,24 @@ fn bam_view(config: Config, filename_in: &str) -> Result<(), Box<dyn Error>> {
 
     // Iterate over BAM records
     for result in bam_reader.read_single_end() {
+
         let block = result?.block;
 
+        let seqname = if block.ref_id < 0 {
+            &star
+        } else {
+            &genome.seqnames[block.ref_id as usize]
+        };
+        let position = if block.position < 0 {
+            &star
+        } else {
+            pos_str = block.position.to_string();
+            &pos_str
+        };
+
         print!("{:<10} {:<15} {:>5}:{:011b} {:>5}",
-            genome.seqnames[block.ref_id as usize],
-            block.position,
+            seqname,
+            position,
             block.flag.0,
             block.flag.0,
             block.mapq
