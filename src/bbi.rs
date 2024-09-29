@@ -1201,6 +1201,21 @@ pub struct BbiHeaderZoom {
 
 /* -------------------------------------------------------------------------- */
 
+impl fmt::Display for BbiHeaderZoom {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "BbiHeaderZoom:")?;
+        writeln!(f, "  reduction_level: {}", self.reduction_level)?;
+        writeln!(f, "  reserved:        {}", self.reserved)?;
+        writeln!(f, "  data_offset:     {}", self.data_offset)?;
+        writeln!(f, "  index_offset:    {}", self.index_offset)?;
+        writeln!(f, "  n_blocks:        {}", self.n_blocks)?;
+
+        Ok(())
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+
 impl BbiHeaderZoom {
     fn read<E: ByteOrder, R: Read + Seek>(&mut self, file: &mut R) -> io::Result<()> {
         let mut buf = [0u8; 4];
@@ -1322,6 +1337,41 @@ impl Default for BbiHeader {
             ptr_uncompress_buf_size: 0,
             ptr_extension_offset   : 0,
         }
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+
+impl fmt::Display for BbiHeader {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "BbiHeader:")?;
+        writeln!(f, "  magic:                  {}", self.magic)?;
+        writeln!(f, "  version:                {}", self.version)?;
+        writeln!(f, "  zoom_levels:            {}", self.zoom_levels)?;
+        writeln!(f, "  ct_offset:              {}", self.ct_offset)?;
+        writeln!(f, "  data_offset:            {}", self.data_offset)?;
+        writeln!(f, "  index_offset:           {}", self.index_offset)?;
+        writeln!(f, "  field_count:            {}", self.field_count)?;
+        writeln!(f, "  defined_field_count:    {}", self.defined_field_count)?;
+        writeln!(f, "  sql_offset:             {}", self.sql_offset)?;
+        writeln!(f, "  summary_offset:         {}", self.summary_offset)?;
+        writeln!(f, "  uncompress_buf_size:    {}", self.uncompress_buf_size)?;
+        writeln!(f, "  extension_offset:       {}", self.extension_offset)?;
+        writeln!(f, "  n_bases_covered:        {}", self.n_bases_covered)?;
+        writeln!(f, "  min_val:                {}", self.min_val)?;
+        writeln!(f, "  max_val:                {}", self.max_val)?;
+        writeln!(f, "  sum_data:               {}", self.sum_data)?;
+        writeln!(f, "  sum_squares:            {}", self.sum_squares)?;
+        writeln!(f, "  n_blocks:               {}", self.n_blocks)?;
+
+        // For zoom headers, we assume BbiHeaderZoom implements Display too.
+        writeln!(f, "  zoom_headers: [")?;
+        for (i, zoom_header) in self.zoom_headers.iter().enumerate() {
+            writeln!(f, "    {}: {}", i + 1, zoom_header)?;
+        }
+        writeln!(f, "  ]")?;
+
+        Ok(())
     }
 }
 

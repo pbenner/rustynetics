@@ -29,7 +29,7 @@ use futures::StreamExt;
 use byteorder::{ByteOrder, ReadBytesExt, LittleEndian};
 
 use crate::genome::Genome;
-use crate::bbi::{BbiFile, BbiQueryType, BbiHeaderZoom, BbiSummaryRecord, RTree, RVertex, RVertexGenerator};
+use crate::bbi::{BbiHeader, BbiFile, BbiQueryType, BbiHeaderZoom, BbiSummaryRecord, RTree, RVertex, RVertexGenerator};
 use crate::bbi::BBI_TYPE_BED_GRAPH;
 use crate::netfile::NetFile;
 use crate::track_statistics::BinSummaryStatistics;
@@ -210,6 +210,10 @@ impl<R: Read + Seek> BigWigReader<R> {
 
     pub fn genome(&self) -> &Genome {
         &self.genome
+    }
+
+    pub fn header(&self) -> &BbiHeader {
+        &self.bwf.header
     }
 
     pub fn query_slice(&mut self, seqregex: &str, from: usize, to: usize, f: BinSummaryStatistics, mut bin_size: usize, bin_overlap: usize, init: f64) -> Result<(Vec<f64>, usize), Box<dyn Error>> {
