@@ -135,9 +135,8 @@ fn print_json(filename_in: &str, verbose: bool) {
         process::exit(1);
     });
 
-    // Get the header from the reader
-    let header = reader.header().clone();  // Assuming header() returns BbiHeader
-
+    // Get header and genome from the reader
+    let header = reader.header().clone();
     let genome = reader.genome().clone();
 
     // Collect tracks information
