@@ -21,9 +21,35 @@ use clap::{Arg, Command};
 use serde::Serialize;
 use serde_json;
 
-use rustynetics::bbi::BbiHeader;
+use rustynetics::bbi::{BbiHeader, BbiHeaderZoom};
 use rustynetics::bbi::{BBI_TYPE_FIXED, BBI_TYPE_VARIABLE, BBI_TYPE_BED_GRAPH};
 use rustynetics::bigwig::BigWigFile;
+
+/* -------------------------------------------------------------------------- */
+
+// Wrapper struct for BbiZoomHeader to implement Serialize
+#[derive(Serialize)]
+pub struct SerializableBbiHeaderZoom {
+    pub reduction_level : u32,
+    pub reserved        : u32,
+    pub data_offset     : u64,
+    pub index_offset    : u64,
+    pub n_blocks        : u32,
+}
+
+/* -------------------------------------------------------------------------- */
+
+impl From<&BbiHeaderZoom> for SerializableBbiHeaderZoom {
+    fn from(header: &BbiHeaderZoom) -> Self {
+        SerializableBbiHeaderZoom {
+            reduction_level : header.reduction_level,
+            reserved        : header.reserved,
+            data_offset     : header.data_offset,
+            index_offset    : header.index_offset,
+            n_blocks        : header.n_blocks,
+        }
+    }
+}
 
 /* -------------------------------------------------------------------------- */
 
@@ -47,6 +73,7 @@ struct SerializableBbiHeader {
     max_val            : f64,
     sum_data           : f64,
     sum_squares        : f64,
+    zoom_headers       : Vec<SerializableBbiHeaderZoom>,
     n_blocks           : u64,
 }
 
@@ -72,6 +99,7 @@ impl From<&BbiHeader> for SerializableBbiHeader {
             max_val            : header.max_val,
             sum_data           : header.sum_data,
             sum_squares        : header.sum_squares,
+            zoom_headers       : header.zoom_headers.iter().map(|h| SerializableBbiHeaderZoom::from(h)).collect(),
             n_blocks           : header.n_blocks,
         }
     }
