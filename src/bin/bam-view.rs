@@ -26,8 +26,8 @@ use rustynetics::bam::{BamReader, BamReaderOptions};
 
 struct Config {
     print_read_name: bool,
-    print_cigar: bool,
-    print_sequence: bool,
+    print_cigar    : bool,
+    print_sequence : bool,
     print_auxiliary: bool,
 }
 
