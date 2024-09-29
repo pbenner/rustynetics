@@ -18,6 +18,7 @@ use std::process;
 
 use clap::{Arg, Command};
 
+use rustynetics::bbi::{BBI_TYPE_FIXED, BBI_TYPE_VARIABLE, BBI_TYPE_BED_GRAPH};
 use rustynetics::bigwig::BigWigFile;
 
 /* -------------------------------------------------------------------------- */
@@ -28,12 +29,42 @@ fn print_info(filename_in: &str, verbose: bool) {
     }
 
     // Open the BigWig file
-    let reader = BigWigFile::new_reader(filename_in).unwrap_or_else(|err| {
+    let mut reader = BigWigFile::new_reader(filename_in).unwrap_or_else(|err| {
         eprintln!("Error opening file: {}", err);
         process::exit(1);
     });
+    let genome = reader.genome().clone();
 
     print!("{}", reader.header());
+
+    println!("Tracks:");
+    for (seqname, length) in genome.iter() {
+        for r in reader.query(&seqname, 0, *length, 0) {
+            if let Ok(record) = r {
+                if record.data_type == BBI_TYPE_BED_GRAPH {
+                    println!("  {}:", seqname);
+                    println!("    type   : BedGraph");
+                    println!("    length : {}", length);
+                    println!("    binsize: *");
+                } else {
+                    let binsize = (record.data.to - record.data.from) as usize;
+                    println!("  {}:", seqname);
+                    if record.data_type == BBI_TYPE_FIXED {
+                        println!("    type   : Fixed");
+                    } else
+                    if record.data_type == BBI_TYPE_VARIABLE {
+                        println!("    type   : Variable");
+                    } else {
+                        eprintln!("Invalid track data type");
+                        process::exit(1);                
+                    }
+                    println!("    length : {}", length);
+                    println!("    binsize: {}", binsize);
+                }
+                break;
+            }
+        }
+    }
 }
 
 /* -------------------------------------------------------------------------- */

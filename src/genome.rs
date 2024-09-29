@@ -120,6 +120,10 @@ impl Genome {
         let file = File::open(filename.as_ref())?;
         self.read(file).map_err(|e| io::Error::new(io::ErrorKind::Other, format!("reading genome from `{:?}` failed: {}", filename.as_ref(), e)))
     }
+
+    pub fn iter(&self) -> impl Iterator<Item = (&String, &usize)> {
+        self.seqnames.iter().zip(self.lengths.iter())
+    }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -149,7 +153,7 @@ impl Eq for Genome {}
 impl fmt::Display for Genome {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "{:<10} {:>10}", "seqnames", "lengths")?;
-        for (seqname, length) in self.seqnames.iter().zip(self.lengths.iter()) {
+        for (seqname, length) in self.iter() {
             writeln!(f, "{:<10} {:>10}", seqname, length)?;
         }
         Ok(())
