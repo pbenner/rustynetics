@@ -15,7 +15,8 @@
  */
 
 use std::fs::File;
-use std::io::{BufRead, BufReader, Read, Write};
+use std::io::{self, BufRead, BufReader, Read, Write};
+use std::error::Error;
 
 use flate2::read::GzDecoder;
 use flate2::write::GzEncoder;
@@ -24,43 +25,42 @@ use list_comprehension_macro::comp;
 
 use crate::range::Range;
 use crate::granges::GRanges;
-use crate::error::Error;
+use crate::granges_error::MissingColumn;
 use crate::meta::MetaData;
+use crate::error::ArgumentError;
 
 /* Write GRanges to BED files
  * -------------------------------------------------------------------------- */
 
 impl GRanges {
 
-    pub fn write_bed3<W: Write>(&self, writer: &mut W) -> Result<(), Error> {
+    pub fn write_bed3<W: Write>(&self, writer: &mut W) -> Result<(), Box<dyn Error>> {
         for i in 0..self.num_rows() {
             write!(writer, "{}\t{}\t{}\n", self.seqnames[i], self.ranges[i].from, self.ranges[i].to)?;
         }
         Ok(())
     }
 
-    pub fn write_bed6<W: Write>(&self, writer: &mut W) -> Result<(), Error> {
-        let name  = match self.meta.get_column_str(&String::from("name" )) {
-            Some(v) => v,
-            None    => return Err(Error::Generic("Meta data does not contain a column `name'".to_string()))
-        };
-        let score = match self.meta.get_column_int(&String::from("score")) {
-            Some(v) => v,
-            None    => return Err(Error::Generic("Meta data does not contain a column `score'".to_string()))
-        };
+    pub fn write_bed6<W: Write>(&self, writer: &mut W) -> Result<(), Box<dyn Error>> {
+        let name  = self.meta.get_column_str("name").ok_or(
+            Box::new(MissingColumn("name".to_string()))
+        )?;
+        let score = self.meta.get_column_int("score").ok_or(
+            Box::new(MissingColumn("score".to_string()))
+        )?;
         for i in 0..self.num_rows() {
             write!(writer, "{}\t{}\t{}\t{}\t{}\t{}\n", self.seqnames[i], self.ranges[i].from, self.ranges[i].to, name[i], score[i], self.strand.get(i).unwrap_or(&'.'))?;
         }
         Ok(())
     }
 
-    pub fn write_bed9<W: Write>(&self, writer: &mut W) -> Result<(), Error> {
+    pub fn write_bed9<W: Write>(&self, writer: &mut W) -> Result<(), Box<dyn Error>> {
         let name  = self.meta.get_column_str("name").ok_or(
-            Error::from("Meta data does not contain a column `name'")
-            )?;
+            Box::new(MissingColumn("name".to_string()))
+        )?;
         let score = self.meta.get_column_int("score").ok_or(
-            Error::from("Meta data does not contain a column `score'")
-            )?;
+            Box::new(MissingColumn("score".to_string()))
+        )?;
         let item_rgb = match self.meta.get_column_str("itemRgb") {
             Some(v) => v.clone(),
             None    => vec![String::from("0,0,0"); self.num_rows()]
@@ -80,12 +80,12 @@ impl GRanges {
         Ok(())
     }
 
-    pub fn write_bed<W: Write>(&self, writer: &mut W, columns: usize) -> Result<(), Error> {
+    pub fn write_bed<W: Write>(&self, writer: &mut W, columns: usize) -> Result<(), Box<dyn Error>> {
         match columns {
             3 => self.write_bed3(writer),
             6 => self.write_bed6(writer),
             9 => self.write_bed9(writer),
-            _ => Err(Error::Generic("Invalid number of columns".to_string())),
+            _ => Err(Box::new(ArgumentError("Invalid number of columns".to_string()))),
         }
     }
 
@@ -96,7 +96,7 @@ impl GRanges {
 
 impl GRanges {
 
-    pub fn export_bed3(&self, filename: &str, compress: bool) -> Result<(), Error> {
+    pub fn export_bed3(&self, filename: &str, compress: bool) -> Result<(), Box<dyn Error>> {
         let file = File::create(filename)?;
         let mut writer: Box<dyn Write> = if compress {
             Box::new(GzEncoder::new(file, Compression::default()))
@@ -108,7 +108,7 @@ impl GRanges {
         Ok(())
     }
 
-    pub fn export_bed6(&self, filename: &str, compress: bool) -> Result<(), Error> {
+    pub fn export_bed6(&self, filename: &str, compress: bool) -> Result<(), Box<dyn Error>> {
         let file = File::create(filename)?;
         let mut writer: Box<dyn Write> = if compress {
             Box::new(GzEncoder::new(file, Compression::default()))
@@ -120,7 +120,7 @@ impl GRanges {
         Ok(())
     }
 
-    pub fn export_bed9(&self, filename: &str, compress: bool) -> Result<(), Error> {
+    pub fn export_bed9(&self, filename: &str, compress: bool) -> Result<(), Box<dyn Error>> {
         let file = File::create(filename)?;
         let mut writer: Box<dyn Write> = if compress {
             Box::new(GzEncoder::new(file, Compression::default()))
@@ -132,7 +132,7 @@ impl GRanges {
         Ok(())
     }
 
-    pub fn export_bed(&mut self, filename: &str, columns: usize, compress: bool) -> Result<(), Error> {
+    pub fn export_bed(&mut self, filename: &str, columns: usize, compress: bool) -> Result<(), Box<dyn Error>> {
         let file = File::create(filename)?;
         let mut writer: Box<dyn Write> = if compress {
             Box::new(GzEncoder::new(file, Compression::default()))
@@ -150,12 +150,12 @@ impl GRanges {
 
 impl GRanges {
 
-    pub fn bufread_bed3<R: Read + BufRead>(&mut self, reader: &mut R) -> Result<(), Error> {
+    pub fn bufread_bed3<R: Read + BufRead>(&mut self, reader: &mut R) -> Result<(), Box<dyn Error>> {
         let mut line = String::new();
         while reader.read_line(&mut line)? > 0 {
             let fields: Vec<&str> = line.trim().split('\t').collect();
             if fields.len() < 3 {
-                return Err(Error::Generic("Bed file must have at least 3 columns".to_string()));
+                return Err(Box::new(io::Error::new(io::ErrorKind::InvalidInput, "Bed file must have at least 3 columns".to_string())));
             }
             let from = fields[1].parse::<usize>().unwrap();
             let to   = fields[2].parse::<usize>().unwrap();
@@ -168,14 +168,14 @@ impl GRanges {
     }
 
 
-    pub fn bufread_bed6<R: Read + BufRead>(&mut self, reader: &mut R) -> Result<(), Error> {
+    pub fn bufread_bed6<R: Read + BufRead>(&mut self, reader: &mut R) -> Result<(), Box<dyn Error>> {
         let mut line  = String::new();
         let mut name  = Vec::new();
         let mut score = Vec::new();
         while reader.read_line(&mut line)? > 0 {
             let fields: Vec<&str> = line.trim().split('\t').collect();
             if fields.len() < 6 {
-                return Err(Error::Generic("Bed file must have at least 6 columns".to_string()));
+                return Err(Box::new(io::Error::new(io::ErrorKind::InvalidInput, "Bed file must have at least 6 columns".to_string())));
             }
             let from   = fields[1].parse::<usize>().unwrap();
             let to     = fields[2].parse::<usize>().unwrap();
@@ -192,7 +192,7 @@ impl GRanges {
         Ok(())
     }
 
-    pub fn bufread_bed9<R: Read + BufRead>(&mut self, reader_: &mut R) -> Result<(), Error> {
+    pub fn bufread_bed9<R: Read + BufRead>(&mut self, reader_: &mut R) -> Result<(), Box<dyn Error>> {
         let mut reader = BufReader::new(reader_);
         let mut line   = String::new();
         let mut name   = Vec::new();
@@ -203,7 +203,7 @@ impl GRanges {
         while reader.read_line(&mut line)? > 0 {
             let fields: Vec<&str> = line.trim().split('\t').collect();
             if fields.len() < 9 {
-                return Err(Error::Generic("Bed file must have at least 9 columns".to_string()));
+                return Err(Box::new(io::Error::new(io::ErrorKind::InvalidInput, "Bed file must have at least 9 columns".to_string())));
             }
             let from        = fields[1].parse::<usize>().unwrap();
             let to          = fields[2].parse::<usize>().unwrap();
@@ -232,36 +232,35 @@ impl GRanges {
  * -------------------------------------------------------------------------- */
 
  impl GRanges {
-    pub fn read_bed3<R: Read>(&mut self, reader: &mut R) -> Result<(), Error> {
+    pub fn read_bed3<R: Read>(&mut self, reader: &mut R) -> Result<(), Box<dyn Error>> {
         self.bufread_bed3(&mut BufReader::new(reader))
     }
 
-    pub fn read_bed6<R: Read>(&mut self, reader: &mut R) -> Result<(), Error> {
+    pub fn read_bed6<R: Read>(&mut self, reader: &mut R) -> Result<(), Box<dyn Error>> {
         self.bufread_bed6(&mut BufReader::new(reader))
     }
 
-    pub fn read_bed9<R: Read>(&mut self, reader: &mut R) -> Result<(), Error> {
+    pub fn read_bed9<R: Read>(&mut self, reader: &mut R) -> Result<(), Box<dyn Error>> {
         self.bufread_bed9(&mut BufReader::new(reader))
     }
 
-    pub fn read_bed<R: Read>(&mut self, reader: &mut R, columns: usize) -> Result<(), Error> {
+    pub fn read_bed<R: Read>(&mut self, reader: &mut R, columns: usize) -> Result<(), Box<dyn Error>> {
         match columns {
             3 => self.read_bed3(reader),
             6 => self.read_bed6(reader),
             9 => self.read_bed9(reader),
-            _ => Err(Error::Generic("Invalid number of columns".to_string())),
+            _ => Err(Box::new(ArgumentError("Invalid number of columns".to_string()))),
         }
     }
 
 }
-
 
 /* Import GRanges from BED files
  * -------------------------------------------------------------------------- */
 
 impl GRanges {
 
-    pub fn import_bed3(&mut self, filename: &str, compress: bool) -> Result<(), Error> {
+    pub fn import_bed3(&mut self, filename: &str, compress: bool) -> Result<(), Box<dyn Error>> {
         let file = File::open(filename)?;
         let mut reader: Box<dyn BufRead> = if compress {
             Box::new(BufReader::new(GzDecoder::new(file)))
@@ -272,7 +271,7 @@ impl GRanges {
         Ok(())
     }
 
-    pub fn import_bed6(&mut self, filename: &str, compress: bool) -> Result<(), Error> {
+    pub fn import_bed6(&mut self, filename: &str, compress: bool) -> Result<(), Box<dyn Error>> {
         let file = File::open(filename)?;
         let mut reader: Box<dyn BufRead> = if compress {
             Box::new(BufReader::new(GzDecoder::new(file)))
@@ -283,7 +282,7 @@ impl GRanges {
         Ok(())
     }
 
-    pub fn import_bed9(&mut self, filename: &str, compress: bool) -> Result<(), Error> {
+    pub fn import_bed9(&mut self, filename: &str, compress: bool) -> Result<(), Box<dyn Error>> {
         let file = File::open(filename)?;
         let mut reader: Box<dyn BufRead> = if compress {
             Box::new(BufReader::new(GzDecoder::new(file)))
@@ -294,7 +293,7 @@ impl GRanges {
         Ok(())
     }
 
-    pub fn import_bed(&mut self, filename: &str, columns: usize, compress: bool) -> Result<(), Error> {
+    pub fn import_bed(&mut self, filename: &str, columns: usize, compress: bool) -> Result<(), Box<dyn Error>> {
         let file = File::open(filename)?;
         let mut reader: Box<dyn BufRead> = if compress {
             Box::new(BufReader::new(GzDecoder::new(file)))

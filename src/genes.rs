@@ -15,12 +15,12 @@
  */
 
 use std::collections::HashMap;
+use std::error::Error;
 
 use crate::range::Range;
 use crate::genome::Genome;
 use crate::granges::GRanges;
 use crate::meta::MetaData;
-use crate::error::Error;
 
 /* -------------------------------------------------------------------------- */
 
@@ -119,7 +119,7 @@ impl Genes {
         Genes::new_impl(r)
     }
 
-    pub fn sort(&self, name: &str, reverse: bool) -> Result<Genes, Error> {
+    pub fn sort(&self, name: &str, reverse: bool) -> Result<Genes, Box<dyn Error>> {
         let r = self.granges.sort(name, reverse)?;
         Ok(Genes::new_impl(r))
     }

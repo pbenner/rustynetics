@@ -17,15 +17,14 @@
 /* -------------------------------------------------------------------------- */
 
 use std::fmt;
-use std::cmp::Ordering;
 use std::collections::HashMap;
+use std::error::Error;
 
 use crate::range::Range;
 use crate::genome::Genome;
 use crate::granges_row::GRangesRow;
 use crate::granges_find_overlaps::find_overlaps;
 use crate::meta::Meta;
-use crate::error::Error;
 use crate::utility::remove_duplicates_int;
 
 /* -------------------------------------------------------------------------- */
@@ -88,7 +87,7 @@ impl GRanges {
         GRangesRow::new(self, i)
     }
 
-    pub fn append(&self, other: &GRanges) -> Result<Self, Error> {
+    pub fn append(&self, other: &GRanges) -> Result<Self, Box<dyn Error>> {
         let mut seqnames = self.seqnames.clone();
         seqnames.extend(other.seqnames.iter().cloned());
         let mut ranges = self.ranges.clone();
@@ -245,48 +244,6 @@ impl GRanges {
         s
     }
 
-    pub fn sorted_indices(&self, name: &str, reverse: bool) -> Result<Vec<usize>, String> {
-        let mut indices: Vec<usize> = (0..self.num_rows()).collect();
-        match name {
-            "" => Err("Invalid sort name".to_string()),
-            "seqnames" => {
-                indices.sort_by(|&i, &j| {
-                    let cmp = self.seqnames[i].cmp(&self.seqnames[j]);
-                    if reverse {
-                        cmp.reverse()
-                    } else {
-                        cmp
-                    }
-                });
-                Ok(indices)
-            }
-            "ranges" => {
-                indices.sort_by(|&i, &j| {
-                    let cmp = self.ranges[i].from.cmp(&self.ranges[j].from);
-                    if cmp == Ordering::Equal {
-                        self.ranges[i].to.cmp(&self.ranges[j].to)
-                    } else if reverse {
-                        cmp.reverse()
-                    } else {
-                        cmp
-                    }
-                });
-                Ok(indices)
-            }
-            "strand" => {
-                indices.sort_by(|&i, &j| {
-                    let cmp = self.strand[i].cmp(&self.strand[j]);
-                    if reverse {
-                        cmp.reverse()
-                    } else {
-                        cmp
-                    }
-                });
-                Ok(indices)
-            }
-            _ => Err("Invalid sort name".to_string()),
-        }
-    }
 }
 
 /* -------------------------------------------------------------------------- */

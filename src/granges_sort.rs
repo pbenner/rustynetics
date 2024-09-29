@@ -18,13 +18,55 @@ use std::fmt;
 use std::cmp::Ordering;
 
 use crate::granges::GRanges;
-use crate::error::Error;
+use crate::error::ArgumentError;
 
 /* -------------------------------------------------------------------------- */
 
 impl GRanges {
 
-    pub fn sort(&self, name: &str, reverse: bool) -> Result<Self, Error> {
+    pub fn sorted_indices(&self, name: &str, reverse: bool) -> Result<Vec<usize>, ArgumentError> {
+        let mut indices: Vec<usize> = (0..self.num_rows()).collect();
+        match name {
+            "seqnames" => {
+                indices.sort_by(|&i, &j| {
+                    let cmp = self.seqnames[i].cmp(&self.seqnames[j]);
+                    if reverse {
+                        cmp.reverse()
+                    } else {
+                        cmp
+                    }
+                });
+                Ok(indices)
+            }
+            "ranges" => {
+                indices.sort_by(|&i, &j| {
+                    let cmp = self.ranges[i].from.cmp(&self.ranges[j].from);
+                    if cmp == Ordering::Equal {
+                        self.ranges[i].to.cmp(&self.ranges[j].to)
+                    } else if reverse {
+                        cmp.reverse()
+                    } else {
+                        cmp
+                    }
+                });
+                Ok(indices)
+            }
+            "strand" => {
+                indices.sort_by(|&i, &j| {
+                    let cmp = self.strand[i].cmp(&self.strand[j]);
+                    if reverse {
+                        cmp.reverse()
+                    } else {
+                        cmp
+                    }
+                });
+                Ok(indices)
+            }
+            _ => Err(ArgumentError("Invalid sort name".to_string())),
+        }
+    }
+
+    pub fn sort(&self, name: &str, reverse: bool) -> Result<Self, ArgumentError> {
         if name.is_empty() {
             let mut l = GRangesSort::new(self);
             if reverse {

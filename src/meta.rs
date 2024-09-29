@@ -17,9 +17,10 @@
 /* -------------------------------------------------------------------------- */
 
 use std::fmt;
+use std::error::Error;
+
 use list_comprehension_macro::comp;
 
-use crate::error::Error;
 use crate::range::Range;
 
 /* -------------------------------------------------------------------------- */
@@ -50,7 +51,7 @@ impl MetaData {
         }
     }
 
-    pub fn concat(&self, data : &Self) -> Result<Self, Error> {
+    pub fn concat(&self, data : &Self) -> Result<Self, Box<dyn Error>> {
         match (self, data) {
             (MetaData::FloatArray  (v), MetaData::FloatArray  (w)) => Ok(MetaData::FloatArray  ([v.clone(), w.clone()].concat())),
             (MetaData::IntArray    (v), MetaData::IntArray    (w)) => Ok(MetaData::IntArray    ([v.clone(), w.clone()].concat())),
@@ -186,7 +187,7 @@ impl Default for Meta {
 /* -------------------------------------------------------------------------- */
 
 impl Meta {
-    pub fn new(names: Vec<&str>, data: Vec<MetaData>) -> Result<Self, Error> {
+    pub fn new(names: Vec<&str>, data: Vec<MetaData>) -> Result<Self, Box<dyn Error>> {
         if names.len() != data.len() {
             return Err(format!("Invalid parameters!").into());
         }
@@ -209,7 +210,7 @@ impl Meta {
         self.meta_name.len()
     }
 
-    pub fn append(&self, meta : &Meta) -> Result<Self, Error> {
+    pub fn append(&self, meta : &Meta) -> Result<Self, Box<dyn Error>> {
         let n1 = self.num_rows();
         let n2 = meta.num_rows();
 
@@ -236,7 +237,7 @@ impl Meta {
         Ok(meta)
     }
 
-    pub fn add(&mut self, name: &str, data: MetaData) -> Result<(), Error> {
+    pub fn add(&mut self, name: &str, data: MetaData) -> Result<(), Box<dyn Error>> {
         let n = data.len();
         if self.meta_name.len() > 0 {
             if n != self.rows {
@@ -348,7 +349,7 @@ impl Meta {
         }
     }
 
-    pub fn sort(&self, name: &str, reverse: bool) -> Result<Self, Error> {
+    pub fn sort(&self, name: &str, reverse: bool) -> Result<Self, Box<dyn Error>> {
         let mut indices: Vec<usize> = (0..self.rows).collect();
 
         if reverse {

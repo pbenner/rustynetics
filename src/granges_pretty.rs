@@ -14,14 +14,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-use std::io;
-use std::io::BufReader;
-use std::io::BufWriter;
-use std::io::BufRead;
-use std::io::Write;
+use std::io::{self, BufRead, BufReader, BufWriter, Write};
 
 use crate::granges::GRanges;
-use crate::error::Error;
 
 /* -------------------------------------------------------------------------- */
 
@@ -46,7 +41,7 @@ impl GRanges {
         Ok(())
     }
 
-    pub fn format_pretty(&self, n: usize) -> Result<String, Error> {
+    pub fn format_pretty(&self, n: usize) -> io::Result<String> {
         let mut buffer = Vec::new();
         {
             let mut writer = BufWriter::new(&mut buffer);

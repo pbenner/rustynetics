@@ -17,15 +17,15 @@
 use std::fmt;
 
 /* Generic error types
- * -------------------------------------------------------------------------- */
+* -------------------------------------------------------------------------- */
 
 #[derive(Debug)]
-pub struct ArgumentError(pub String);
+pub struct MissingColumn(pub String);
 
-impl fmt::Display for ArgumentError {
+impl fmt::Display for MissingColumn {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
+        write!(f, "GRanges/Meta object is missing a column named `{}`", self.0)
     }
 }
 
-impl std::error::Error for ArgumentError {}
+impl std::error::Error for MissingColumn {}

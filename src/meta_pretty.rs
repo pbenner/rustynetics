@@ -19,8 +19,8 @@
 use std::io;
 use std::io::BufWriter;
 use std::io::Write;
+use std::error::Error;
 
-use crate::error::Error;
 use crate::meta::Meta;
 use crate::meta::MetaData;
 
@@ -56,7 +56,7 @@ impl Meta {
         Ok(())
     }
 
-    pub fn format_pretty(&self, n: usize, use_scientific: bool) -> Result<String, Error> {
+    pub fn format_pretty(&self, n: usize, use_scientific: bool) -> Result<String, Box<dyn Error>> {
         let mut buffer = Vec::new();
         {
             let mut writer = BufWriter::new(&mut buffer);
