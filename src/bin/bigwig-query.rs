@@ -28,12 +28,15 @@ fn query(filename_in: &str, chrom: &str, from: usize, to: usize, bin_size: usize
         eprintln!("Error opening file: {}", err);
         process::exit(1);
     });
+    let genome = reader.genome().clone();
 
     // Query the BigWig file
     for result in reader.query(chrom, from, to, bin_size) {
         match result {
             Ok(record) => {
-                println!("{}", record.data);
+                println!("{}:[{}, {})={}",
+                    genome.seqnames[record.data.chrom_id as usize],
+                    record.data.from, record.data.to, record.data.statistics);
             }
             Err(err) => {
                 eprintln!("Error querying BigWig file: {}", err);
