@@ -512,6 +512,7 @@ impl<'a> BbiRawBlockDecoder<'a> {
 
 /* -------------------------------------------------------------------------- */
 
+#[derive(Debug)]
 struct BbiZoomBlockDecoderType(BbiSummaryRecord);
 
 /* -------------------------------------------------------------------------- */
@@ -529,7 +530,7 @@ impl Default for BbiZoomBlockDecoderType {
 
 impl BbiZoomBlockDecoderType {
 
-    const LENGTH : usize = 52;
+    const LENGTH : usize = 32;
 
     fn read_buffer<E: ByteOrder>(&mut self, buffer : &[u8]) -> io::Result<()> {
         let mut cursor = Cursor::new(buffer);
@@ -623,11 +624,11 @@ impl<'a> Iterator for BbiZoomBlockDecoderIterator<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
 
+        self.position += BbiZoomBlockDecoderType::LENGTH;
+
         if self.position >= self.decoder.buffer.len() {
             return None
         }
-
-        self.position += BbiZoomBlockDecoderType::LENGTH;
 
         Some(self.clone())
     }
