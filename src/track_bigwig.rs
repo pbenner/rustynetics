@@ -220,7 +220,7 @@ mod tests {
         let seq_2 = vec![0.1,1.2,2.3,3.4,4.5,5.6,0.0,0.0,8.9,9.0,0.1,1.2,2.3,3.4,4.5,5.6,6.7,7.8,8.9,9.0];
         let seq_3 = vec![nan,nan,nan,nan,4.5,5.6,nan,nan,nan,nan];
 
-        let sequences = vec![seq_1, seq_2, seq_3];
+        let sequences = vec![seq_1.clone(), seq_2.clone(), seq_3.clone()];
         let seqnames  = vec!["test1", "test2", "test3"].into_iter().map(|x| { x.to_string() }).collect();
         let lengths   = vec![100, 200, 100];
         let genome    = Genome::new(seqnames, lengths);
@@ -240,11 +240,43 @@ mod tests {
 
         if let Ok(mut bw) = result {
 
-            for result in bw.query("test1", 0, 100, 10) {
+            for (i, item) in bw.query("test1", 0, 100, 10).enumerate() {
 
-                println!("RESULT: {:?}", result);
+                let result = item.unwrap();
+
+                assert_eq!(result.data_type, 3);
+                assert_eq!(result.data.from, (i as i32)*10);
+                assert_eq!(result.data.to  , (i as i32)*10+10);
+
+                assert!((result.data.statistics.sum - seq_1[i]).abs() < 1e-4);
+
             }
 
+            for (i, item) in bw.query("test2", 0, 100, 10).enumerate() {
+
+                let result = item.unwrap();
+
+                assert_eq!(result.data_type, 3);
+                assert_eq!(result.data.from, (i as i32)*10);
+                assert_eq!(result.data.to  , (i as i32)*10+10);
+
+                assert!((result.data.statistics.sum - seq_2[i]).abs() < 1e-4);
+
+            }
+
+            for item in bw.query("test3", 0, 100, 10) {
+
+                let result = item.unwrap();
+                let i      = result.data.from as usize / 10;
+
+                assert_eq!(result.data_type, 2);
+
+                println!("{:?}", result);
+                println!("i: {}", i);
+
+                assert!((result.data.statistics.sum - seq_3[i]).abs() < 1e-4);
+
+            }
         }
     }
 }
