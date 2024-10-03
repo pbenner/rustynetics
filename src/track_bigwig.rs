@@ -214,10 +214,11 @@ mod tests {
     fn test_track_bigwig_1() {
 
         let filename = "tests/test_bigwig_tmp.bw";
+        let nan = f64::NAN;
 
         let seq_1 = vec![0.0,0.0,0.0,0.0,4.5,5.6,0.0,7.8,8.9,0.0];
         let seq_2 = vec![0.1,1.2,2.3,3.4,4.5,5.6,0.0,0.0,8.9,9.0,0.1,1.2,2.3,3.4,4.5,5.6,6.7,7.8,8.9,9.0];
-        let seq_3 = vec![0.0,0.0,0.0,0.0,4.5,5.6,0.0,0.0,0.0,0.0];
+        let seq_3 = vec![nan,nan,nan,nan,4.5,5.6,nan,nan,nan,nan];
 
         let sequences = vec![seq_1, seq_2, seq_3];
         let seqnames  = vec!["test1", "test2", "test3"].into_iter().map(|x| { x.to_string() }).collect();
