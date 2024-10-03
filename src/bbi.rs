@@ -66,6 +66,22 @@ fn file_write_at<T: Write + Seek>(file: &mut T, offset: u64, data: &[u8]) -> io:
     Ok(())
 }
 
+fn file_write_u32_at<E: ByteOrder, T: Write + Seek>(file: &mut T, offset: u64, data: u32) -> io::Result<()> {
+    let current_position = file.seek(SeekFrom::Current(0))?;
+    file.seek(SeekFrom::Start(offset))?;
+    file.write_u32::<E>(data)?;
+    file.seek(SeekFrom::Start(current_position))?;
+    Ok(())
+}
+
+fn file_write_u64_at<E: ByteOrder, T: Write + Seek>(file: &mut T, offset: u64, data: u64) -> io::Result<()> {
+    let current_position = file.seek(SeekFrom::Current(0))?;
+    file.seek(SeekFrom::Start(offset))?;
+    file.write_u64::<E>(data)?;
+    file.seek(SeekFrom::Start(current_position))?;
+    Ok(())
+}
+
 fn uncompress_slice(data: &[u8]) -> io::Result<Vec<u8>> {
     let mut decoder = ZlibDecoder::new(data);
     let mut buffer = Vec::new();
@@ -637,7 +653,7 @@ impl<'a> Iterator for BbiZoomBlockDecoderIterator<'a> {
 /* Result type of both the raw and zoom block encoder
  * -------------------------------------------------------------------------- */
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 struct BbiBlockEncoderType {
     from : usize,
     to   : usize,
@@ -663,11 +679,11 @@ impl BbiRawBlockEncoder {
     }
 
     fn encode_variable<E: ByteOrder>(&self, buffer: &mut [u8], position: u32, value: f64) {
-        E::write_u32_into(&[position, value.to_bits() as u32], &mut buffer[0..8]);
+        E::write_u32_into(&[position, (value as f32).to_bits() ], &mut buffer[0..8]);
     }
 
     fn encode_fixed<E: ByteOrder>(&self, buffer: &mut [u8], value: f64) {
-        E::write_u32(buffer, value.to_bits() as u32);
+        E::write_u32(buffer, (value as f32).to_bits());
     }
 
     fn encode(&self, chrom_id: usize, sequence: &Vec<f64>, bin_size: usize) -> BbiRawBlockEncoderIterator {
@@ -702,7 +718,7 @@ impl BbiRawBlockEncoderIterator {
 
     fn write<E: ByteOrder>(&self) -> io::Result<BbiBlockEncoderType> {
 
-        let mut buffer = Cursor::new(Vec::new());
+        let mut buffer = Vec::new();
         let mut tmp    = vec![0u8; 24];
 
         self.header.write_buffer::<E>(&mut tmp)?;
@@ -710,7 +726,7 @@ impl BbiRawBlockEncoderIterator {
 
         if self.encoder.fixed_step {
             for entry in &self.seqbuf {
-                self.encoder.encode_fixed::<E>(&mut tmp, *entry);
+                self.encoder.encode_fixed::<E>(&mut tmp[..4], *entry);
                 buffer.write_all(&tmp[..4])?;
             }
         } else {
@@ -723,7 +739,7 @@ impl BbiRawBlockEncoderIterator {
         Ok(BbiBlockEncoderType{
             from : self.header.start as usize,
             to   : self.header.end   as usize,
-            block: buffer.into_inner(),
+            block: buffer,
         })
     }
 
@@ -1131,9 +1147,9 @@ impl BData {
             let ptr_value = file.seek(SeekFrom::Current(0))?;
             file.read_exact(&mut value)?;
 
-            self.keys.push(key);
-            self.values.push(value);
-            self.ptr_keys.push(ptr_key as i64);
+            self.keys      .push(key);
+            self.values    .push(value);
+            self.ptr_keys  .push(ptr_key   as i64);
             self.ptr_values.push(ptr_value as i64);
         }
         Ok(())
@@ -1173,9 +1189,9 @@ impl BData {
         }
 
         self.items_per_block = file.read_u32::<E>()?;
-        self.key_size = file.read_u32::<E>()?;
-        self.value_size = file.read_u32::<E>()?;
-        self.item_count = file.read_u64::<E>()?;
+        self.key_size        = file.read_u32::<E>()?;
+        self.value_size      = file.read_u32::<E>()?;
+        self.item_count      = file.read_u64::<E>()?;
 
         file.read_u32::<E>()?; // padding
         file.read_u32::<E>()?; // padding
@@ -1727,9 +1743,9 @@ impl RTree {
 
         if let Some(ref root) = self.root {
             self.chr_idx_start = root.chr_idx_start[0];
-            self.chr_idx_end = root.chr_idx_end[root.n_children as usize - 1];
-            self.base_start = root.base_start[0];
-            self.base_end = root.base_end[root.n_children as usize - 1];
+            self.chr_idx_end   = root.chr_idx_end[root.n_children as usize - 1];
+            self.base_start    = root.base_start[0];
+            self.base_end      = root.base_end[root.n_children as usize - 1];
         }
 
         Ok(())
@@ -1890,7 +1906,7 @@ impl RVertex {
             for i in 0..self.n_children as usize {
                 let offset = file.seek(SeekFrom::Current(0))?;
                 self.data_offset[i] = offset;
-                file.write_u64::<E>(self.data_offset[i])?;
+                file_write_u64_at::<E, W>(file, self.ptr_data_offset[i] as u64, self.data_offset[i])?;
                 self.children[i].write::<E, W>(file)?;
             }
         }

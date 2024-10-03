@@ -205,25 +205,41 @@ impl<'a> GenericTrack<'a> {
 #[cfg(test)]
 mod tests {
 
+    use crate::track_bigwig::BigWigFile;
     use crate::track_generic::GenericTrack;
-    use crate::track::{Track, MutableTrack};
     use crate::track_simple::SimpleTrack;
     use crate::genome::Genome;
 
     #[test]
     fn test_track_bigwig_1() {
 
-        let seq_1 = vec![1.0, 2.0, 3.0, 4.0];
+        let filename = "tests/test_bigwig_tmp.bw";
 
-        let sequences  = vec![seq_1];
+        let seq_1 = vec![0.0,0.0,0.0,0.0,4.5,5.6,0.0,7.8,8.9,0.0];
+        let seq_2 = vec![0.1,1.2,2.3,3.4,4.5,5.6,0.0,0.0,8.9,9.0,0.1,1.2,2.3,3.4,4.5,5.6,6.7,7.8,8.9,9.0];
 
-        let seqnames  = vec!["test1"].into_iter().map(|x| { x.to_string() }).collect();
-        let lengths   = vec![400];
+        let sequences = vec![seq_1, seq_2];
+        let seqnames  = vec!["test1", "test2"].into_iter().map(|x| { x.to_string() }).collect();
+        let lengths   = vec![100, 200];
         let genome    = Genome::new(seqnames, lengths);
 
-        let track = SimpleTrack::new("track_name".to_string(), sequences, genome, 100).unwrap();
+        let track = SimpleTrack::new("track_name".to_string(), sequences, genome, 10).unwrap();
 
-        GenericTrack::wrap(&track).export_bigwig("tests/test_bigwig_tmp.bw", None);
+        if let Err(e) = GenericTrack::wrap(&track).export_bigwig(filename, None) {
+            println!("{}", e);
+        }
 
+        let result = BigWigFile::new_reader(filename);
+
+        assert!(result.is_ok());
+
+        if let Ok(mut bw) = result {
+
+            for result in bw.query("test1", 0, 100, 10) {
+
+                println!("RESULT: {:?}", result);
+            }
+
+        }
     }
 }
