@@ -205,7 +205,7 @@ impl<'a> GenericTrack<'a> {
 #[cfg(test)]
 mod tests {
 
-    use crate::track_bigwig::BigWigFile;
+    use crate::track_bigwig::{BigWigFile, BigWigParameters};
     use crate::track_generic::GenericTrack;
     use crate::track_simple::SimpleTrack;
     use crate::genome::Genome;
@@ -217,15 +217,19 @@ mod tests {
 
         let seq_1 = vec![0.0,0.0,0.0,0.0,4.5,5.6,0.0,7.8,8.9,0.0];
         let seq_2 = vec![0.1,1.2,2.3,3.4,4.5,5.6,0.0,0.0,8.9,9.0,0.1,1.2,2.3,3.4,4.5,5.6,6.7,7.8,8.9,9.0];
+        let seq_3 = vec![0.0,0.0,0.0,0.0,4.5,5.6,0.0,0.0,0.0,0.0];
 
-        let sequences = vec![seq_1, seq_2];
-        let seqnames  = vec!["test1", "test2"].into_iter().map(|x| { x.to_string() }).collect();
-        let lengths   = vec![100, 200];
+        let sequences = vec![seq_1, seq_2, seq_3];
+        let seqnames  = vec!["test1", "test2", "test3"].into_iter().map(|x| { x.to_string() }).collect();
+        let lengths   = vec![100, 200, 100];
         let genome    = Genome::new(seqnames, lengths);
 
         let track = SimpleTrack::new("track_name".to_string(), sequences, genome, 10).unwrap();
 
-        if let Err(e) = GenericTrack::wrap(&track).export_bigwig(filename, None) {
+        let mut params = BigWigParameters::default();
+        params.reduction_levels.push(20);
+
+        if let Err(e) = GenericTrack::wrap(&track).export_bigwig(filename, Some(params)) {
             println!("{}", e);
         }
 
