@@ -1653,8 +1653,7 @@ impl RTree {
     }
 
     fn write_size<E: ByteOrder, W: Write + Seek>(&self, file: &mut W) -> io::Result<()> {
-        file.seek(SeekFrom::Start(self.ptr_idx_size as u64))?;
-        file.write_u64::<E>(self.idx_size)?;
+        file_write_u64_at::<E, W>(file, self.ptr_idx_size as u64, self.idx_size)?;
         Ok(())
     }
 

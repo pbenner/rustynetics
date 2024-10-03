@@ -35,7 +35,6 @@ use crate::netfile::NetFile;
 use crate::track_statistics::BinSummaryStatistics;
 use crate::utility::div_int_down;
 
-
 /* -------------------------------------------------------------------------- */
 
 const BIGWIG_MAGIC : u32 = 0x888FFC26;
