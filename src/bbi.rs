@@ -755,6 +755,17 @@ impl Iterator for BbiRawBlockEncoderIterator {
 
     fn next(&mut self) -> Option<Self::Item> {
 
+        self.header = BbiDataHeader {
+            chrom_id  : self.chrom_id as u32,
+            start     : 0,
+            end       : 0,
+            step      : self.bin_size as u32,
+            span      : self.bin_size as u32,
+            item_count: 0,
+            kind      : if self.encoder.fixed_step { 3 } else { 2 },
+            reserved  : 0,
+        };
+
         if self.encoder.fixed_step {
             // Skip nan values
             while self.position < self.sequence.len() && self.sequence[self.position].is_nan() {
@@ -790,17 +801,8 @@ impl Iterator for BbiRawBlockEncoderIterator {
                 self.position += 1;
             }
         }
-
-        self.header = BbiDataHeader {
-            chrom_id  : self.chrom_id as u32,
-            start     : (self.bin_size * self.position_old) as u32,
-            end       : (self.bin_size * self.position    ) as u32,
-            step      : self.bin_size as u32,
-            span      : self.bin_size as u32,
-            item_count: 0,
-            kind      : if self.encoder.fixed_step { 3 } else { 2 },
-            reserved  : 0,
-        };
+        self.header.start = (self.bin_size * self.position_old) as u32;
+        self.header.end   = (self.bin_size * self.position    ) as u32;
 
         if self.header.item_count > 0 {
             Some(self.clone())

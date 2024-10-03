@@ -240,6 +240,10 @@ mod tests {
 
         if let Ok(mut bw) = result {
 
+            assert_eq!(bw.query("test1", 0, 100, 10).count(),  9);
+            assert_eq!(bw.query("test2", 0, 200, 10).count(), 20);
+            assert_eq!(bw.query("test3", 0, 100, 10).count(),  2);
+
             for item in bw.query("test1", 0, 100, 10) {
 
                 let result = item.unwrap();
@@ -253,7 +257,7 @@ mod tests {
 
             }
 
-            for (i, item) in bw.query("test2", 0, 100, 10).enumerate() {
+            for (i, item) in bw.query("test2", 0, 200, 10).enumerate() {
 
                 let result = item.unwrap();
 
@@ -275,6 +279,7 @@ mod tests {
                 assert!((result.data.statistics.sum - seq_3[i]).abs() < 1e-4);
 
             }
+
         }
     }
 }
