@@ -211,17 +211,17 @@ fn print_info(filename_in: &str, verbose: bool) {
             if let Ok(record) = r {
                 if record.data_type == BBI_TYPE_BED_GRAPH {
                     println!("  {}:", seqname);
-                    println!("    type   : BedGraph");
+                    println!("    type   : bedgraph");
                     println!("    length : {}", length);
                     println!("    binsize: *");
                 } else {
                     let binsize = (record.data.to - record.data.from) as usize;
                     println!("  {}:", seqname);
                     if record.data_type == BBI_TYPE_FIXED {
-                        println!("    type   : Fixed");
+                        println!("    type   : fixed");
                     } else
                     if record.data_type == BBI_TYPE_VARIABLE {
-                        println!("    type   : Variable");
+                        println!("    type   : variable");
                     } else {
                         eprintln!("Invalid track data type");
                         process::exit(1);                
