@@ -825,7 +825,7 @@ mod tests {
 
     #[test]
     fn test_bam_genome() {
-        let result = BamFile::open("src/bam_test.1.bam", None);
+        let result = BamFile::open("tests/test_bam_1.bam", None);
         assert!(result.is_ok());
         if let Ok(bam) = result {
             let genome = bam.reader.genome;
@@ -840,7 +840,7 @@ mod tests {
     #[test]
     fn test_bam_read_simple() {
 
-        let result = BamFile::open("src/bam_test.2.bam", None);
+        let result = BamFile::open("tests/test_bam_2.bam", None);
 
         assert!(result.is_ok());
 

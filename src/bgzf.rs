@@ -96,7 +96,7 @@ mod tests {
     #[test]
     fn test_bgzf() {
 
-        let file = File::open("src/bam_test.1.bam");
+        let file = File::open("tests/test_bam_1.bam");
         let bgzf = BgzfReader::new(file.unwrap());
 
         let mut reader = bgzf.unwrap();
@@ -116,7 +116,7 @@ mod tests {
     #[test]
     fn test_bgzf_netfile() {
 
-        let file = NetFile::open("src/bam_test.1.bam");
+        let file = NetFile::open("tests/test_bam_1.bam");
         let bgzf = BgzfReader::new(file.unwrap());
 
         let mut reader = bgzf.unwrap();

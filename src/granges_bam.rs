@@ -286,7 +286,7 @@ mod tests {
         options.read_qual  = true;
 
         assert!(
-            granges.import_bam_single_end("src/bam_test.2.bam", Some(options)).is_ok()
+            granges.import_bam_single_end("tests/test_bam_2.bam", Some(options)).is_ok()
         );
         assert_eq!(
             granges.num_rows(), n
@@ -336,7 +336,7 @@ mod tests {
         options.read_sequence = true;
 
         assert!(
-            granges.import_bam_paired_end("src/bam_test.2.bam", Some(options)).is_ok()
+            granges.import_bam_paired_end("tests/test_bam_2.bam", Some(options)).is_ok()
         );
         assert_eq!(
             granges.num_rows(), n
