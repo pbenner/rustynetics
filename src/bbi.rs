@@ -49,7 +49,7 @@ pub const BBI_RES_INCREMENT  : u32   = 4;
 
 /* -------------------------------------------------------------------------- */
 
-fn file_read_at<T: Read + Seek>(file: &mut T, offset: u64, data: &mut [u8]) -> io::Result<Vec<u8>> {
+fn read_at<T: Read + Seek>(file: &mut T, offset: u64, data: &mut [u8]) -> io::Result<Vec<u8>> {
     let current_position = file.seek(SeekFrom::Current(0))?;
     file.seek(SeekFrom::Start(offset))?;
     let buffer = Vec::new();
@@ -58,15 +58,7 @@ fn file_read_at<T: Read + Seek>(file: &mut T, offset: u64, data: &mut [u8]) -> i
     Ok(buffer)
 }
 
-fn file_write_at<T: Write + Seek>(file: &mut T, offset: u64, data: &[u8]) -> io::Result<()> {
-    let current_position = file.seek(SeekFrom::Current(0))?;
-    file.seek(SeekFrom::Start(offset))?;
-    file.write_all(data)?;
-    file.seek(SeekFrom::Start(current_position))?;
-    Ok(())
-}
-
-fn file_write_u32_at<E: ByteOrder, T: Write + Seek>(file: &mut T, offset: u64, data: u32) -> io::Result<()> {
+fn write_u32_at<E: ByteOrder, T: Write + Seek>(file: &mut T, offset: u64, data: u32) -> io::Result<()> {
     let current_position = file.seek(SeekFrom::Current(0))?;
     file.seek(SeekFrom::Start(offset))?;
     file.write_u32::<E>(data)?;
@@ -74,7 +66,7 @@ fn file_write_u32_at<E: ByteOrder, T: Write + Seek>(file: &mut T, offset: u64, d
     Ok(())
 }
 
-fn file_write_u64_at<E: ByteOrder, T: Write + Seek>(file: &mut T, offset: u64, data: u64) -> io::Result<()> {
+fn write_u64_at<E: ByteOrder, T: Write + Seek>(file: &mut T, offset: u64, data: u64) -> io::Result<()> {
     let current_position = file.seek(SeekFrom::Current(0))?;
     file.seek(SeekFrom::Start(offset))?;
     file.write_u64::<E>(data)?;
@@ -1249,7 +1241,7 @@ impl BbiHeaderZoom {
         self.ptr_index_offset = file.seek(SeekFrom::Current(0))?;
         self.index_offset = file.read_u64::<E>()?;
 
-        file_read_at(file, self.data_offset, &mut buf)?;
+        read_at(file, self.data_offset, &mut buf)?;
         self.n_blocks = E::read_u32(&buf);
 
         Ok(())
@@ -1269,27 +1261,17 @@ impl BbiHeaderZoom {
     }
 
     pub fn write_offsets<E: ByteOrder, W: Write + Seek>(&self, file: &mut W) -> io::Result<()> {
-        let mut buf = [0u8; 8];
-
         if self.ptr_data_offset != 0 {
-            E::write_u64(&mut buf, self.data_offset);
-
-            file_write_at(file, self.ptr_data_offset, &buf)?;
+            write_u64_at::<E, W>(file, self.ptr_data_offset, self.data_offset)?;
         }
         if self.ptr_index_offset != 0 {
-            E::write_u64(&mut buf, self.index_offset);
-
-            file_write_at(file, self.ptr_index_offset, &buf)?;
+            write_u64_at::<E, W>(file, self.ptr_index_offset, self.index_offset)?;
         }
         Ok(())
     }
 
     pub fn write_n_blocks<E: ByteOrder, W: Write + Seek>(&self, file: &mut W) -> io::Result<()> {
-        let mut buf = [0u8; 4];
-
-        E::write_u32(&mut buf, self.n_blocks);
-
-        file_write_at(file, self.data_offset, &buf)
+        write_u32_at::<E, W>(file, self.data_offset, self.n_blocks)
     }
 }
 
@@ -1465,7 +1447,7 @@ impl BbiHeader {
 
         let mut buf = [0u8; 8];
 
-        file_read_at(file, self.data_offset, &mut buf)?;
+        read_at(file, self.data_offset, &mut buf)?;
         self.n_blocks = E::read_u64(&buf);
 
         Ok(())
@@ -1473,38 +1455,28 @@ impl BbiHeader {
 
     pub fn write_offsets<E: ByteOrder, W: Write + Seek>(&self, file: &mut W) -> io::Result<()> {
 
-        let mut buf = [0u8; 8];
-
         if self.ptr_ct_offset != 0 {
-            E::write_u64(&mut buf, self.ct_offset);
-            file_write_at(file, self.ptr_ct_offset, &buf)?;
+            write_u64_at::<E, W>(file, self.ptr_ct_offset, self.ct_offset)?;
         }
         if self.ptr_data_offset != 0 {
-            E::write_u64(&mut buf, self.data_offset);
-            file_write_at(file, self.ptr_data_offset, &buf)?;
+            write_u64_at::<E, W>(file, self.ptr_data_offset, self.data_offset)?;
         }
         if self.ptr_index_offset != 0 {
-            E::write_u64(&mut buf, self.index_offset);
-            file_write_at(file, self.ptr_index_offset, &buf)?;
+            write_u64_at::<E, W>(file, self.ptr_index_offset, self.index_offset)?;
         }
         if self.ptr_sql_offset != 0 {
-            E::write_u64(&mut buf, self.sql_offset);
-            file_write_at(file, self.ptr_sql_offset, &buf)?;
+            write_u64_at::<E, W>(file, self.ptr_sql_offset, self.sql_offset)?;
         }
         if self.ptr_extension_offset != 0 {
-            E::write_u64(&mut buf, self.extension_offset);
-            file_write_at(file, self.ptr_extension_offset, &buf)?;
+            write_u64_at::<E, W>(file, self.ptr_extension_offset, self.extension_offset)?;
         }
         Ok(())
     }
 
     fn write_uncompress_buf_size<E: ByteOrder, W: Write + Seek>(&self, file: &mut W) -> std::io::Result<()> {
 
-        let mut buf = [0u8; 4];
-
         if self.ptr_uncompress_buf_size != 0 {
-            E::write_u32(&mut buf, self.uncompress_buf_size);
-            file_write_at(file, self.ptr_uncompress_buf_size, &buf)?;
+            write_u32_at::<E, W>(file, self.ptr_uncompress_buf_size, self.uncompress_buf_size)?;
         }
         Ok(())
     }
@@ -1562,10 +1534,7 @@ impl BbiHeader {
             self.summary_offset = offset;
             
             // Write the current offset to the position of summary_offset
-            let mut buf = [0u8; 8];
-            E::write_u64(&mut buf, self.summary_offset);
-
-            file_write_at(file, self.ptr_summary_offset, &buf)?;
+            write_u64_at::<E, W>(file, self.ptr_summary_offset, self.summary_offset)?;
 
             // Write the summary values in the specified byte order
             file.write_u64::<E>(self.n_bases_covered)?;
@@ -1579,10 +1548,7 @@ impl BbiHeader {
 
     pub fn write_n_blocks<E: ByteOrder, W: Write + Seek>(&mut self, file: &mut W) -> std::io::Result<()> {
 
-        let mut buf = [0u8; 8];
-        E::write_u64(&mut buf, self.n_blocks);
-
-        file_write_at(file, self.data_offset, &buf)?;
+        write_u64_at::<E, W>(file, self.data_offset, self.n_blocks)?;
 
         Ok(())
     }
@@ -1653,7 +1619,7 @@ impl RTree {
     }
 
     fn write_size<E: ByteOrder, W: Write + Seek>(&self, file: &mut W) -> io::Result<()> {
-        file_write_u64_at::<E, W>(file, self.ptr_idx_size as u64, self.idx_size)?;
+        write_u64_at::<E, W>(file, self.ptr_idx_size as u64, self.idx_size)?;
         Ok(())
     }
 
@@ -1905,7 +1871,7 @@ impl RVertex {
             for i in 0..self.n_children as usize {
                 let offset = file.seek(SeekFrom::Current(0))?;
                 self.data_offset[i] = offset;
-                file_write_u64_at::<E, W>(file, self.ptr_data_offset[i] as u64, self.data_offset[i])?;
+                write_u64_at::<E, W>(file, self.ptr_data_offset[i] as u64, self.data_offset[i])?;
                 self.children[i].write::<E, W>(file)?;
             }
         }
