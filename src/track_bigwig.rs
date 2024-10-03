@@ -216,7 +216,7 @@ mod tests {
         let filename = "tests/test_bigwig_tmp.bw";
         let nan = f64::NAN;
 
-        let seq_1 = vec![0.0,0.0,0.0,0.0,4.5,5.6,0.0,7.8,8.9,0.0];
+        let seq_1 = vec![0.0,0.0,0.0,nan,4.5,5.6,0.0,7.8,8.9,0.0];
         let seq_2 = vec![0.1,1.2,2.3,3.4,4.5,5.6,0.0,0.0,8.9,9.0,0.1,1.2,2.3,3.4,4.5,5.6,6.7,7.8,8.9,9.0];
         let seq_3 = vec![nan,nan,nan,nan,4.5,5.6,nan,nan,nan,nan];
 
@@ -240,9 +240,10 @@ mod tests {
 
         if let Ok(mut bw) = result {
 
-            for (i, item) in bw.query("test1", 0, 100, 10).enumerate() {
+            for item in bw.query("test1", 0, 100, 10) {
 
                 let result = item.unwrap();
+                let i      = result.data.from as usize / 10;
 
                 assert_eq!(result.data_type, 3);
                 assert_eq!(result.data.from, (i as i32)*10);
