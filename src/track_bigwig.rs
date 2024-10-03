@@ -271,9 +271,6 @@ mod tests {
 
                 assert_eq!(result.data_type, 2);
 
-                println!("{:?}", result);
-                println!("i: {}", i);
-
                 assert!((result.data.statistics.sum - seq_3[i]).abs() < 1e-4);
 
             }
