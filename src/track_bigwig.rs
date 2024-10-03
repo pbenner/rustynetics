@@ -198,3 +198,32 @@ impl<'a> GenericTrack<'a> {
     }
 
 }
+
+/* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
+
+#[cfg(test)]
+mod tests {
+
+    use crate::track_generic::GenericTrack;
+    use crate::track::{Track, MutableTrack};
+    use crate::track_simple::SimpleTrack;
+    use crate::genome::Genome;
+
+    #[test]
+    fn test_track_bigwig_1() {
+
+        let seq_1 = vec![1.0, 2.0, 3.0, 4.0];
+
+        let sequences  = vec![seq_1];
+
+        let seqnames  = vec!["test1"].into_iter().map(|x| { x.to_string() }).collect();
+        let lengths   = vec![400];
+        let genome    = Genome::new(seqnames, lengths);
+
+        let track = SimpleTrack::new("track_name".to_string(), sequences, genome, 100).unwrap();
+
+        GenericTrack::wrap(&track).export_bigwig("tests/test_bigwig_tmp.bw", None);
+
+    }
+}
