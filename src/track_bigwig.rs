@@ -205,6 +205,8 @@ impl<'a> GenericTrack<'a> {
 #[cfg(test)]
 mod tests {
 
+    use std::fs;
+
     use crate::track_bigwig::{BigWigFile, BigWigParameters};
     use crate::track_generic::GenericTrack;
     use crate::track_simple::SimpleTrack;
@@ -293,5 +295,8 @@ mod tests {
             }
 
         }
+
+        assert!(fs::remove_file(filename).is_ok());
+
     }
 }
