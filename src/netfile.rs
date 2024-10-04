@@ -111,22 +111,29 @@ impl Seek for NetFile {
 /* -------------------------------------------------------------------------- */
 
 // HTTP reader that supports seeking using Range requests
+const BUFFER_SIZE: usize = 8192; // Example buffer size (8 KB)
+
 #[derive(Debug)]
 struct HttpSeekableReader {
     client        : Client,
     url           : String,
     current_pos   : u64,
     content_length: u64,
+    buffer        : Vec<u8>,   // Buffer to hold fetched data
+    buffer_start  : u64,       // Start position of the buffer in the file
+    buffer_end    : u64,       // End position of the buffer in the file
 }
 
 impl HttpSeekableReader {
-
     fn new(client: Client, url: String, content_length: u64) -> Self {
         HttpSeekableReader {
             client,
             url,
-            current_pos: 0,
+            current_pos : 0,
             content_length,
+            buffer      : Vec::new(),
+            buffer_start: 0,
+            buffer_end  : 0,
         }
     }
 
@@ -138,22 +145,37 @@ impl HttpSeekableReader {
             .send()
     }
 
+    fn fill_buffer(&mut self) -> io::Result<()> {
+        let range_end     = (self.current_pos + BUFFER_SIZE as u64).min(self.content_length);
+        let response      = self
+            .get_range(self.current_pos..range_end)
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+
+        let bytes         = response.bytes().map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+        self.buffer       = bytes.to_vec(); // Store the fetched data in the buffer
+        self.buffer_start = self.current_pos;
+        self.buffer_end   = self.buffer_start + self.buffer.len() as u64;
+        Ok(())
+    }
 }
 
 impl Read for HttpSeekableReader {
-
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        let range_end = self.current_pos + buf.len() as u64;
-        let response  = self
-            .get_range(self.current_pos..range_end)
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
-        let bytes      = response.bytes().map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
-        let bytes_read = bytes.len().min(buf.len());
-        buf[..bytes_read].copy_from_slice(&bytes[..bytes_read]);
-        self.current_pos += bytes_read as u64;
-        Ok(bytes_read)
-    }
+        // Refill the buffer if it's empty or current_pos is outside the buffer range
+        if self.current_pos < self.buffer_start || self.current_pos >= self.buffer_end {
+            self.fill_buffer()?;
+        }
 
+        // Calculate how much we can read from the buffer
+        let buffer_offset   = (self.current_pos - self.buffer_start) as usize;
+        let available_bytes = (self.buffer_end - self.current_pos) as usize;
+        let bytes_to_read   = buf.len().min(available_bytes);
+
+        buf[..bytes_to_read].copy_from_slice(&self.buffer[buffer_offset..buffer_offset + bytes_to_read]);
+        self.current_pos += bytes_to_read as u64;
+
+        Ok(bytes_to_read)
+    }
 }
 
 impl Seek for HttpSeekableReader {
