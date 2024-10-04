@@ -282,6 +282,27 @@ mod tests {
 
             }
 
+            for item in bw.query("test1", 0, 100, 20) {
+
+                let result  = item.unwrap();
+                let i       = result.data.from as usize / 10;
+                let mut val = 0.0;
+                let mut sum = 0.0;
+
+                if !seq_1[i].is_nan() {
+                    sum += seq_1[i+0]; val += 1.0;
+                }
+                if !seq_1[i+1].is_nan() {
+                    sum += seq_1[i+1]; val += 1.0;
+                }
+
+                assert_eq!(result.data_type, 1);
+
+                assert!((result.data.statistics.valid - val).abs() < 1e-4);
+                assert!((result.data.statistics.sum   - sum).abs() < 1e-4);
+
+            }
+
             for item in bw.query("test2", 0, 200, 20) {
 
                 let result = item.unwrap();
@@ -291,6 +312,18 @@ mod tests {
 
                 assert!((result.data.statistics.valid - 2.0).abs() < 1e-4);
                 assert!((result.data.statistics.sum - (seq_2[i] + seq_2[i+1])).abs() < 1e-4);
+
+            }
+
+            for item in bw.query("test3", 0, 100, 20) {
+
+                let result = item.unwrap();
+                let i      = result.data.from as usize / 10;
+
+                assert_eq!(result.data_type, 1);
+
+                assert!((result.data.statistics.valid - 2.0).abs() < 1e-4);
+                assert!((result.data.statistics.sum - (seq_3[i] + seq_3[i+1])).abs() < 1e-4);
 
             }
 
