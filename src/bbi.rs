@@ -576,10 +576,13 @@ struct BbiZoomBlockDecoder<'a> {
 /* -------------------------------------------------------------------------- */
 
 impl<'a> BbiZoomBlockDecoder<'a> {
-    fn new(buffer: &'a [u8]) -> BbiZoomBlockDecoder<'a> {
-        BbiZoomBlockDecoder {
-            buffer,
+    fn new(buffer: &'a [u8]) -> io::Result<BbiZoomBlockDecoder<'a>> {
+        if buffer.len() % BbiZoomBlockDecoderType::LENGTH != 0 {
+            return Err(io::Error::new(io::ErrorKind::InvalidData, "Invalid zoom block length"))
         }
+        Ok(BbiZoomBlockDecoder {
+            buffer,
+        })
     }
 
     fn decode(&self) -> BbiZoomBlockDecoderIterator {
@@ -2227,9 +2230,14 @@ impl BbiFile {
                         yield Err(err); return ();
                     },
                     Ok(block) => {
+
                         let decoder = BbiZoomBlockDecoder::new(&block);
 
-                        for mut item in decoder.decode() {
+                        if let Err(err) = decoder {
+                            yield Err(err); return ();
+                        }
+
+                        for mut item in decoder.unwrap().decode() {
 
                             match item.read::<E>() {
                                 Err(err) => {
