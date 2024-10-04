@@ -59,10 +59,8 @@ impl NetFile {
         let head_resp = client.head(url).send()?;
         
         if head_resp.status().is_success() {
-            if let Some(content_length) = head_resp.content_length() {
-                let http_reader = HttpSeekableReader::new(client, url.to_string(), content_length);
-                return Ok(NetFile::new(NetFileStream::Http(http_reader)));
-            }
+            let http_reader = HttpSeekableReader::new(client, url.to_string());
+            return Ok(NetFile::new(NetFileStream::Http(http_reader)));
         }
 
         Err(Box::new(io::Error::new(io::ErrorKind::InvalidInput, "HTTP request failed")))
@@ -107,17 +105,15 @@ impl Seek for NetFile {
 struct HttpSeekableReader {
     client        : Client,
     url           : String,
-    content_length: u64,
     current_pos   : u64,
 }
 
 impl HttpSeekableReader {
 
-    fn new(client: Client, url: String, content_length: u64) -> Self {
+    fn new(client: Client, url: String) -> Self {
         HttpSeekableReader {
             client,
             url,
-            content_length,
             current_pos: 0,
         }
     }
@@ -135,12 +131,11 @@ impl HttpSeekableReader {
 impl Read for HttpSeekableReader {
 
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        let range_end = (self.current_pos + buf.len() as u64).min(self.content_length);
-        let response = self
+        let range_end = self.current_pos + buf.len() as u64;
+        let response  = self
             .get_range(self.current_pos..range_end)
             .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
-
-        let bytes = response.bytes().map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+        let bytes      = response.bytes().map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
         let bytes_read = bytes.len().min(buf.len());
         buf[..bytes_read].copy_from_slice(&bytes[..bytes_read]);
         self.current_pos += bytes_read as u64;
@@ -153,29 +148,23 @@ impl Seek for HttpSeekableReader {
 
     fn seek(&mut self, pos: SeekFrom) -> io::Result<u64> {
         let new_pos = match pos {
-            SeekFrom::Start(p) => p,
-            SeekFrom::End(p) => {
-                if p >= 0 {
-                    self.content_length
-                } else {
-                    (self.content_length as i64 + p) as u64
-                }
-            }
+            SeekFrom::Start(p) => {
+                p
+            },
             SeekFrom::Current(p) => {
                 if p >= 0 {
                     self.current_pos + p as u64
                 } else {
-                    (self.current_pos as i64 + p) as u64
+                    self.current_pos - ((-p) as u64)
                 }
+            },
+            _  => {
+                panic!("not implemented");
             }
         };
+        self.current_pos = new_pos;
 
-        if new_pos <= self.content_length {
-            self.current_pos = new_pos;
-            Ok(self.current_pos)
-        } else {
-            Err(io::Error::new(io::ErrorKind::InvalidInput, "Seek position out of bounds"))
-        }
+        Ok(new_pos)
     }
 
 }
