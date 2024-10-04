@@ -144,11 +144,6 @@ impl BbiZoomRecord {
         Ok(())
     }
 
-    fn write_buffer<E: ByteOrder>(&self, buffer : &mut Vec<u8>) -> io::Result<()> {
-        let mut cursor = Cursor::new(buffer);
-
-        self.write::<E, _>(&mut cursor)
-    }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -632,11 +627,11 @@ impl<'a> Iterator for BbiZoomBlockDecoderIterator<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
 
-        self.position += BbiZoomBlockDecoderType::LENGTH;
-
         if self.position >= self.decoder.buffer.len() {
             return None
         }
+
+        self.position += BbiZoomBlockDecoderType::LENGTH;
 
         Some(self.clone())
     }
@@ -868,16 +863,16 @@ impl BbiZoomBlockEncoderIterator {
 
     fn write<E: ByteOrder>(&mut self) -> io::Result<BbiBlockEncoderType> {
 
-        let mut buffer = Vec::new();
+        let mut buffer = Cursor::new(Vec::new());
 
         for record in &self.records {
-            record.write_buffer::<E>(&mut buffer)?;
+            record.write::<E, _>(&mut buffer)?;
         }
 
         Ok(BbiBlockEncoderType{
             from : self.from as usize,
             to   : self.to   as usize,
-            block: buffer,
+            block: buffer.into_inner(),
         })
     }
 }
