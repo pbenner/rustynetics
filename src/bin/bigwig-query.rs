@@ -22,7 +22,12 @@ use rustynetics::bigwig::BigWigFile;
 
 /* -------------------------------------------------------------------------- */
 
-fn query(filename_in: &str, chrom: &str, from: usize, to: usize, bin_size: usize) {
+fn query(filename_in: &str, chrom: &str, from: usize, to: usize, bin_size: usize, verbose: bool) {
+
+    if verbose {
+        eprintln!("Opening bigWig file {}", filename_in);
+    }
+
     // Open the BigWig file
     let mut reader = BigWigFile::new_reader(filename_in).unwrap_or_else(|err| {
         eprintln!("Error opening file: {}", err);
@@ -83,6 +88,11 @@ fn main() {
                 .required(true)
                 .index(5),
         )
+        .arg(
+            Arg::new("verbose")
+                .short('v')
+                .long("verbose")
+                .help("Be verbose"))
         .get_matches();
 
     let filename_in = matches.get_one::<String>("input").expect("Input file is required");
@@ -111,7 +121,8 @@ fn main() {
             eprintln!("Invalid bin size");
             process::exit(1);
         });
+    let verbose = matches.get_flag("verbose");
 
-    query(filename_in, chrom, from, to, bin_size);
+    query(filename_in, chrom, from, to, bin_size, verbose);
 
 }
