@@ -92,6 +92,7 @@ fn main() {
             Arg::new("verbose")
                 .short('v')
                 .long("verbose")
+                .action(clap::ArgAction::SetTrue)
                 .help("Be verbose"))
         .get_matches();
 

@@ -56,7 +56,7 @@ fn query(
         f64::NAN,
     )?;
 
-    println!("{:?}", result);
+    println!("{:?}", result.0);
 
     Ok(())
 }
@@ -93,11 +93,8 @@ fn main() {
         .arg(Arg::new("verbose")
             .short('v')
             .long("verbose")
+            .action(clap::ArgAction::SetTrue)
             .help("Be verbose"))
-        .arg(Arg::new("help")
-            .short('h')
-            .long("help")
-            .help("Print help"))
         .get_matches();
 
     let filename_in = matches.get_one::<String>("input").unwrap();
