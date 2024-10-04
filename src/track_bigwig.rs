@@ -280,6 +280,18 @@ mod tests {
 
             }
 
+            for item in bw.query("test2", 0, 200, 20) {
+
+                let result = item.unwrap();
+                let i      = result.data.from as usize / 10;
+
+                assert_eq!(result.data_type, 1);
+
+                assert!((result.data.statistics.valid - 2.0).abs() < 1e-4);
+                assert!((result.data.statistics.sum - (seq_2[i] + seq_2[i+1])).abs() < 1e-4);
+
+            }
+
         }
     }
 }
