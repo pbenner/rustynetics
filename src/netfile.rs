@@ -55,15 +55,25 @@ impl NetFile {
     }
 
     fn open_http(url: &str) -> Result<NetFile, Box<dyn Error>> {
-        let client = Client::new();
+        let client    = Client::new();
         let head_resp = client.head(url).send()?;
-        
-        if head_resp.status().is_success() {
-            let http_reader = HttpSeekableReader::new(client, url.to_string());
-            return Ok(NetFile::new(NetFileStream::Http(http_reader)));
+
+        if !head_resp.status().is_success() {
+            return Err(Box::new(io::Error::new(io::ErrorKind::InvalidInput, "HTTP request failed")));
         }
 
-        Err(Box::new(io::Error::new(io::ErrorKind::InvalidInput, "HTTP request failed")))
+        let content_length = head_resp
+            .headers()
+            .get("Content-Length")
+            .ok_or_else(|| Box::new(io::Error::new(io::ErrorKind::InvalidData, "Missing Content-Length header")))?
+            .to_str()
+            .map_err(|_| Box::new(io::Error::new(io::ErrorKind::InvalidData, "Invalid Content-Length header")))?
+            .parse::<u64>()
+            .map_err(|_| Box::new(io::Error::new(io::ErrorKind::InvalidData, "Invalid Content-Length header")))?;
+
+        let http_reader = HttpSeekableReader::new(client, url.to_string(), content_length);
+
+        Ok(NetFile::new(NetFileStream::Http(http_reader)))
     }
 
     pub fn open(filename: &str) -> Result<NetFile, Box<dyn Error>> {
@@ -106,15 +116,17 @@ struct HttpSeekableReader {
     client        : Client,
     url           : String,
     current_pos   : u64,
+    content_length: u64,
 }
 
 impl HttpSeekableReader {
 
-    fn new(client: Client, url: String) -> Self {
+    fn new(client: Client, url: String, content_length: u64) -> Self {
         HttpSeekableReader {
             client,
             url,
             current_pos: 0,
+            content_length,
         }
     }
 
@@ -155,11 +167,15 @@ impl Seek for HttpSeekableReader {
                 if p >= 0 {
                     self.current_pos + p as u64
                 } else {
-                    self.current_pos - ((-p) as u64)
+                    self.current_pos.saturating_sub((-p) as u64)
                 }
-            },
-            _  => {
-                panic!("not implemented");
+            }
+            SeekFrom::End(p) => {
+                if p >= 0 {
+                    self.content_length + p as u64
+                } else {
+                    self.content_length.saturating_sub((-p) as u64)
+                }
             }
         };
         self.current_pos = new_pos;
