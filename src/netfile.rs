@@ -178,6 +178,12 @@ impl Seek for HttpSeekableReader {
                 }
             }
         };
+
+        // Prevent seeking beyond EOF
+        if new_pos > self.content_length {
+            return Err(io::Error::new(io::ErrorKind::InvalidInput, "Seek position beyond file size"));
+        }
+
         self.current_pos = new_pos;
 
         Ok(new_pos)
