@@ -16,7 +16,6 @@
 
 use std::fmt;
 use std::io::Write;
-use std::sync::Arc;
 use std::io;
 use std::error::Error;
 
@@ -34,7 +33,7 @@ use crate::track_statistics::estimate_fragment_length;
 
 // Define an enum to represent all the possible option values
 pub enum OptionBamCoverage {
-    Logger(Arc<dyn Write>),
+    Logger(Box<dyn Write>),
     BinningMethod(String),
     BinSize(usize),
     BinOverlap(i64),
@@ -97,7 +96,7 @@ impl fmt::Display for OptionBamCoverage {
 
 // Define the BamCoverageConfig struct
 pub struct BamCoverageConfig {
-    pub logger: Arc<dyn Write>,
+    pub logger: Box<dyn Write>,
     pub binning_method: String,
     pub bin_size: usize,
     pub bin_overlap: i64,
@@ -211,7 +210,7 @@ impl BamCoverageConfig {
 impl BamCoverageConfig {
     pub fn default() -> Self {
         BamCoverageConfig {
-            logger: Arc::new(io::sink()), // Discard logger output
+            logger: Box::new(io::sink()), // Discard logger output
             binning_method: String::from("simple"),
             bin_size: 10,
             bin_overlap: 0,
@@ -305,7 +304,7 @@ pub fn filter_paired_end<'a>(config: &BamCoverageConfig, mut stream_in: ReadStre
         }
 
         if n != 0 {
-            config.logger.log(format!("Filtered out {} unpaired reads ({:.2}%)", n - m, 100.0 * (n - m) as f64 / n as f64));
+            write!(config.logger, "Filtered out {} unpaired reads ({:.2}%)", n - m, 100.0 * (n - m) as f64 / n as f64);
         }
     };
 
@@ -338,7 +337,7 @@ pub fn filter_single_end<'a>(config: &BamCoverageConfig, veto: bool, mut stream_
         }
 
         if n != 0 {
-            config.logger.log(format!("Filtered out {} paired reads ({:.2}%)", n - m, 100.0 * (n - m) as f64 / n as f64));
+            write!(config.logger, "Filtered out {} paired reads ({:.2}%)", n - m, 100.0 * (n - m) as f64 / n as f64);
         }
     };
 
@@ -371,7 +370,7 @@ pub fn filter_duplicates<'a>(config: &BamCoverageConfig, mut stream_in: ReadStre
         }
 
         if n != 0 {
-            config.logger.log(format!("Filtered out {} duplicates ({:.2}%)", n - m, 100.0 * (n - m) as f64 / n as f64));
+            write!(config.logger, "Filtered out {} duplicates ({:.2}%)", n - m, 100.0 * (n - m) as f64 / n as f64);
         }
     };
 
@@ -404,7 +403,7 @@ pub fn filter_strand<'a>(config: &BamCoverageConfig, mut stream_in: ReadStream<'
         }
 
         if n != 0 {
-            config.logger.log(format!("Filtered out {} reads not on strand {} ({:.2}%)", n - m, config.filter_strand, 100.0 * (n - m) as f64 / n as f64));
+            write!(config.logger, "Filtered out {} reads not on strand {} ({:.2}%)", n - m, config.filter_strand, 100.0 * (n - m) as f64 / n as f64);
         }
     };
 
@@ -437,7 +436,7 @@ pub fn filter_mapq<'a>(config: &BamCoverageConfig, mut stream_in: ReadStream<'a>
         }
 
         if n != 0 {
-            config.logger.log(format!("Filtered out {} reads with mapping quality lower than {} ({:.2}%)", n - m, config.filter_mapq, 100.0 * (n - m) as f64 / n as f64));
+            write!(config.logger, "Filtered out {} reads with mapping quality lower than {} ({:.2}%)", n - m, config.filter_mapq, 100.0 * (n - m) as f64 / n as f64);
         }
     };
 
@@ -472,7 +471,7 @@ pub fn filter_read_length<'a>(config: &BamCoverageConfig, mut stream_in: ReadStr
         }
 
         if n != 0 {
-            config.logger.log(format!("Filtered out {} reads with non-admissible length ({:.2}%)", n - m, 100.0 * (n - m) as f64 / n as f64));
+            write!(config.logger, "Filtered out {} reads with non-admissible length ({:.2}%)", n - m, 100.0 * (n - m) as f64 / n as f64);
         }
     };
 
@@ -509,7 +508,7 @@ pub fn shift_reads<'a>(config: &BamCoverageConfig, mut stream_in: ReadStream<'a>
             }
         }
 
-        config.logger.log(format!("Shifted reads (forward strand: {}, reverse strand: {})", config.shift_reads[0], config.shift_reads[1]));
+        write!(config.logger, "Shifted reads (forward strand: {}, reverse strand: {})", config.shift_reads[0], config.shift_reads[1]);
     };
 
     Box::pin(output_stream)
@@ -518,12 +517,11 @@ pub fn shift_reads<'a>(config: &BamCoverageConfig, mut stream_in: ReadStream<'a>
 /* -------------------------------------------------------------------------- */
 
 pub fn estimate_fraglen(config: &BamCoverageConfig, filename: &str, genome: &Genome) -> Result<FraglenEstimate, Box<dyn Error>> {
-    let reads: ReadStream;
 
-    config.logger.log(format!("Reading tags from `{}`", filename));
+    write!(config.logger, "Reading tags from `{}`", filename);
 
     let bam_result = BamFile::open(filename, None);
-    let bam = match bam_result {
+    let mut bam = match bam_result {
         Ok (b)   => b,
         Err(err) => return Err(err),
     };
@@ -537,7 +535,7 @@ pub fn estimate_fraglen(config: &BamCoverageConfig, filename: &str, genome: &Gen
     let reads_3 = filter_duplicates(config, reads_2);
     let reads_4 = filter_mapq(config, reads_3);
 
-    let err_opt = None;
+    let mut err_opt = None;
     // Convert stream to iterator and catch errors
     let reads_iter = block_on_stream(reads_4).map_while(|item| {
         match item {
@@ -550,11 +548,11 @@ pub fn estimate_fraglen(config: &BamCoverageConfig, filename: &str, genome: &Gen
     });
 
     // Estimate fragment length
-    config.logger.log("Estimating mean fragment length".to_string());
+    write!(config.logger, "Estimating mean fragment length");
 
     let r = match estimate_fragment_length(reads_iter, genome, 2000, config.fraglen_bin_size, config.fraglen_range) {
-        Ok((fraglen, x, y, n)) => {
-            config.logger.log(format!("Estimated mean fragment length: {}", fraglen));
+        Ok((fraglen, x, y, _n)) => {
+            write!(config.logger, "Estimated mean fragment length: {}", fraglen);
             Ok(FraglenEstimate { fraglen, x, y })
         },
         Err(err) => Err(err),
