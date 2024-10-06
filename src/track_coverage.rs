@@ -23,6 +23,7 @@ use std::error::Error;
 use core::pin::Pin;
 use futures::{Stream, StreamExt};
 use async_stream::stream;
+use futures::executor::block_on_stream;
 
 use crate::bam::BamFile;
 use crate::genome::Genome;
@@ -528,7 +529,7 @@ pub fn estimate_fraglen(config: &BamCoverageConfig, filename: &str, genome: &Gen
     };
 
     // Read the reads
-    let mut reads = bam.reader.read_simple(false, false);
+    let reads = Box::pin(bam.reader.read_simple_stream(false, false));
 
     // First round of filtering
     reads = filter_single_end(config, true, reads);
@@ -536,10 +537,20 @@ pub fn estimate_fraglen(config: &BamCoverageConfig, filename: &str, genome: &Gen
     reads = filter_duplicates(config, reads);
     reads = filter_mapq(config, reads);
 
+    // Convert stream to iterator and catch errors
+    let read_iter = block_on_stream(reads).map(|result| {
+        match result {
+            Ok(read) => Ok(read),
+            Err(err) => {
+                return Err(err);
+            }
+        }
+    });
+
     // Estimate fragment length
     config.logger.log("Estimating mean fragment length".to_string());
 
-    match estimate_fragment_length(reads, genome, 2000, config.fraglen_bin_size, config.fraglen_range) {
+    match estimate_fragment_length(reads_iter, genome, 2000, config.fraglen_bin_size, config.fraglen_range) {
         Ok((fraglen, x, y, n)) => {
             config.logger.log(format!("Estimated mean fragment length: {}", fraglen));
             Ok(FraglenEstimate { fraglen, x, y })
