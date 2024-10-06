@@ -18,6 +18,7 @@ use std::fmt;
 use std::io::Write;
 use std::io;
 use std::error::Error;
+use std::cell::RefCell;
 
 use core::pin::Pin;
 use futures::{Stream, StreamExt};
@@ -31,9 +32,13 @@ use crate::track_statistics::estimate_fragment_length;
 
 /* -------------------------------------------------------------------------- */
 
+type Logger = Box<RefCell<dyn Write>>;
+
+/* -------------------------------------------------------------------------- */
+
 // Define an enum to represent all the possible option values
 pub enum OptionBamCoverage {
-    Logger(Box<dyn Write>),
+    Logger(Logger),
     BinningMethod(String),
     BinSize(usize),
     BinOverlap(i64),
@@ -96,7 +101,7 @@ impl fmt::Display for OptionBamCoverage {
 
 // Define the BamCoverageConfig struct
 pub struct BamCoverageConfig {
-    pub logger: Box<dyn Write>,
+    pub logger: Logger,
     pub binning_method: String,
     pub bin_size: usize,
     pub bin_overlap: i64,
@@ -210,7 +215,7 @@ impl BamCoverageConfig {
 impl BamCoverageConfig {
     pub fn default() -> Self {
         BamCoverageConfig {
-            logger: Box::new(io::sink()), // Discard logger output
+            logger: Box::new(RefCell::new(io::sink())), // Discard logger output
             binning_method: String::from("simple"),
             bin_size: 10,
             bin_overlap: 0,
@@ -253,7 +258,7 @@ type ReadStream<'a> = Pin<Box<dyn Stream<Item = io::Result<reads::Read>> + 'a>>;
 /* -------------------------------------------------------------------------- */
 
 pub fn filter_paired_as_single_end<'a>(
-    config: &BamCoverageConfig,
+    config: &'a BamCoverageConfig,
     mut stream_in: ReadStream<'a>,
 ) -> ReadStream<'a> {
 
@@ -281,7 +286,7 @@ pub fn filter_paired_as_single_end<'a>(
 /* -------------------------------------------------------------------------- */
 
 // Function to filter paired reads
-pub fn filter_paired_end<'a>(config: &BamCoverageConfig, mut stream_in: ReadStream<'a>) -> ReadStream<'a> {
+pub fn filter_paired_end<'a>(config: &'a BamCoverageConfig, mut stream_in: ReadStream<'a>) -> ReadStream<'a> {
     if !config.filter_paired_end {
         return stream_in;
     }
@@ -304,7 +309,7 @@ pub fn filter_paired_end<'a>(config: &BamCoverageConfig, mut stream_in: ReadStre
         }
 
         if n != 0 {
-            write!(config.logger, "Filtered out {} unpaired reads ({:.2}%)", n - m, 100.0 * (n - m) as f64 / n as f64);
+            write!(config.logger.borrow_mut(), "Filtered out {} unpaired reads ({:.2}%)", n - m, 100.0 * (n - m) as f64 / n as f64);
         }
     };
 
@@ -314,7 +319,7 @@ pub fn filter_paired_end<'a>(config: &BamCoverageConfig, mut stream_in: ReadStre
 /* -------------------------------------------------------------------------- */
 
 // Function to filter single-end reads
-pub fn filter_single_end<'a>(config: &BamCoverageConfig, veto: bool, mut stream_in: ReadStream<'a>) -> ReadStream<'a> {
+pub fn filter_single_end<'a>(config: &'a BamCoverageConfig, veto: bool, mut stream_in: ReadStream<'a>) -> ReadStream<'a> {
     if !config.filter_single_end && !veto {
         return stream_in;
     }
@@ -337,7 +342,7 @@ pub fn filter_single_end<'a>(config: &BamCoverageConfig, veto: bool, mut stream_
         }
 
         if n != 0 {
-            write!(config.logger, "Filtered out {} paired reads ({:.2}%)", n - m, 100.0 * (n - m) as f64 / n as f64);
+            write!(config.logger.borrow_mut(), "Filtered out {} paired reads ({:.2}%)", n - m, 100.0 * (n - m) as f64 / n as f64);
         }
     };
 
@@ -347,7 +352,7 @@ pub fn filter_single_end<'a>(config: &BamCoverageConfig, veto: bool, mut stream_
 /* -------------------------------------------------------------------------- */
 
 // Function to filter duplicates
-pub fn filter_duplicates<'a>(config: &BamCoverageConfig, mut stream_in: ReadStream<'a>) -> ReadStream<'a> {
+pub fn filter_duplicates<'a>(config: &'a BamCoverageConfig, mut stream_in: ReadStream<'a>) -> ReadStream<'a> {
     if !config.filter_duplicates {
         return stream_in;
     }
@@ -370,7 +375,7 @@ pub fn filter_duplicates<'a>(config: &BamCoverageConfig, mut stream_in: ReadStre
         }
 
         if n != 0 {
-            write!(config.logger, "Filtered out {} duplicates ({:.2}%)", n - m, 100.0 * (n - m) as f64 / n as f64);
+            write!(config.logger.borrow_mut(), "Filtered out {} duplicates ({:.2}%)", n - m, 100.0 * (n - m) as f64 / n as f64);
         }
     };
 
@@ -380,7 +385,7 @@ pub fn filter_duplicates<'a>(config: &BamCoverageConfig, mut stream_in: ReadStre
 /* -------------------------------------------------------------------------- */
 
 // Function to filter based on strand
-pub fn filter_strand<'a>(config: &BamCoverageConfig, mut stream_in: ReadStream<'a>) -> ReadStream<'a> {
+pub fn filter_strand<'a>(config: &'a BamCoverageConfig, mut stream_in: ReadStream<'a>) -> ReadStream<'a> {
     if config.filter_strand == '*' {
         return stream_in;
     }
@@ -403,7 +408,7 @@ pub fn filter_strand<'a>(config: &BamCoverageConfig, mut stream_in: ReadStream<'
         }
 
         if n != 0 {
-            write!(config.logger, "Filtered out {} reads not on strand {} ({:.2}%)", n - m, config.filter_strand, 100.0 * (n - m) as f64 / n as f64);
+            write!(config.logger.borrow_mut(), "Filtered out {} reads not on strand {} ({:.2}%)", n - m, config.filter_strand, 100.0 * (n - m) as f64 / n as f64);
         }
     };
 
@@ -413,7 +418,7 @@ pub fn filter_strand<'a>(config: &BamCoverageConfig, mut stream_in: ReadStream<'
 /* -------------------------------------------------------------------------- */
 
 // Function to filter based on mapping quality
-pub fn filter_mapq<'a>(config: &BamCoverageConfig, mut stream_in: ReadStream<'a>) -> ReadStream<'a> {
+pub fn filter_mapq<'a>(config: &'a BamCoverageConfig, mut stream_in: ReadStream<'a>) -> ReadStream<'a> {
     if config.filter_mapq <= 0 {
         return stream_in;
     }
@@ -436,7 +441,7 @@ pub fn filter_mapq<'a>(config: &BamCoverageConfig, mut stream_in: ReadStream<'a>
         }
 
         if n != 0 {
-            write!(config.logger, "Filtered out {} reads with mapping quality lower than {} ({:.2}%)", n - m, config.filter_mapq, 100.0 * (n - m) as f64 / n as f64);
+            write!(config.logger.borrow_mut(), "Filtered out {} reads with mapping quality lower than {} ({:.2}%)", n - m, config.filter_mapq, 100.0 * (n - m) as f64 / n as f64);
         }
     };
 
@@ -446,7 +451,7 @@ pub fn filter_mapq<'a>(config: &BamCoverageConfig, mut stream_in: ReadStream<'a>
 /* -------------------------------------------------------------------------- */
 
 // Function to filter based on read length
-pub fn filter_read_length<'a>(config: &BamCoverageConfig, mut stream_in: ReadStream<'a>) -> ReadStream<'a> {
+pub fn filter_read_length<'a>(config: &'a BamCoverageConfig, mut stream_in: ReadStream<'a>) -> ReadStream<'a> {
     if config.filter_read_lengths[0] == 0 && config.filter_read_lengths[1] == 0 {
         return stream_in;
     }
@@ -471,7 +476,7 @@ pub fn filter_read_length<'a>(config: &BamCoverageConfig, mut stream_in: ReadStr
         }
 
         if n != 0 {
-            write!(config.logger, "Filtered out {} reads with non-admissible length ({:.2}%)", n - m, 100.0 * (n - m) as f64 / n as f64);
+            write!(config.logger.borrow_mut(), "Filtered out {} reads with non-admissible length ({:.2}%)", n - m, 100.0 * (n - m) as f64 / n as f64);
         }
     };
 
@@ -481,7 +486,7 @@ pub fn filter_read_length<'a>(config: &BamCoverageConfig, mut stream_in: ReadStr
 /* -------------------------------------------------------------------------- */
 
 // Function to shift reads based on strand
-pub fn shift_reads<'a>(config: &BamCoverageConfig, mut stream_in: ReadStream<'a>) -> ReadStream<'a> {
+pub fn shift_reads<'a>(config: &'a BamCoverageConfig, mut stream_in: ReadStream<'a>) -> ReadStream<'a> {
     if config.shift_reads[0] == 0 && config.shift_reads[1] == 0 {
         return stream_in;
     }
@@ -508,7 +513,7 @@ pub fn shift_reads<'a>(config: &BamCoverageConfig, mut stream_in: ReadStream<'a>
             }
         }
 
-        write!(config.logger, "Shifted reads (forward strand: {}, reverse strand: {})", config.shift_reads[0], config.shift_reads[1]);
+        write!(config.logger.borrow_mut(), "Shifted reads (forward strand: {}, reverse strand: {})", config.shift_reads[0], config.shift_reads[1]);
     };
 
     Box::pin(output_stream)
@@ -518,7 +523,7 @@ pub fn shift_reads<'a>(config: &BamCoverageConfig, mut stream_in: ReadStream<'a>
 
 pub fn estimate_fraglen(config: &BamCoverageConfig, filename: &str, genome: &Genome) -> Result<FraglenEstimate, Box<dyn Error>> {
 
-    write!(config.logger, "Reading tags from `{}`", filename);
+    write!(config.logger.borrow_mut(), "Reading tags from `{}`", filename);
 
     let bam_result = BamFile::open(filename, None);
     let mut bam = match bam_result {
@@ -548,11 +553,11 @@ pub fn estimate_fraglen(config: &BamCoverageConfig, filename: &str, genome: &Gen
     });
 
     // Estimate fragment length
-    write!(config.logger, "Estimating mean fragment length");
+    write!(config.logger.borrow_mut(), "Estimating mean fragment length");
 
     let r = match estimate_fragment_length(reads_iter, genome, 2000, config.fraglen_bin_size, config.fraglen_range) {
         Ok((fraglen, x, y, _n)) => {
-            write!(config.logger, "Estimated mean fragment length: {}", fraglen);
+            write!(config.logger.borrow_mut(), "Estimated mean fragment length: {}", fraglen);
             Ok(FraglenEstimate { fraglen, x, y })
         },
         Err(err) => Err(err),
