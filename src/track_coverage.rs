@@ -249,14 +249,14 @@ pub struct FraglenEstimate {
 
 /* -------------------------------------------------------------------------- */
 
-type ReadStream = Pin<Box<dyn Stream<Item = io::Result<reads::Read>>>>;
+type ReadStream<'a> = Pin<Box<dyn Stream<Item = io::Result<reads::Read>> + 'a>>;
 
 /* -------------------------------------------------------------------------- */
 
-pub fn filter_paired_as_single_end(
+pub fn filter_paired_as_single_end<'a>(
     config: &BamCoverageConfig,
-    mut stream_in: ReadStream,
-) -> ReadStream {
+    mut stream_in: ReadStream<'a>,
+) -> ReadStream<'a> {
 
     // If PairedAsSingleEnd is false, return the input stream directly
     if !config.paired_as_single_end {
@@ -282,7 +282,7 @@ pub fn filter_paired_as_single_end(
 /* -------------------------------------------------------------------------- */
 
 // Function to filter paired reads
-pub fn filter_paired_end(config: &BamCoverageConfig, mut stream_in: ReadStream) -> ReadStream {
+pub fn filter_paired_end<'a>(config: &BamCoverageConfig, mut stream_in: ReadStream<'a>) -> ReadStream<'a> {
     if !config.filter_paired_end {
         return stream_in;
     }
@@ -315,7 +315,7 @@ pub fn filter_paired_end(config: &BamCoverageConfig, mut stream_in: ReadStream) 
 /* -------------------------------------------------------------------------- */
 
 // Function to filter single-end reads
-pub fn filter_single_end(config: &BamCoverageConfig, veto: bool, mut stream_in: ReadStream) -> ReadStream {
+pub fn filter_single_end<'a>(config: &BamCoverageConfig, veto: bool, mut stream_in: ReadStream<'a>) -> ReadStream<'a> {
     if !config.filter_single_end && !veto {
         return stream_in;
     }
@@ -348,7 +348,7 @@ pub fn filter_single_end(config: &BamCoverageConfig, veto: bool, mut stream_in: 
 /* -------------------------------------------------------------------------- */
 
 // Function to filter duplicates
-pub fn filter_duplicates(config: &BamCoverageConfig, mut stream_in: ReadStream) -> ReadStream {
+pub fn filter_duplicates<'a>(config: &BamCoverageConfig, mut stream_in: ReadStream<'a>) -> ReadStream<'a> {
     if !config.filter_duplicates {
         return stream_in;
     }
@@ -381,7 +381,7 @@ pub fn filter_duplicates(config: &BamCoverageConfig, mut stream_in: ReadStream) 
 /* -------------------------------------------------------------------------- */
 
 // Function to filter based on strand
-pub fn filter_strand(config: &BamCoverageConfig, mut stream_in: ReadStream) -> ReadStream {
+pub fn filter_strand<'a>(config: &BamCoverageConfig, mut stream_in: ReadStream<'a>) -> ReadStream<'a> {
     if config.filter_strand == '*' {
         return stream_in;
     }
@@ -414,7 +414,7 @@ pub fn filter_strand(config: &BamCoverageConfig, mut stream_in: ReadStream) -> R
 /* -------------------------------------------------------------------------- */
 
 // Function to filter based on mapping quality
-pub fn filter_mapq(config: &BamCoverageConfig, mut stream_in: ReadStream) -> ReadStream {
+pub fn filter_mapq<'a>(config: &BamCoverageConfig, mut stream_in: ReadStream<'a>) -> ReadStream<'a> {
     if config.filter_mapq <= 0 {
         return stream_in;
     }
@@ -447,7 +447,7 @@ pub fn filter_mapq(config: &BamCoverageConfig, mut stream_in: ReadStream) -> Rea
 /* -------------------------------------------------------------------------- */
 
 // Function to filter based on read length
-pub fn filter_read_length(config: &BamCoverageConfig, mut stream_in: ReadStream) -> ReadStream {
+pub fn filter_read_length<'a>(config: &BamCoverageConfig, mut stream_in: ReadStream<'a>) -> ReadStream<'a> {
     if config.filter_read_lengths[0] == 0 && config.filter_read_lengths[1] == 0 {
         return stream_in;
     }
@@ -482,7 +482,7 @@ pub fn filter_read_length(config: &BamCoverageConfig, mut stream_in: ReadStream)
 /* -------------------------------------------------------------------------- */
 
 // Function to shift reads based on strand
-pub fn shift_reads(config: &BamCoverageConfig, mut stream_in: ReadStream) -> ReadStream {
+pub fn shift_reads<'a>(config: &BamCoverageConfig, mut stream_in: ReadStream<'a>) -> ReadStream<'a> {
     if config.shift_reads[0] == 0 && config.shift_reads[1] == 0 {
         return stream_in;
     }
@@ -527,22 +527,24 @@ pub fn estimate_fraglen(config: &BamCoverageConfig, filename: &str, genome: &Gen
         Ok (b)   => b,
         Err(err) => return Err(err),
     };
+    let err_opt = None;
 
     // Read the reads
     let reads = Box::pin(bam.reader.read_simple_stream(false, false));
 
     // First round of filtering
-    reads = filter_single_end(config, true, reads);
-    reads = filter_read_length(config, reads);
-    reads = filter_duplicates(config, reads);
-    reads = filter_mapq(config, reads);
+    let reads_1 = filter_single_end(config, true, reads);
+    let reads_2 = filter_read_length(config, reads_1);
+    let reads_3 = filter_duplicates(config, reads_2);
+    let reads_4 = filter_mapq(config, reads_3);
 
     // Convert stream to iterator and catch errors
-    let read_iter = block_on_stream(reads).map(|result| {
-        match result {
-            Ok(read) => Ok(read),
+    let reads_iter = block_on_stream(reads_4).map_while(|item| {
+        match item {
+            Ok(read) => Some(read),
             Err(err) => {
-                return Err(err);
+                err_opt = Some(err);
+                None
             }
         }
     });
@@ -550,11 +552,16 @@ pub fn estimate_fraglen(config: &BamCoverageConfig, filename: &str, genome: &Gen
     // Estimate fragment length
     config.logger.log("Estimating mean fragment length".to_string());
 
-    match estimate_fragment_length(reads_iter, genome, 2000, config.fraglen_bin_size, config.fraglen_range) {
+    let r = match estimate_fragment_length(reads_iter, genome, 2000, config.fraglen_bin_size, config.fraglen_range) {
         Ok((fraglen, x, y, n)) => {
             config.logger.log(format!("Estimated mean fragment length: {}", fraglen));
             Ok(FraglenEstimate { fraglen, x, y })
         },
         Err(err) => Err(err),
+    };
+
+    if let Some(err) = err_opt {
+        return Err(Box::new(err));
     }
+    r
 }
