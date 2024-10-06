@@ -34,7 +34,7 @@ pub enum OptionBamCoverage {
     BinSize(i64),
     BinOverlap(i64),
     NormalizeTrack(String),
-    ShiftReads([i64; 2]),
+    ShiftReads([usize; 2]),
     PairedAsSingleEnd(bool),
     PairedEndStrandSpecific(bool),
     LogScale(bool),
@@ -45,9 +45,9 @@ pub enum OptionBamCoverage {
     FilterChroms(Vec<String>),
     RemoveFilteredChroms(bool),
     FilterMapQ(i64),
-    FilterReadLengths([i64; 2]),
+    FilterReadLengths([usize; 2]),
     FilterDuplicates(bool),
-    FilterStrand(u8),
+    FilterStrand(char),
     FilterPairedEnd(bool),
     FilterSingleEnd(bool),
     SmoothenControl(bool),
@@ -97,7 +97,7 @@ pub struct BamCoverageConfig {
     pub bin_size: i64,
     pub bin_overlap: i64,
     pub normalize_track: String,
-    pub shift_reads: [i64; 2],
+    pub shift_reads: [usize; 2],
     pub paired_as_single_end: bool,
     pub paired_end_strand_specific: bool,
     pub log_scale: bool,
@@ -106,10 +106,10 @@ pub struct BamCoverageConfig {
     pub fraglen_range: [i64; 2],
     pub fraglen_bin_size: i64,
     pub filter_chroms: Vec<String>,
-    pub filter_map_q: i64,
-    pub filter_read_lengths: [i64; 2],
+    pub filter_mapq: i64,
+    pub filter_read_lengths: [usize; 2],
     pub filter_duplicates: bool,
-    pub filter_strand: u8,
+    pub filter_strand: char,
     pub filter_paired_end: bool,
     pub filter_single_end: bool,
     pub remove_filtered_chroms: bool,
@@ -166,8 +166,8 @@ impl BamCoverageConfig {
             OptionBamCoverage::FilterChroms(chroms) => {
                 self.filter_chroms = chroms;
             }
-            OptionBamCoverage::FilterMapQ(map_q) => {
-                self.filter_map_q = map_q;
+            OptionBamCoverage::FilterMapQ(mapq) => {
+                self.filter_mapq = mapq;
             }
             OptionBamCoverage::FilterReadLengths(read_lengths) => {
                 self.filter_read_lengths = read_lengths;
@@ -220,10 +220,10 @@ impl BamCoverageConfig {
             fraglen_range: [-1, -1],
             fraglen_bin_size: 10,
             filter_chroms: Vec::new(),
-            filter_map_q: 0,
+            filter_mapq: 0,
             filter_read_lengths: [0, 0],
             filter_duplicates: false,
-            filter_strand: b'*',
+            filter_strand: '*',
             filter_paired_end: false,
             filter_single_end: false,
             remove_filtered_chroms: false,
@@ -258,7 +258,7 @@ pub fn filter_paired_as_single_end(
         return stream_in;
     }
 
-    Box::pin(stream! {
+    let output_stream = Box::pin(stream! {
         while let Some(item) = stream_in.next().await {
 
             match item {
@@ -269,6 +269,243 @@ pub fn filter_paired_as_single_end(
                 Err(e) => yield Err(e),
             };
         }
-    })
+    });
 
+    Box::pin(output_stream)
+}
+
+/* -------------------------------------------------------------------------- */
+
+// Function to filter paired reads
+pub fn filter_paired_end(config: &BamCoverageConfig, mut stream_in: ReadStream) -> ReadStream {
+    if !config.filter_paired_end {
+        return stream_in;
+    }
+
+    let output_stream = async_stream::stream! {
+        let mut n = 0;
+        let mut m = 0;
+
+        while let Some(item) = stream_in.next().await {
+            match item {
+                Ok(r) => {
+                    if r.paired_end {
+                        yield Ok(r);
+                        m += 1;
+                    }
+                    n += 1;
+                },
+                Err(e) => yield Err(e),
+            }
+        }
+
+        if n != 0 {
+            config.logger.log(format!("Filtered out {} unpaired reads ({:.2}%)", n - m, 100.0 * (n - m) as f64 / n as f64));
+        }
+    };
+
+    Box::pin(output_stream)
+}
+
+/* -------------------------------------------------------------------------- */
+
+// Function to filter single-end reads
+pub fn filter_single_end(config: &BamCoverageConfig, veto: bool, mut stream_in: ReadStream) -> ReadStream {
+    if !config.filter_single_end && !veto {
+        return stream_in;
+    }
+
+    let output_stream = async_stream::stream! {
+        let mut n = 0;
+        let mut m = 0;
+
+        while let Some(item) = stream_in.next().await {
+            match item {
+                Ok(r) => {
+                    if !r.paired_end {
+                        yield Ok(r);
+                        m += 1;
+                    }
+                    n += 1;
+                },
+                Err(e) => yield Err(e),
+            }
+        }
+
+        if n != 0 {
+            config.logger.log(format!("Filtered out {} paired reads ({:.2}%)", n - m, 100.0 * (n - m) as f64 / n as f64));
+        }
+    };
+
+    Box::pin(output_stream)
+}
+
+/* -------------------------------------------------------------------------- */
+
+// Function to filter duplicates
+pub fn filter_duplicates(config: &BamCoverageConfig, mut stream_in: ReadStream) -> ReadStream {
+    if !config.filter_duplicates {
+        return stream_in;
+    }
+
+    let output_stream = async_stream::stream! {
+        let mut n = 0;
+        let mut m = 0;
+
+        while let Some(item) = stream_in.next().await {
+            match item {
+                Ok(r) => {
+                    if !r.duplicate {
+                        yield Ok(r);
+                        m += 1;
+                    }
+                    n += 1;
+                },
+                Err(e) => yield Err(e),
+            }
+        }
+
+        if n != 0 {
+            config.logger.log(format!("Filtered out {} duplicates ({:.2}%)", n - m, 100.0 * (n - m) as f64 / n as f64));
+        }
+    };
+
+    Box::pin(output_stream)
+}
+
+/* -------------------------------------------------------------------------- */
+
+// Function to filter based on strand
+pub fn filter_strand(config: &BamCoverageConfig, mut stream_in: ReadStream) -> ReadStream {
+    if config.filter_strand == '*' {
+        return stream_in;
+    }
+
+    let output_stream = async_stream::stream! {
+        let mut n = 0;
+        let mut m = 0;
+
+        while let Some(item) = stream_in.next().await {
+            match item {
+                Ok(r) => {
+                    if r.strand == config.filter_strand {
+                        yield Ok(r);
+                        m += 1;
+                    }
+                    n += 1;
+                },
+                Err(e) => yield Err(e),
+            }
+        }
+
+        if n != 0 {
+            config.logger.log(format!("Filtered out {} reads not on strand {} ({:.2}%)", n - m, config.filter_strand, 100.0 * (n - m) as f64 / n as f64));
+        }
+    };
+
+    Box::pin(output_stream)
+}
+
+/* -------------------------------------------------------------------------- */
+
+// Function to filter based on mapping quality
+pub fn filter_mapq(config: &BamCoverageConfig, mut stream_in: ReadStream) -> ReadStream {
+    if config.filter_mapq <= 0 {
+        return stream_in;
+    }
+
+    let output_stream = async_stream::stream! {
+        let mut n = 0;
+        let mut m = 0;
+
+        while let Some(item) = stream_in.next().await {
+            match item {
+                Ok(r) => {
+                    if r.mapq >= config.filter_mapq {
+                        yield Ok(r);
+                        m += 1;
+                    }
+                    n += 1;
+                },
+                Err(e) => yield Err(e),
+            }
+        }
+
+        if n != 0 {
+            config.logger.log(format!("Filtered out {} reads with mapping quality lower than {} ({:.2}%)", n - m, config.filter_mapq, 100.0 * (n - m) as f64 / n as f64));
+        }
+    };
+
+    Box::pin(output_stream)
+}
+
+/* -------------------------------------------------------------------------- */
+
+// Function to filter based on read length
+pub fn filter_read_length(config: &BamCoverageConfig, mut stream_in: ReadStream) -> ReadStream {
+    if config.filter_read_lengths[0] == 0 && config.filter_read_lengths[1] == 0 {
+        return stream_in;
+    }
+
+    let output_stream = async_stream::stream! {
+        let mut n = 0;
+        let mut m = 0;
+
+        while let Some(item) = stream_in.next().await {
+            match item {
+                Ok(r) => {
+                    let len = r.range.to - r.range.from;
+                    if len >= config.filter_read_lengths[0] &&
+                       (len <= config.filter_read_lengths[1] || config.filter_read_lengths[1] == 0) {
+                        yield Ok(r);
+                        m += 1;
+                    }
+                    n += 1;
+                },
+                Err(e) => yield Err(e),
+            }
+        }
+
+        if n != 0 {
+            config.logger.log(format!("Filtered out {} reads with non-admissible length ({:.2}%)", n - m, 100.0 * (n - m) as f64 / n as f64));
+        }
+    };
+
+    Box::pin(output_stream)
+}
+
+/* -------------------------------------------------------------------------- */
+
+// Function to shift reads based on strand
+pub fn shift_reads(config: &BamCoverageConfig, mut stream_in: ReadStream) -> ReadStream {
+    if config.shift_reads[0] == 0 && config.shift_reads[1] == 0 {
+        return stream_in;
+    }
+
+    let output_stream = async_stream::stream! {
+        while let Some(item) = stream_in.next().await {
+            match item {
+                Ok(mut r) => {
+                    if r.strand == '+' {
+                        r.range.from += config.shift_reads[0];
+                        r.range.to += config.shift_reads[0];
+                    } else if r.strand == '-' {
+                        r.range.from += config.shift_reads[1];
+                        r.range.to += config.shift_reads[1];
+                    }
+
+                    if r.range.from < 0 {
+                        r.range.to -= r.range.from;
+                        r.range.from = 0;
+                    }
+                    yield Ok(r);
+                },
+                Err(e) => yield Err(e),
+            }
+        }
+
+        config.logger.log(format!("Shifted reads (forward strand: {}, reverse strand: {})", config.shift_reads[0], config.shift_reads[1]));
+    };
+
+    Box::pin(output_stream)
 }
