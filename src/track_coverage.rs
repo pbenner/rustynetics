@@ -229,3 +229,10 @@ impl BamCoverageConfig {
     }
 }
 
+/* -------------------------------------------------------------------------- */
+
+pub struct FraglenEstimate {
+    pub fraglen: i64,
+    pub x: Vec<i64>,
+    pub y: Vec<f64>,
+}
