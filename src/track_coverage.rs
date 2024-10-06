@@ -244,10 +244,14 @@ pub struct FraglenEstimate {
 
 /* -------------------------------------------------------------------------- */
 
+type ReadStream = Pin<Box<dyn Stream<Item = io::Result<reads::Read>>>>;
+
+/* -------------------------------------------------------------------------- */
+
 pub fn filter_paired_as_single_end(
     config: &BamCoverageConfig,
-    mut stream_in: Pin<Box<dyn Stream<Item = io::Result<reads::Read>>>>,
-) -> Pin<Box<dyn Stream<Item = io::Result<reads::Read>>>> {
+    mut stream_in: ReadStream,
+) -> ReadStream {
 
     // If PairedAsSingleEnd is false, return the input stream directly
     if !config.paired_as_single_end {
