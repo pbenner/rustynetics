@@ -17,8 +17,13 @@
 use std::fmt;
 use std::io::Write;
 use std::sync::Arc;
-
 use std::io;
+
+use core::pin::Pin;
+use futures::{Stream, StreamExt};
+use async_stream::stream;
+
+use crate::reads;
 
 /* -------------------------------------------------------------------------- */
 
@@ -235,4 +240,31 @@ pub struct FraglenEstimate {
     pub fraglen: i64,
     pub x: Vec<i64>,
     pub y: Vec<f64>,
+}
+
+/* -------------------------------------------------------------------------- */
+
+pub fn filter_paired_as_single_end(
+    config: &BamCoverageConfig,
+    mut stream_in: Pin<Box<dyn Stream<Item = io::Result<reads::Read>>>>,
+) -> Pin<Box<dyn Stream<Item = io::Result<reads::Read>>>> {
+
+    // If PairedAsSingleEnd is false, return the input stream directly
+    if !config.paired_as_single_end {
+        return stream_in;
+    }
+
+    Box::pin(stream! {
+        while let Some(item) = stream_in.next().await {
+
+            match item {
+                Ok(mut r) => {
+                    r.paired_end = false;
+                    yield Ok(r)
+                },
+                Err(e) => yield Err(e),
+            };
+        }
+    })
+
 }
