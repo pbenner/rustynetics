@@ -18,12 +18,16 @@ use std::fmt;
 use std::io::Write;
 use std::sync::Arc;
 use std::io;
+use std::error::Error;
 
 use core::pin::Pin;
 use futures::{Stream, StreamExt};
 use async_stream::stream;
 
+use crate::bam::BamFile;
+use crate::genome::Genome;
 use crate::reads;
+use crate::track_statistics::estimate_fragment_length;
 
 /* -------------------------------------------------------------------------- */
 
@@ -31,7 +35,7 @@ use crate::reads;
 pub enum OptionBamCoverage {
     Logger(Arc<dyn Write>),
     BinningMethod(String),
-    BinSize(i64),
+    BinSize(usize),
     BinOverlap(i64),
     NormalizeTrack(String),
     ShiftReads([usize; 2]),
@@ -40,8 +44,8 @@ pub enum OptionBamCoverage {
     LogScale(bool),
     Pseudocounts([f64; 2]),
     EstimateFraglen(bool),
-    FraglenRange([i64; 2]),
-    FraglenBinSize(i64),
+    FraglenRange((i32, i32)),
+    FraglenBinSize(usize),
     FilterChroms(Vec<String>),
     RemoveFilteredChroms(bool),
     FilterMapQ(i64),
@@ -94,7 +98,7 @@ impl fmt::Display for OptionBamCoverage {
 pub struct BamCoverageConfig {
     pub logger: Arc<dyn Write>,
     pub binning_method: String,
-    pub bin_size: i64,
+    pub bin_size: usize,
     pub bin_overlap: i64,
     pub normalize_track: String,
     pub shift_reads: [usize; 2],
@@ -103,8 +107,8 @@ pub struct BamCoverageConfig {
     pub log_scale: bool,
     pub pseudocounts: [f64; 2],
     pub estimate_fraglen: bool,
-    pub fraglen_range: [i64; 2],
-    pub fraglen_bin_size: i64,
+    pub fraglen_range: (i32, i32),
+    pub fraglen_bin_size: usize,
     pub filter_chroms: Vec<String>,
     pub filter_mapq: i64,
     pub filter_read_lengths: [usize; 2],
@@ -217,7 +221,7 @@ impl BamCoverageConfig {
             log_scale: false,
             pseudocounts: [0.0, 0.0],
             estimate_fraglen: false,
-            fraglen_range: [-1, -1],
+            fraglen_range: (-1, -1),
             fraglen_bin_size: 10,
             filter_chroms: Vec::new(),
             filter_mapq: 0,
@@ -237,8 +241,8 @@ impl BamCoverageConfig {
 /* -------------------------------------------------------------------------- */
 
 pub struct FraglenEstimate {
-    pub fraglen: i64,
-    pub x: Vec<i64>,
+    pub fraglen: i32,
+    pub x: Vec<i32>,
     pub y: Vec<f64>,
 }
 
@@ -508,4 +512,38 @@ pub fn shift_reads(config: &BamCoverageConfig, mut stream_in: ReadStream) -> Rea
     };
 
     Box::pin(output_stream)
+}
+
+/* -------------------------------------------------------------------------- */
+
+pub fn estimate_fraglen(config: &BamCoverageConfig, filename: &str, genome: &Genome) -> Result<FraglenEstimate, Box<dyn Error>> {
+    let reads: ReadStream;
+
+    config.logger.log(format!("Reading tags from `{}`", filename));
+
+    let bam_result = BamFile::open(filename, None);
+    let bam = match bam_result {
+        Ok (b)   => b,
+        Err(err) => return Err(err),
+    };
+
+    // Read the reads
+    let mut reads = bam.reader.read_simple(false, false);
+
+    // First round of filtering
+    reads = filter_single_end(config, true, reads);
+    reads = filter_read_length(config, reads);
+    reads = filter_duplicates(config, reads);
+    reads = filter_mapq(config, reads);
+
+    // Estimate fragment length
+    config.logger.log("Estimating mean fragment length".to_string());
+
+    match estimate_fragment_length(reads, genome, 2000, config.fraglen_bin_size, config.fraglen_range) {
+        Ok((fraglen, x, y, n)) => {
+            config.logger.log(format!("Estimated mean fragment length: {}", fraglen));
+            Ok(FraglenEstimate { fraglen, x, y })
+        },
+        Err(err) => Err(err),
+    }
 }
