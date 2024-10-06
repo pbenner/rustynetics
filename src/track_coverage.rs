@@ -527,7 +527,6 @@ pub fn estimate_fraglen(config: &BamCoverageConfig, filename: &str, genome: &Gen
         Ok (b)   => b,
         Err(err) => return Err(err),
     };
-    let err_opt = None;
 
     // Read the reads
     let reads = Box::pin(bam.reader.read_simple_stream(false, false));
@@ -538,6 +537,7 @@ pub fn estimate_fraglen(config: &BamCoverageConfig, filename: &str, genome: &Gen
     let reads_3 = filter_duplicates(config, reads_2);
     let reads_4 = filter_mapq(config, reads_3);
 
+    let err_opt = None;
     // Convert stream to iterator and catch errors
     let reads_iter = block_on_stream(reads_4).map_while(|item| {
         match item {
@@ -560,6 +560,7 @@ pub fn estimate_fraglen(config: &BamCoverageConfig, filename: &str, genome: &Gen
         Err(err) => Err(err),
     };
 
+    // Check if reading the BAM file yielded an error
     if let Some(err) = err_opt {
         return Err(Box::new(err));
     }
