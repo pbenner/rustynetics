@@ -683,7 +683,7 @@ pub fn bam_coverage(
     if config.remove_filtered_chroms {
         if !config.filter_chroms.is_empty() {
             log!(config.logger, "Removing chromosomes `{}`", config.filter_chroms.join(", "));
-            GenericMutableTrack { track: &mut track1 }.filter_genome(|name, _length| {
+            track1.filter_genome(|name, _length| {
                 !config.filter_chroms.contains(&name.to_string())
             });
         }
@@ -691,7 +691,7 @@ pub fn bam_coverage(
         if !config.filter_chroms.is_empty() {
             log!(config.logger, "Removing all reads from `{}`", config.filter_chroms.join(", "));
             for chr in &config.filter_chroms {
-                if let Ok(s) = GenericMutableTrack::wrap(&mut track1 ).get_mutable_sequence(chr) {
+                if let Ok(s) = track1.get_sequence_mut(chr) {
                     for i in 0..s.n_bins() {
                         s.set_bin(i, 0.0);
                     }
