@@ -690,7 +690,7 @@ pub fn bam_coverage(
         }
 
         if config.smoothen_control {
-            GenericMutableTrack::wrap(&mut track2).smoothen(config.smoothen_min, config.smoothen_sizes);
+            GenericMutableTrack::wrap(&mut track2).smoothen(config.smoothen_min, config.smoothen_sizes.clone());
         }
 
         log!(config.logger, "Combining treatment and control tracks...");
