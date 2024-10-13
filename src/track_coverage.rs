@@ -27,9 +27,10 @@ use crate::bam::BamFile;
 use crate::genome::Genome;
 use crate::reads;
 use crate::infologger::Logger;
+
+use crate::track::MutableTrack;
 use crate::track_generic::GenericMutableTrack;
 use crate::track_simple::SimpleTrack;
-
 use crate::track_statistics::estimate_fragment_length;
 
 /* -------------------------------------------------------------------------- */
@@ -579,18 +580,17 @@ pub fn bam_coverage(
     genome: Genome,
 ) -> Result<SimpleTrack, Box<dyn Error>> {
     // Treatment data
-    let mut track1 = alloc_simple_track("treatment", &genome, config.bin_size);
+    let mut track1 = SimpleTrack::alloc("treatment".to_string(), genome, config.bin_size);
     let mut n_treatment = 0;
     let mut n_control = 0;
 
     for (i, filename) in filenames_treatment.iter().enumerate() {
         let fraglen = fraglen_treatment[i];
 
-        let treatment: ReadChannel;
         log!(config.logger, "Reading treatment tags from `{}`", filename);
-        let bam = open_bam_file(filename)?;
-        let treatment = bam.read_simple(!config.paired_as_single_end, config.paired_end_strand_specific);
+        let bam = BamFile::open(filename, None)?;
 
+        let treatment = Box::pin(bam.reader.read_simple_stream(!config.paired_as_single_end, config.paired_end_strand_specific));
         // First round of filtering
         let treatment = filter_paired_end(&config, treatment);
         let treatment = filter_single_end(&config, false, treatment);
@@ -627,10 +627,9 @@ pub fn bam_coverage(
         for (i, filename) in filenames_control.iter().enumerate() {
             let fraglen = fraglen_control[i];
 
-            let control: ReadChannel;
             log!(config.logger, "Reading control tags from `{}`", filename);
             let bam = BamFile::open(filename, None)?;
-            let control = bam.reader.read_simple(!config.paired_as_single_end, config.paired_end_strand_specific);
+            let control = Box::pin(bam.reader.read_simple_stream(!config.paired_as_single_end, config.paired_end_strand_specific));
 
             // First round of filtering
             let control = filter_paired_end(&config, control);
