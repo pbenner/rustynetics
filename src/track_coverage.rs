@@ -735,19 +735,19 @@ pub fn bam_coverage_impl(
 
 /* -------------------------------------------------------------------------- */
 
-fn bam_coverage(
+pub fn bam_coverage(
     filenames_treatment  : Vec<String>,
     filenames_control    : Vec<String>,
     mut fraglen_treatment: Vec<usize>,
     mut fraglen_control  : Vec<usize>,
-    options: &[OptionBamCoverage],
+    options: Vec<OptionBamCoverage>,
 ) -> Result<(SimpleTrack, Vec<FraglenEstimate>, Vec<FraglenEstimate>), Box<dyn Error>> {
 
     let mut config = BamCoverageConfig::default();
 
     // Parse options
     for option in options {
-        config.insert_option(*option);
+        config.insert_option(option);
     }
 
     // Read genome
