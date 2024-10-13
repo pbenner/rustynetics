@@ -409,7 +409,6 @@ impl<'a> GenericMutableTrack<'a> {
     // d determines the extension of reads.
     pub fn normalize(
         &mut self,
-        treatment: &dyn Track,
         control  : &dyn Track,
         c1       : f64,
         c2       : f64,
@@ -421,8 +420,7 @@ impl<'a> GenericMutableTrack<'a> {
         }
 
         for name in self.track.get_seq_names() {
-            let mut seq = self.track.get_sequence_mut(&name)?;
-            let seq1 = treatment.get_sequence(&name)?;
+            let mut seq1 = self.track.get_sequence_mut(&name)?;
             let seq2 = match control.get_sequence(&name) {
                 Ok(seq) => seq,
                 Err(_)  => continue,
@@ -435,7 +433,7 @@ impl<'a> GenericMutableTrack<'a> {
                     (seq1.at_bin(i) + c1) / (seq2.at_bin(i) + c2) * c2 / c1
                 };
 
-                seq.set_bin(i, value);
+                seq1.set_bin(i, value);
             }
         }
 

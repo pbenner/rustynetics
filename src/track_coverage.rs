@@ -623,14 +623,14 @@ pub fn bam_coverage(
     if config.normalize_track == "rpkm" {
         log!(config.logger, "Normalizing treatment track (rpkm)");
         let c = 1_000_000.0 / (n_treatment as f64 * config.bin_size as f64);
-        GenericMutableTrack::wrap(&mut track1).map(|_name, _i, x| c * x);
+        GenericMutableTrack::wrap(&mut track1).map(|_name, _i, x| c * x)?;
         config.pseudocounts[0] *= c;
     }
 
     if config.normalize_track == "cpm" {
         log!(config.logger, "Normalizing treatment track (cpm)");
         let c = 1_000_000.0 / n_treatment as f64;
-        GenericMutableTrack::wrap(&mut track1).map(|_name, _i, x| c * x);
+        GenericMutableTrack::wrap(&mut track1).map(|_name, _i, x| c * x)?;
         config.pseudocounts[0] *= c;
     }
 
@@ -678,32 +678,32 @@ pub fn bam_coverage(
         if config.normalize_track == "rpkm" {
             log!(config.logger, "Normalizing control track (rpkm)");
             let c = 1_000_000.0 / (n_control as f64 * config.bin_size as f64);
-            GenericMutableTrack::wrap(&mut track2).map(|_name, _i, x| c * x);
+            GenericMutableTrack::wrap(&mut track2).map(|_name, _i, x| c * x)?;
             config.pseudocounts[1] *= c;
         }
 
         if config.normalize_track == "cpm" {
             log!(config.logger, "Normalizing control track (cpm)");
             let c = 1_000_000.0 / n_control as f64;
-            GenericMutableTrack::wrap(&mut track2).map(|_name, _i, x| c * x);
+            GenericMutableTrack::wrap(&mut track2).map(|_name, _i, x| c * x)?;
             config.pseudocounts[1] *= c;
         }
 
         if config.smoothen_control {
-            GenericMutableTrack::wrap(&mut track2).smoothen(config.smoothen_min, config.smoothen_sizes.clone());
+            GenericMutableTrack::wrap(&mut track2).smoothen(config.smoothen_min, config.smoothen_sizes.clone())?;
         }
 
         log!(config.logger, "Combining treatment and control tracks...");
-        GenericMutableTrack::wrap(&mut track1).normalize(&track1, &track2, config.pseudocounts[0], config.pseudocounts[1], config.log_scale)?;
+        GenericMutableTrack::wrap(&mut track1).normalize(&track2, config.pseudocounts[0], config.pseudocounts[1], config.log_scale)?;
     } else {
         // No control data
         if config.pseudocounts[0] != 0.0 {
             log!(config.logger, "Adding pseudocount `{}`", config.pseudocounts[0]);
-            GenericMutableTrack::wrap(&mut track1).map(|_name, _i, x| x + config.pseudocounts[0]);
+            GenericMutableTrack::wrap(&mut track1).map(|_name, _i, x| x + config.pseudocounts[0])?;
         }
         if config.log_scale {
             log!(config.logger, "Log-transforming data");
-            GenericMutableTrack::wrap(&mut track1).map(|_name, _i, x| x.ln());
+            GenericMutableTrack::wrap(&mut track1).map(|_name, _i, x| x.ln())?;
         }
     }
 
