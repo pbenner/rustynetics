@@ -571,8 +571,7 @@ pub fn estimate_fraglen(config: &BamCoverageConfig, filename: &str, genome: &Gen
 /* -------------------------------------------------------------------------- */
 
 pub fn bam_coverage(
-    config: BamCoverageConfig,
-    filename_track: &str,
+    mut config: BamCoverageConfig,
     filenames_treatment: Vec<String>,
     filenames_control: Vec<String>,
     fraglen_treatment: Vec<usize>,
@@ -580,7 +579,7 @@ pub fn bam_coverage(
     genome: Genome,
 ) -> Result<SimpleTrack, Box<dyn Error>> {
     // Treatment data
-    let mut track1 = SimpleTrack::alloc("treatment".to_string(), genome, config.bin_size);
+    let mut track1 = SimpleTrack::alloc("treatment".to_string(), genome.clone(), config.bin_size);
     let mut n_treatment = 0;
     let mut n_control = 0;
 
@@ -589,7 +588,7 @@ pub fn bam_coverage(
         let fraglen = fraglen_treatment[i];
 
         log!(config.logger, "Reading treatment tags from `{}`", filename);
-        let bam = BamFile::open(filename, None)?;
+        let mut bam = BamFile::open(filename, None)?;
 
         let treatment = Box::pin(bam.reader.read_simple_stream(!config.paired_as_single_end, config.paired_end_strand_specific));
         // First round of filtering
@@ -624,27 +623,27 @@ pub fn bam_coverage(
     if config.normalize_track == "rpkm" {
         log!(config.logger, "Normalizing treatment track (rpkm)");
         let c = 1_000_000.0 / (n_treatment as f64 * config.bin_size as f64);
-        GenericMutableTrack::wrap(&mut track1).map(|name, i, x| c * x);
+        GenericMutableTrack::wrap(&mut track1).map(|_name, _i, x| c * x);
         config.pseudocounts[0] *= c;
     }
 
     if config.normalize_track == "cpm" {
         log!(config.logger, "Normalizing treatment track (cpm)");
         let c = 1_000_000.0 / n_treatment as f64;
-        GenericMutableTrack::wrap(&mut track1).map(|name, i, x| c * x);
+        GenericMutableTrack::wrap(&mut track1).map(|_name, _i, x| c * x);
         config.pseudocounts[0] *= c;
     }
 
     if !filenames_control.is_empty() {
         // Control data
-        let mut track2 = SimpleTrack::alloc("control".to_string(), genome, config.bin_size);
+        let mut track2 = SimpleTrack::alloc("control".to_string(), genome.clone(), config.bin_size);
 
         for (i, filename) in filenames_control.iter().enumerate() {
             let mut err_opt = None;
             let fraglen = fraglen_control[i];
 
             log!(config.logger, "Reading control tags from `{}`", filename);
-            let bam = BamFile::open(filename, None)?;
+            let mut bam = BamFile::open(filename, None)?;
             let control = Box::pin(bam.reader.read_simple_stream(!config.paired_as_single_end, config.paired_end_strand_specific));
 
             // First round of filtering
@@ -679,14 +678,14 @@ pub fn bam_coverage(
         if config.normalize_track == "rpkm" {
             log!(config.logger, "Normalizing control track (rpkm)");
             let c = 1_000_000.0 / (n_control as f64 * config.bin_size as f64);
-            GenericMutableTrack::wrap(&mut track2).map(|name, i, x| c * x);
+            GenericMutableTrack::wrap(&mut track2).map(|_name, _i, x| c * x);
             config.pseudocounts[1] *= c;
         }
 
         if config.normalize_track == "cpm" {
             log!(config.logger, "Normalizing control track (cpm)");
             let c = 1_000_000.0 / n_control as f64;
-            GenericMutableTrack::wrap(&mut track2).map(|name, i, x| c * x);
+            GenericMutableTrack::wrap(&mut track2).map(|_name, _i, x| c * x);
             config.pseudocounts[1] *= c;
         }
 
@@ -700,11 +699,11 @@ pub fn bam_coverage(
         // No control data
         if config.pseudocounts[0] != 0.0 {
             log!(config.logger, "Adding pseudocount `{}`", config.pseudocounts[0]);
-            GenericMutableTrack::wrap(&mut track1).map(|name, i, x| x + config.pseudocounts[0]);
+            GenericMutableTrack::wrap(&mut track1).map(|_name, _i, x| x + config.pseudocounts[0]);
         }
         if config.log_scale {
             log!(config.logger, "Log-transforming data");
-            GenericMutableTrack::wrap(&mut track1).map(|name, i, x| x.ln());
+            GenericMutableTrack::wrap(&mut track1).map(|_name, _i, x| x.ln());
         }
     }
 
@@ -720,7 +719,7 @@ pub fn bam_coverage(
         if !config.filter_chroms.is_empty() {
             log!(config.logger, "Removing all reads from `{}`", config.filter_chroms.join(", "));
             for chr in &config.filter_chroms {
-                if let Ok(s) = track1.get_sequence_mut(chr) {
+                if let Ok(mut s) = track1.get_sequence_mut(chr) {
                     for i in 0..s.n_bins() {
                         s.set_bin(i, 0.0);
                     }
