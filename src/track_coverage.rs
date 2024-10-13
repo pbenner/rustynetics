@@ -585,6 +585,7 @@ pub fn bam_coverage(
     let mut n_control = 0;
 
     for (i, filename) in filenames_treatment.iter().enumerate() {
+        let mut err_opt = None;
         let fraglen = fraglen_treatment[i];
 
         log!(config.logger, "Reading treatment tags from `{}`", filename);
@@ -602,7 +603,21 @@ pub fn bam_coverage(
         let treatment = filter_strand(&config, treatment);
         let treatment = shift_reads(&config, treatment);
 
-        n_treatment += GenericMutableTrack::wrap(&mut track1).add_reads(treatment, fraglen, &config.binning_method);
+        let treatment_iter = block_on_stream(treatment).map_while(|item| {
+            match item {
+                Ok(read) => Some(read),
+                Err(err) => {
+                    err_opt = Some(err);
+                    None
+                }
+            }
+        });
+    
+        n_treatment += GenericMutableTrack::wrap(&mut track1).add_reads(treatment_iter, fraglen, &config.binning_method);
+
+        if let Some(err) = err_opt {
+            return Err(Box::new(err));
+        }
     }
 
     // Normalization for treatment
@@ -625,6 +640,7 @@ pub fn bam_coverage(
         let mut track2 = SimpleTrack::alloc("control".to_string(), genome, config.bin_size);
 
         for (i, filename) in filenames_control.iter().enumerate() {
+            let mut err_opt = None;
             let fraglen = fraglen_control[i];
 
             log!(config.logger, "Reading control tags from `{}`", filename);
@@ -642,7 +658,21 @@ pub fn bam_coverage(
             let control = filter_strand(&config, control);
             let control = shift_reads(&config, control);
 
-            n_control += GenericMutableTrack::wrap(&mut track2).add_reads(control, fraglen, &config.binning_method);
+            let control_iter = block_on_stream(control).map_while(|item| {
+                match item {
+                    Ok(read) => Some(read),
+                    Err(err) => {
+                        err_opt = Some(err);
+                        None
+                    }
+                }
+            });
+    
+            n_control += GenericMutableTrack::wrap(&mut track2).add_reads(control_iter, fraglen, &config.binning_method);
+
+            if let Some(err) = err_opt {
+                return Err(Box::new(err));
+            }
         }
 
         // Normalization for control
@@ -665,7 +695,7 @@ pub fn bam_coverage(
         }
 
         log!(config.logger, "Combining treatment and control tracks...");
-        GenericMutableTrack::wrap(&track1).normalize(&track1, &track2, config.pseudocounts[0], config.pseudocounts[1], config.log_scale)?;
+        GenericMutableTrack::wrap(&mut track1).normalize(&track1, &track2, config.pseudocounts[0], config.pseudocounts[1], config.log_scale)?;
     } else {
         // No control data
         if config.pseudocounts[0] != 0.0 {
