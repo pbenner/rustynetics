@@ -27,6 +27,7 @@ use crate::bam::{BamFile, bam_import_genome};
 use crate::genome::Genome;
 use crate::reads;
 use crate::infologger::Logger;
+use crate::error::ArgumentError;
 
 use crate::track::MutableTrack;
 use crate::track_generic::GenericMutableTrack;
@@ -755,7 +756,7 @@ fn bam_coverage(
         if genome.is_empty() {
             genome = g;
         } else if !genome.equals(&g) {
-            return Err(Box::new(fmt::format!("Bam genomes are not equal")));
+            return Err(Box::new(ArgumentError("Treatment and control tracks have different genomes".to_string())));
         }
     }
 
