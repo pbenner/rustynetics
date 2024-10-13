@@ -15,8 +15,7 @@
  */
 
 use std::fmt;
-use std::io::Write;
-use std::io;
+use std::io::{self, Write};
 use std::error::Error;
 use std::cell::RefCell;
 
