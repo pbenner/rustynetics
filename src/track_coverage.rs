@@ -23,7 +23,7 @@ use futures::{Stream, StreamExt};
 use async_stream::stream;
 use futures::executor::block_on_stream;
 
-use crate::bam::BamFile;
+use crate::bam::{BamFile, bam_import_genome};
 use crate::genome::Genome;
 use crate::reads;
 use crate::infologger::Logger;
@@ -570,7 +570,7 @@ pub fn estimate_fraglen(config: &BamCoverageConfig, filename: &str, genome: &Gen
 
 /* -------------------------------------------------------------------------- */
 
-pub fn bam_coverage(
+pub fn bam_coverage_impl(
     mut config: BamCoverageConfig,
     filenames_treatment: Vec<String>,
     filenames_control: Vec<String>,
@@ -729,4 +729,87 @@ pub fn bam_coverage(
     }
 
     Ok(track1)
+}
+
+/* -------------------------------------------------------------------------- */
+
+fn bam_coverage(
+    filenames_treatment: Vec<&str>,
+    filenames_control: Vec<&str>,
+    mut fraglen_treatment: Vec<isize>,
+    mut fraglen_control: Vec<isize>,
+    options: Vec<Box<dyn Option>>,
+) -> Result<(SimpleTrack, Vec<FraglenEstimate>, Vec<FraglenEstimate>), Box<dyn Error>> {
+
+    let mut config = BamCoverageConfig::default();
+
+    // Parse options
+    for option in options {
+        option.apply(&mut config);
+    }
+
+    // Read genome
+    let mut genome: Genome = Genome::default();
+    for filename in filenames_treatment.iter().chain(filenames_control.iter()) {
+        let g = bam_import_genome(filename)?;
+        if genome.is_empty() {
+            genome = g;
+        } else if !genome.equals(&g) {
+            return Err(Box::new(fmt::format!("Bam genomes are not equal")));
+        }
+    }
+
+    let mut treatment_fraglen_estimates = vec![FraglenEstimate::default(); filenames_treatment.len()];
+    let mut control_fraglen_estimates = vec![FraglenEstimate::default(); filenames_control.len()];
+
+    // Check fraglen arguments
+    if fraglen_treatment.is_empty() {
+        fraglen_treatment = vec![-1; filenames_treatment.len()];
+    }
+    if fraglen_control.is_empty() {
+        fraglen_control = vec![-1; filenames_control.len()];
+    }
+    if !config.estimate_fraglen {
+        for (i, fraglen) in fraglen_treatment.iter().enumerate() {
+            treatment_fraglen_estimates[i].fraglen = Some(*fraglen as usize);
+        }
+        for (i, fraglen) in fraglen_control.iter().enumerate() {
+            control_fraglen_estimates[i].fraglen = Some(*fraglen as usize);
+        }
+    }
+
+    // Fragment length estimation
+    if config.estimate_fraglen {
+        for (i, filename) in filenames_treatment.iter().enumerate() {
+            if fraglen_treatment[i] != -1 {
+                treatment_fraglen_estimates[i].error = Some("estimate provided".to_string());
+                continue;
+            }
+            let estimate = estimate_fraglen(&config, filename, &genome)?;
+            treatment_fraglen_estimates[i] = estimate.clone();
+            if let Some(err) = &estimate.error {
+                return Err(Box::new(fmt::format(format_args!("{}: {}", filename, err))));
+            } else {
+                fraglen_treatment[i] = estimate.fraglen.unwrap_or(-1) as isize;
+            }
+        }
+
+        for (i, filename) in filenames_control.iter().enumerate() {
+            if fraglen_control[i] != -1 {
+                control_fraglen_estimates[i].error = Some("estimate provided".to_string());
+                continue;
+            }
+            let estimate = estimate_fraglen(&config, filename, &genome)?;
+            control_fraglen_estimates[i] = estimate.clone();
+            if let Some(err) = &estimate.error {
+                return Err(Box::new(fmt::format(format_args!("{}: {}", filename, err))));
+            } else {
+                fraglen_control[i] = estimate.fraglen.unwrap_or(-1) as isize;
+            }
+        }
+    }
+
+    let result = bam_coverage_impl(&config, filenames_treatment, filenames_control, fraglen_treatment, fraglen_control, &genome)?;
+
+    Ok((result, treatment_fraglen_estimates, control_fraglen_estimates))
 }
