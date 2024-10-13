@@ -21,13 +21,13 @@ use std::fmt::Error;
 
 /* -------------------------------------------------------------------------- */
 
-pub struct Logger(Box<RefCell<dyn Write>>);
+pub struct Logger(pub Box<RefCell<dyn Write>>);
 
 /* -------------------------------------------------------------------------- */
 
 impl Logger {
 
-    pub fn new_void() -> Logger {
+    pub fn new_null() -> Logger {
         Logger(Box::new(RefCell::new(io::sink())))
     }
 
@@ -48,4 +48,15 @@ impl fmt::Write for Logger {
         self.0.borrow_mut().write(s.as_bytes()).map_err(|_io_err| Error)?;
         Ok(())
     }
+}
+
+/* -------------------------------------------------------------------------- */
+
+#[macro_export]
+macro_rules! log {
+    ($logger:expr, $fmt:expr $(, $args:expr)*) => {{
+        if let Err(err) = write!($logger.0.borrow_mut(), $fmt $(, $args)*) {
+            eprintln!("Logging error: {}", err); // Print error to standard error if logging fails
+        }
+    }};
 }

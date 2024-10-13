@@ -37,6 +37,7 @@ pub mod granges_pretty;
 pub mod granges_random;
 pub mod granges_merge;
 pub mod granges_sort;
+#[macro_use]
 pub mod infologger;
 pub mod meta;
 pub mod range;

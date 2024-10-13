@@ -15,9 +15,8 @@
  */
 
 use std::fmt;
-use std::io::{self, Write};
+use std::io;
 use std::error::Error;
-use std::cell::RefCell;
 
 use core::pin::Pin;
 use futures::{Stream, StreamExt};
@@ -27,11 +26,8 @@ use futures::executor::block_on_stream;
 use crate::bam::BamFile;
 use crate::genome::Genome;
 use crate::reads;
+use crate::infologger::Logger;
 use crate::track_statistics::estimate_fragment_length;
-
-/* -------------------------------------------------------------------------- */
-
-type Logger = Box<RefCell<dyn Write>>;
 
 /* -------------------------------------------------------------------------- */
 
@@ -214,7 +210,7 @@ impl BamCoverageConfig {
 impl BamCoverageConfig {
     pub fn default() -> Self {
         BamCoverageConfig {
-            logger: Box::new(RefCell::new(io::sink())), // Discard logger output
+            logger: Logger::new_null(), // Discard logger output
             binning_method: String::from("simple"),
             bin_size: 10,
             bin_overlap: 0,
@@ -308,7 +304,7 @@ pub fn filter_paired_end<'a>(config: &'a BamCoverageConfig, mut stream_in: ReadS
         }
 
         if n != 0 {
-            write!(config.logger.borrow_mut(), "Filtered out {} unpaired reads ({:.2}%)", n - m, 100.0 * (n - m) as f64 / n as f64);
+            log!(config.logger, "Filtered out {} unpaired reads ({:.2}%)", n - m, 100.0 * (n - m) as f64 / n as f64);
         }
     };
 
@@ -341,7 +337,7 @@ pub fn filter_single_end<'a>(config: &'a BamCoverageConfig, veto: bool, mut stre
         }
 
         if n != 0 {
-            write!(config.logger.borrow_mut(), "Filtered out {} paired reads ({:.2}%)", n - m, 100.0 * (n - m) as f64 / n as f64);
+            log!(config.logger, "Filtered out {} paired reads ({:.2}%)", n - m, 100.0 * (n - m) as f64 / n as f64);
         }
     };
 
@@ -374,7 +370,7 @@ pub fn filter_duplicates<'a>(config: &'a BamCoverageConfig, mut stream_in: ReadS
         }
 
         if n != 0 {
-            write!(config.logger.borrow_mut(), "Filtered out {} duplicates ({:.2}%)", n - m, 100.0 * (n - m) as f64 / n as f64);
+            log!(config.logger, "Filtered out {} duplicates ({:.2}%)", n - m, 100.0 * (n - m) as f64 / n as f64);
         }
     };
 
@@ -407,7 +403,7 @@ pub fn filter_strand<'a>(config: &'a BamCoverageConfig, mut stream_in: ReadStrea
         }
 
         if n != 0 {
-            write!(config.logger.borrow_mut(), "Filtered out {} reads not on strand {} ({:.2}%)", n - m, config.filter_strand, 100.0 * (n - m) as f64 / n as f64);
+            log!(config.logger, "Filtered out {} reads not on strand {} ({:.2}%)", n - m, config.filter_strand, 100.0 * (n - m) as f64 / n as f64);
         }
     };
 
@@ -440,7 +436,7 @@ pub fn filter_mapq<'a>(config: &'a BamCoverageConfig, mut stream_in: ReadStream<
         }
 
         if n != 0 {
-            write!(config.logger.borrow_mut(), "Filtered out {} reads with mapping quality lower than {} ({:.2}%)", n - m, config.filter_mapq, 100.0 * (n - m) as f64 / n as f64);
+            log!(config.logger, "Filtered out {} reads with mapping quality lower than {} ({:.2}%)", n - m, config.filter_mapq, 100.0 * (n - m) as f64 / n as f64);
         }
     };
 
@@ -475,7 +471,7 @@ pub fn filter_read_length<'a>(config: &'a BamCoverageConfig, mut stream_in: Read
         }
 
         if n != 0 {
-            write!(config.logger.borrow_mut(), "Filtered out {} reads with non-admissible length ({:.2}%)", n - m, 100.0 * (n - m) as f64 / n as f64);
+            log!(config.logger, "Filtered out {} reads with non-admissible length ({:.2}%)", n - m, 100.0 * (n - m) as f64 / n as f64);
         }
     };
 
@@ -496,23 +492,22 @@ pub fn shift_reads<'a>(config: &'a BamCoverageConfig, mut stream_in: ReadStream<
                 Ok(mut r) => {
                     if r.strand == '+' {
                         r.range.from += config.shift_reads[0];
-                        r.range.to += config.shift_reads[0];
+                        r.range.to   += config.shift_reads[0];
                     } else if r.strand == '-' {
                         r.range.from += config.shift_reads[1];
-                        r.range.to += config.shift_reads[1];
+                        r.range.to   += config.shift_reads[1];
                     }
 
-                    if r.range.from < 0 {
-                        r.range.to -= r.range.from;
-                        r.range.from = 0;
-                    }
+                    r.range.to  -= r.range.from;
+                    r.range.from = 0;
+
                     yield Ok(r);
                 },
                 Err(e) => yield Err(e),
             }
         }
 
-        write!(config.logger.borrow_mut(), "Shifted reads (forward strand: {}, reverse strand: {})", config.shift_reads[0], config.shift_reads[1]);
+        log!(config.logger, "Shifted reads (forward strand: {}, reverse strand: {})", config.shift_reads[0], config.shift_reads[1]);
     };
 
     Box::pin(output_stream)
@@ -522,7 +517,7 @@ pub fn shift_reads<'a>(config: &'a BamCoverageConfig, mut stream_in: ReadStream<
 
 pub fn estimate_fraglen(config: &BamCoverageConfig, filename: &str, genome: &Genome) -> Result<FraglenEstimate, Box<dyn Error>> {
 
-    write!(config.logger.borrow_mut(), "Reading tags from `{}`", filename);
+    log!(config.logger, "Reading tags from `{}`", filename);
 
     let bam_result = BamFile::open(filename, None);
     let mut bam = match bam_result {
@@ -552,11 +547,11 @@ pub fn estimate_fraglen(config: &BamCoverageConfig, filename: &str, genome: &Gen
     });
 
     // Estimate fragment length
-    write!(config.logger.borrow_mut(), "Estimating mean fragment length");
+    log!(config.logger, "Estimating mean fragment length");
 
     let r = match estimate_fragment_length(reads_iter, genome, 2000, config.fraglen_bin_size, config.fraglen_range) {
         Ok((fraglen, x, y, _n)) => {
-            write!(config.logger.borrow_mut(), "Estimated mean fragment length: {}", fraglen);
+            log!(config.logger, "Estimated mean fragment length: {}", fraglen);
             Ok(FraglenEstimate { fraglen, x, y })
         },
         Err(err) => Err(err),
