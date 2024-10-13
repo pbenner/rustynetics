@@ -58,7 +58,7 @@ pub enum OptionBamCoverage {
     FilterPairedEnd(bool),
     FilterSingleEnd(bool),
     SmoothenControl(bool),
-    SmoothenSizes(Vec<i64>),
+    SmoothenSizes(Vec<usize>),
     SmoothenMin(f64),
 }
 
@@ -121,7 +121,7 @@ pub struct BamCoverageConfig {
     pub filter_single_end: bool,
     pub remove_filtered_chroms: bool,
     pub smoothen_control: bool,
-    pub smoothen_sizes: Vec<i64>,
+    pub smoothen_sizes: Vec<usize>,
     pub smoothen_min: f64,
 }
 
@@ -574,10 +574,10 @@ pub fn bam_coverage(
     filename_track: &str,
     filenames_treatment: Vec<String>,
     filenames_control: Vec<String>,
-    fraglen_treatment: Vec<i32>,
-    fraglen_control: Vec<i32>,
+    fraglen_treatment: Vec<usize>,
+    fraglen_control: Vec<usize>,
     genome: Genome,
-) -> Result<SimpleTrack, String> {
+) -> Result<SimpleTrack, Box<dyn Error>> {
     // Treatment data
     let mut track1 = alloc_simple_track("treatment", &genome, config.bin_size);
     let mut n_treatment = 0;
@@ -609,28 +609,28 @@ pub fn bam_coverage(
     if config.normalize_track == "rpkm" {
         log!(config.logger, "Normalizing treatment track (rpkm)");
         let c = 1_000_000.0 / (n_treatment as f64 * config.bin_size as f64);
-        GenericMutableTrack::wrap(&mut track1).map(&track1, |name, i, x| c * x);
+        GenericMutableTrack::wrap(&mut track1).map(|name, i, x| c * x);
         config.pseudocounts[0] *= c;
     }
 
     if config.normalize_track == "cpm" {
         log!(config.logger, "Normalizing treatment track (cpm)");
         let c = 1_000_000.0 / n_treatment as f64;
-        GenericMutableTrack::wrap(&mut track1).map(&track1, |name, i, x| c * x);
+        GenericMutableTrack::wrap(&mut track1).map(|name, i, x| c * x);
         config.pseudocounts[0] *= c;
     }
 
     if !filenames_control.is_empty() {
         // Control data
-        let mut track2 = alloc_simple_track("control", &genome, config.bin_size);
+        let mut track2 = SimpleTrack::alloc("control".to_string(), genome, config.bin_size);
 
         for (i, filename) in filenames_control.iter().enumerate() {
             let fraglen = fraglen_control[i];
 
             let control: ReadChannel;
             log!(config.logger, "Reading control tags from `{}`", filename);
-            let bam = open_bam_file(filename)?;
-            let control = bam.read_simple(!config.paired_as_single_end, config.paired_end_strand_specific);
+            let bam = BamFile::open(filename, None)?;
+            let control = bam.reader.read_simple(!config.paired_as_single_end, config.paired_end_strand_specific);
 
             // First round of filtering
             let control = filter_paired_end(&config, control);
@@ -650,19 +650,19 @@ pub fn bam_coverage(
         if config.normalize_track == "rpkm" {
             log!(config.logger, "Normalizing control track (rpkm)");
             let c = 1_000_000.0 / (n_control as f64 * config.bin_size as f64);
-            GenericMutableTrack::wrap(&mut track2).map(&track2, |name, i, x| c * x);
+            GenericMutableTrack::wrap(&mut track2).map(|name, i, x| c * x);
             config.pseudocounts[1] *= c;
         }
 
         if config.normalize_track == "cpm" {
             log!(config.logger, "Normalizing control track (cpm)");
             let c = 1_000_000.0 / n_control as f64;
-            GenericMutableTrack::wrap(&mut track2).map(&track2, |name, i, x| c * x);
+            GenericMutableTrack::wrap(&mut track2).map(|name, i, x| c * x);
             config.pseudocounts[1] *= c;
         }
 
         if config.smoothen_control {
-            GenericMutableTrack::wrap(&mut track2).smoothen(config.smoothen_min, &config.smoothen_sizes);
+            GenericMutableTrack::wrap(&mut track2).smoothen(config.smoothen_min, config.smoothen_sizes);
         }
 
         log!(config.logger, "Combining treatment and control tracks...");
@@ -671,11 +671,11 @@ pub fn bam_coverage(
         // No control data
         if config.pseudocounts[0] != 0.0 {
             log!(config.logger, "Adding pseudocount `{}`", config.pseudocounts[0]);
-            GenericMutableTrack::wrap(&mut track1).map(&track1, |name, i, x| x + config.pseudocounts[0]);
+            GenericMutableTrack::wrap(&mut track1).map(|name, i, x| x + config.pseudocounts[0]);
         }
         if config.log_scale {
             log!(config.logger, "Log-transforming data");
-            GenericMutableTrack::wrap(&mut track1).map(&track1, |name, i, x| x.ln());
+            GenericMutableTrack::wrap(&mut track1).map(|name, i, x| x.ln());
         }
     }
 
