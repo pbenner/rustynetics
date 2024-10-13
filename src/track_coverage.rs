@@ -27,6 +27,9 @@ use crate::bam::BamFile;
 use crate::genome::Genome;
 use crate::reads;
 use crate::infologger::Logger;
+use crate::track_generic::GenericMutableTrack;
+use crate::track_simple::SimpleTrack;
+
 use crate::track_statistics::estimate_fragment_length;
 
 /* -------------------------------------------------------------------------- */
@@ -562,4 +565,140 @@ pub fn estimate_fraglen(config: &BamCoverageConfig, filename: &str, genome: &Gen
         return Err(Box::new(err));
     }
     r
+}
+
+/* -------------------------------------------------------------------------- */
+
+pub fn bam_coverage(
+    config: BamCoverageConfig,
+    filename_track: &str,
+    filenames_treatment: Vec<String>,
+    filenames_control: Vec<String>,
+    fraglen_treatment: Vec<i32>,
+    fraglen_control: Vec<i32>,
+    genome: Genome,
+) -> Result<SimpleTrack, String> {
+    // Treatment data
+    let mut track1 = alloc_simple_track("treatment", &genome, config.bin_size);
+    let mut n_treatment = 0;
+    let mut n_control = 0;
+
+    for (i, filename) in filenames_treatment.iter().enumerate() {
+        let fraglen = fraglen_treatment[i];
+
+        let treatment: ReadChannel;
+        log!(config.logger, "Reading treatment tags from `{}`", filename);
+        let bam = open_bam_file(filename)?;
+        let treatment = bam.read_simple(!config.paired_as_single_end, config.paired_end_strand_specific);
+
+        // First round of filtering
+        let treatment = filter_paired_end(&config, treatment);
+        let treatment = filter_single_end(&config, false, treatment);
+        let treatment = filter_paired_as_single_end(&config, treatment);
+        let treatment = filter_read_length(&config, treatment);
+        let treatment = filter_duplicates(&config, treatment);
+        let treatment = filter_mapq(&config, treatment);
+        // Second round of filtering
+        let treatment = filter_strand(&config, treatment);
+        let treatment = shift_reads(&config, treatment);
+
+        n_treatment += GenericMutableTrack::wrap(&mut track1).add_reads(treatment, fraglen, &config.binning_method);
+    }
+
+    // Normalization for treatment
+    if config.normalize_track == "rpkm" {
+        log!(config.logger, "Normalizing treatment track (rpkm)");
+        let c = 1_000_000.0 / (n_treatment as f64 * config.bin_size as f64);
+        GenericMutableTrack::wrap(&mut track1).map(&track1, |name, i, x| c * x);
+        config.pseudocounts[0] *= c;
+    }
+
+    if config.normalize_track == "cpm" {
+        log!(config.logger, "Normalizing treatment track (cpm)");
+        let c = 1_000_000.0 / n_treatment as f64;
+        GenericMutableTrack::wrap(&mut track1).map(&track1, |name, i, x| c * x);
+        config.pseudocounts[0] *= c;
+    }
+
+    if !filenames_control.is_empty() {
+        // Control data
+        let mut track2 = alloc_simple_track("control", &genome, config.bin_size);
+
+        for (i, filename) in filenames_control.iter().enumerate() {
+            let fraglen = fraglen_control[i];
+
+            let control: ReadChannel;
+            log!(config.logger, "Reading control tags from `{}`", filename);
+            let bam = open_bam_file(filename)?;
+            let control = bam.read_simple(!config.paired_as_single_end, config.paired_end_strand_specific);
+
+            // First round of filtering
+            let control = filter_paired_end(&config, control);
+            let control = filter_single_end(&config, false, control);
+            let control = filter_paired_as_single_end(&config, control);
+            let control = filter_read_length(&config, control);
+            let control = filter_duplicates(&config, control);
+            let control = filter_mapq(&config, control);
+            // Second round of filtering
+            let control = filter_strand(&config, control);
+            let control = shift_reads(&config, control);
+
+            n_control += GenericMutableTrack::wrap(&mut track2).add_reads(control, fraglen, &config.binning_method);
+        }
+
+        // Normalization for control
+        if config.normalize_track == "rpkm" {
+            log!(config.logger, "Normalizing control track (rpkm)");
+            let c = 1_000_000.0 / (n_control as f64 * config.bin_size as f64);
+            GenericMutableTrack::wrap(&mut track2).map(&track2, |name, i, x| c * x);
+            config.pseudocounts[1] *= c;
+        }
+
+        if config.normalize_track == "cpm" {
+            log!(config.logger, "Normalizing control track (cpm)");
+            let c = 1_000_000.0 / n_control as f64;
+            GenericMutableTrack::wrap(&mut track2).map(&track2, |name, i, x| c * x);
+            config.pseudocounts[1] *= c;
+        }
+
+        if config.smoothen_control {
+            GenericMutableTrack::wrap(&mut track2).smoothen(config.smoothen_min, &config.smoothen_sizes);
+        }
+
+        log!(config.logger, "Combining treatment and control tracks...");
+        GenericMutableTrack::wrap(&track1).normalize(&track1, &track2, config.pseudocounts[0], config.pseudocounts[1], config.log_scale)?;
+    } else {
+        // No control data
+        if config.pseudocounts[0] != 0.0 {
+            log!(config.logger, "Adding pseudocount `{}`", config.pseudocounts[0]);
+            GenericMutableTrack::wrap(&mut track1).map(&track1, |name, i, x| x + config.pseudocounts[0]);
+        }
+        if config.log_scale {
+            log!(config.logger, "Log-transforming data");
+            GenericMutableTrack::wrap(&mut track1).map(&track1, |name, i, x| x.ln());
+        }
+    }
+
+    // Filtering chromosomes
+    if config.remove_filtered_chroms {
+        if !config.filter_chroms.is_empty() {
+            log!(config.logger, "Removing chromosomes `{}`", config.filter_chroms.join(", "));
+            GenericMutableTrack { track: &mut track1 }.filter_genome(|name, _length| {
+                !config.filter_chroms.contains(&name.to_string())
+            });
+        }
+    } else {
+        if !config.filter_chroms.is_empty() {
+            log!(config.logger, "Removing all reads from `{}`", config.filter_chroms.join(", "));
+            for chr in &config.filter_chroms {
+                if let Ok(s) = GenericMutableTrack::wrap(&mut track1 ).get_mutable_sequence(chr) {
+                    for i in 0..s.n_bins() {
+                        s.set_bin(i, 0.0);
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(track1)
 }
