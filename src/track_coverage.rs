@@ -131,7 +131,7 @@ pub struct BamCoverageConfig {
 
 // Function to insert OptionBamCoverage into BamCoverageConfig
 impl BamCoverageConfig {
-    pub fn insert_option(&mut self, option: &OptionBamCoverage) {
+    pub fn insert_option(&mut self, option: OptionBamCoverage) {
         match option {
             OptionBamCoverage::Logger(logger) => {
                 self.logger = logger;
@@ -747,7 +747,7 @@ fn bam_coverage(
 
     // Parse options
     for option in options {
-        config.insert_option(option);
+        config.insert_option(*option);
     }
 
     // Read genome
@@ -786,7 +786,7 @@ fn bam_coverage(
 
             let estimate = estimate_fraglen(&config, filename, &genome)?;
 
-            treatment_fraglen_estimates[i] = estimate;
+            treatment_fraglen_estimates[i] = estimate.clone();
             fraglen_treatment[i] = estimate.fraglen as usize;
         }
 
@@ -794,7 +794,7 @@ fn bam_coverage(
 
             let estimate = estimate_fraglen(&config, filename, &genome)?;
 
-            control_fraglen_estimates[i] = estimate;
+            control_fraglen_estimates[i] = estimate.clone();
             fraglen_control[i] = estimate.fraglen as usize;
         }
     }
