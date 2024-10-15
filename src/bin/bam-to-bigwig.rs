@@ -22,6 +22,11 @@ use std::error::Error;
 
 use plotters::prelude::*;
 
+use rustynetics::bam::bam_import_genome;
+use rustynetics::track_coverage::estimate_fraglen;
+use rustynetics::track_coverage::FraglenEstimate;
+use rustynetics::track_coverage::bam_coverage;
+
 /* -------------------------------------------------------------------------- */
 
 struct Config {
@@ -45,7 +50,7 @@ fn parse_filename(filename: &str) -> (String, i32) {
             eprintln!("Error parsing filename: {}", err);
             process::exit(1);
         });
-        (parts[0].to_string(), t)
+        return (parts[0].to_string(), t);
     } else if parts.len() >= 2 {
         eprintln!("Invalid input file description `{}`", filename);
         process::exit(1);
@@ -78,44 +83,6 @@ fn save_cross_corr(config: &Config, filename: &str, x: &[i32], y: &[f64]) -> io:
     }
 
     print_stderr(config, 1, "Wrote cross-correlation table to `{}`\n", format_args!("{}", out_filename));
-    Ok(())
-}
-
-/* -------------------------------------------------------------------------- */
-
-fn bam_to_bigwig(
-    config: BamCoverageConfig,
-    treatment_files: Vec<String>,
-    control_files: Vec<String>,
-    output_filename: &str,
-) -> Result<(), Box<dyn Error>> {
-    // Parse genome from treatment/control BAM files
-    let genome = bam_import_genome(&treatment_files[0])?;
-
-    // Estimate fragment length for treatment and control BAMs
-    let treatment_fraglen = treatment_files
-        .iter()
-        .map(|file| estimate_fraglen(&config, file, &genome))
-        .collect::<Result<Vec<_>, _>>()?;
-
-    let control_fraglen = control_files
-        .iter()
-        .map(|file| estimate_fraglen(&config, file, &genome))
-        .collect::<Result<Vec<_>, _>>()?;
-
-    // Compute BAM coverage for both treatment and control
-    let bam_coverage = bam_coverage_impl(
-        config,
-        treatment_files,
-        control_files,
-        treatment_fraglen.iter().map(|f| f.fraglen as usize).collect(),
-        control_fraglen.iter().map(|f| f.fraglen as usize).collect(),
-        genome,
-    )?;
-
-    // Write the resulting coverage to a BigWig file
-    write_bigwig(bam_coverage, output_filename)?;
-
     Ok(())
 }
 
