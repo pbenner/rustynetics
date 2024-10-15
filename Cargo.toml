@@ -16,7 +16,7 @@ regex = "1.10"
 list_comprehension_macro = "0.1"
 mysql = "24.0.0"
 num = "0.4"
-plotters = "0.3.0"
+plotters = "0.3.7"
 rand = "0.8.5"
 reqwest = { version = "0.11", features = ["blocking"] }
 serde = { version = "1.0", features = ["derive"] }
