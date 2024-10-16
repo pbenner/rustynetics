@@ -122,15 +122,15 @@ fn save_cross_corr_plot(
 
     // Mark the estimated fragment length with a vertical line
     chart.draw_series(std::iter::once(PathElement::new(
-        vec![(fraglen_est.fraglen, min_y), (fraglen_est.fraglen, max_y)],
-        &BLUE.stroke_width(2),
+        vec![(fraglen_est.fraglen as usize, min_y as f64), (fraglen_est.fraglen as usize, max_y as f64)],
+        BLUE.stroke_width(1),
     )))?;
 
     // Mark outliers with blue lines
     for &outlier in outliers {
         chart.draw_series(std::iter::once(PathElement::new(
             vec![(outlier, min_y), (outlier, max_y)],
-            &GREEN.stroke_width(1),
+            GREEN.stroke_width(1),
         )))?;
     }
 
@@ -142,3 +142,6 @@ fn save_cross_corr_plot(
 
 /* -------------------------------------------------------------------------- */
 
+fn main() {
+
+}
