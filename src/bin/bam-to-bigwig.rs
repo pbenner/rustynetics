@@ -70,7 +70,7 @@ fn save_fraglen(config: &Config, filename: &str, fraglen: i32) -> io::Result<()>
     let mut file = File::create(&out_filename)?;
     writeln!(file, "{}", fraglen)?;
 
-    print_stderr!(config, 1, "Wrote fragment length estimate to `{}`\n", format_args!("{}", out_filename));
+    print_stderr!(config, 1, "Wrote fragment length estimate to `{}`\n", out_filename);
     Ok(())
 }
 
@@ -85,7 +85,7 @@ fn save_cross_corr(config: &Config, filename: &str, x: &[i32], y: &[f64]) -> io:
         writeln!(file, "{} {}", xi, yi)?;
     }
 
-    print_stderr!(config, 1, "Wrote cross-correlation table to `{}`\n", format_args!("{}", out_filename));
+    print_stderr!(config, 1, "Wrote cross-correlation table to `{}`\n", out_filename);
     Ok(())
 }
 
