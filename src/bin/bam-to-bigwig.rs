@@ -15,7 +15,7 @@
  */
 
 use std::fs::File;
-use std::io::{self, Write};
+use std::io::{self, BufRead, Write};
 use std::path::Path;
 use std::process;
 use std::error::Error;
@@ -141,6 +141,33 @@ fn save_cross_corr_plot(
     root.present()?;
 
     Ok(())
+}
+
+/* -------------------------------------------------------------------------- */
+
+fn import_fraglen(config: &Config, filename: &str) -> i32 {
+    // Try reading the fragment length from file
+    let basename = Path::new(filename).with_extension(""); // Remove file extension
+    let fraglen_filename = format!("{}.fraglen.txt", basename.display());
+
+    match File::open(&fraglen_filename) {
+        Ok(file) => {
+            print_stderr!(config, 1, "Reading fragment length from `{}`... ", fraglen_filename);
+            let reader = io::BufReader::new(file);
+            let mut lines = reader.lines();
+
+            if let Some(Ok(line)) = lines.next() {
+                if let Ok(fraglen) = line.parse::<i64>() {
+                    print_stderr!(config, 1, "done\n");
+                    return fraglen as i32;
+                }
+            }
+
+            print_stderr!(config, 1, "failed\n");
+            -1
+        }
+        Err(_) => -1,
+    }
 }
 
 /* -------------------------------------------------------------------------- */
