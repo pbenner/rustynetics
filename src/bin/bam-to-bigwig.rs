@@ -30,6 +30,10 @@ use rustynetics::track_coverage::bam_coverage;
 /* -------------------------------------------------------------------------- */
 
 struct Config {
+    bw_zoom_levels: Vec<i32>,
+    save_fraglen: bool,
+    save_cross_corr: bool,
+    save_cross_corr_plot: bool,
     verbose: usize,
 }
 
