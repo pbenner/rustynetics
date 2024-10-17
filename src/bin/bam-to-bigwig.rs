@@ -20,7 +20,7 @@ use std::path::Path;
 use std::process;
 use std::error::Error;
 
-use clap::{Arg, Command};
+use clap::{Arg, ArgAction, Command};
 use plotters::prelude::*;
 
 use rustynetics::bam::bam_import_genome;
@@ -30,12 +30,13 @@ use rustynetics::track_coverage::bam_coverage;
 
 /* -------------------------------------------------------------------------- */
 
+#[derive(Clone, Debug, Default)]
 struct Config {
     bw_zoom_levels: Vec<i32>,
     save_fraglen: bool,
     save_cross_corr: bool,
     save_cross_corr_plot: bool,
-    verbose: usize,
+    verbose: u8,
 }
 
 /* -------------------------------------------------------------------------- */
@@ -178,159 +179,146 @@ fn import_fraglen(config: &Config, filename: &str) -> i32 {
 /* -------------------------------------------------------------------------- */
 
 fn main() {
-    let matches = Command::new("MyApp")
+    let mut app = Command::new("bam-to-bigwig")
         .version("1.0")
-        .author("Your Name <you@example.com>")
-        .about("CLI tool description")
+        .author("Philipp Benner [https://github.com/pbenner]")
+        .about("Convert BAM to BigWig files")
         // bigWig options
         .arg(Arg::new("bigwig-zoom-levels")
             .long("bigwig-zoom-levels")
-            .takes_value(true)
+            .num_args(1)
             .help("Comma separated list of BigWig zoom levels"))
         // read options
         .arg(Arg::new("shift-reads")
             .long("shift-reads")
-            .takes_value(true)
+            .num_args(1)
             .help("Shift reads on the positive strand by `x` bps and those on the negative strand by `y` bps [format: x,y]"))
         .arg(Arg::new("paired-as-single-end")
             .long("paired-as-single-end")
-            .takes_value(false)
+            .action(ArgAction::SetTrue)
             .help("Treat paired reads as single end reads"))
         .arg(Arg::new("paired-end-strand-specific")
             .long("paired-end-strand-specific")
-            .takes_value(false)
+            .action(ArgAction::SetTrue)
             .help("Strand specific paired-end sequencing"))
         // options for filtering reads
         .arg(Arg::new("filter-strand")
             .long("filter-strand")
-            .takes_value(true)
+            .num_args(1)
             .help("Use reads on either the forward `+` or reverse `-` strand"))
         .arg(Arg::new("filter-read-lengths")
             .long("filter-read-lengths")
-            .takes_value(true)
+            .num_args(1)
             .help("Feasible range of read lengths [format: min:max]"))
         .arg(Arg::new("filter-mapq")
             .long("filter-mapq")
-            .takes_value(true)
+            .num_args(1)
             .default_value("0")
             .help("Filter reads for minimum mapping quality [default: 0]"))
         .arg(Arg::new("filter-duplicates")
             .long("filter-duplicates")
-            .takes_value(false)
+            .action(ArgAction::SetTrue)
             .help("Remove reads marked as duplicates"))
         .arg(Arg::new("filter-paired-end")
             .long("filter-paired-end")
-            .takes_value(false)
+            .action(ArgAction::SetTrue)
             .help("Remove all single end reads"))
         .arg(Arg::new("filter-single-end")
             .long("filter-single-end")
-            .takes_value(false)
+            .action(ArgAction::SetTrue)
             .help("Remove all paired end reads"))
         .arg(Arg::new("filter-chromosomes")
             .long("filter-chromosomes")
-            .takes_value(true)
+            .num_args(1)
             .help("Remove all reads on the given chromosomes [comma separated list]"))
         // track options
         .arg(Arg::new("binning-method")
             .long("binning-method")
-            .takes_value(true)
+            .num_args(1)
             .help("Binning method"))
         .arg(Arg::new("bin-size")
             .long("bin-size")
-            .takes_value(true)
+            .num_args(1)
             .default_value("10")
             .help("Track bin size [default: 10]"))
         .arg(Arg::new("normalize-track")
             .long("normalize-track")
-            .takes_value(true)
+            .num_args(1)
             .help("Normalize track with the specified method"))
         .arg(Arg::new("pseudocounts")
             .long("pseudocounts")
-            .takes_value(true)
+            .num_args(1)
             .help("Pseudocounts added to treatment and control signal [default: `0.0,0.0']"))
         .arg(Arg::new("smoothen-control")
             .long("smoothen-control")
-            .takes_value(false)
+            .action(ArgAction::SetTrue)
             .help("Smoothen control with an adaptive window method"))
         .arg(Arg::new("smoothen-window-sizes")
             .long("smoothen-window-sizes")
-            .takes_value(true)
+            .num_args(1)
             .help("Feasible window sizes for the smoothening method [format: s1,s2,...]"))
         .arg(Arg::new("smoothen-min-counts")
             .long("smoothen-min-counts")
-            .takes_value(true)
+            .num_args(1)
             .help("Minimum number of counts for the smoothening method"))
         .arg(Arg::new("log-scale")
             .long("log-scale")
-            .takes_value(false)
+            .action(ArgAction::SetTrue)
             .help("Log-transform data"))
         // options for estimating and setting fragment lengths
         .arg(Arg::new("fragment-length")
             .long("fragment-length")
-            .takes_value(true)
+            .num_args(1)
             .help("Fragment length for all input files [reads are extended to the given length]"))
         .arg(Arg::new("fragment-length-range")
             .long("fragment-length-range")
-            .takes_value(true)
+            .num_args(1)
             .help("Feasible range of fragment lengths [format from:to]"))
         .arg(Arg::new("fragment-length-bin-size")
             .long("fragment-length-bin-size")
-            .takes_value(true)
+            .num_args(1)
             .default_value("10")
             .help("Bin size used when estimating the fragment length [default: 10]"))
         .arg(Arg::new("estimate-fragment-length")
             .long("estimate-fragment-length")
-            .takes_value(false)
+            .action(ArgAction::SetTrue)
             .help("Use crosscorrelation to estimate the fragment length"))
         .arg(Arg::new("save-fraglen")
             .long("save-fraglen")
-            .takes_value(false)
+            .action(ArgAction::SetTrue)
             .help("Save estimated fragment length in a file"))
         .arg(Arg::new("save-crosscorrelation")
             .long("save-crosscorrelation")
-            .takes_value(false)
+            .action(ArgAction::SetTrue)
             .help("Save crosscorrelation between forward and reverse strands"))
         .arg(Arg::new("save-crosscorrelation-plot")
             .long("save-crosscorrelation-plot")
-            .takes_value(false)
+            .action(ArgAction::SetTrue)
             .help("Save crosscorrelation plot"))
         // generic options
         .arg(Arg::new("verbose")
             .short('v')
-            .multiple_occurrences(true)
+            .action(ArgAction::Count)
             .help("Verbose level [-v or -vv]"))
-        .arg(Arg::new("help")
-            .short('h')
-            .long("help")
-            .takes_value(false)
-            .help("Print help"))
         .arg(Arg::new("files")
-            .multiple_values(true)
+            .num_args(1..)
             .required(true)
-            .help("<TREATMENT1.bam[:FRAGLEN],TREATMENT2.bam[:FRAGLEN],...> [<CONTROL1.bam[:FRAGLEN],CONTROL2.bam[:FRAGLEN],...>] <RESULT.bw>"))
-        .get_matches();
+            .help("<TREATMENT1.bam[:FRAGLEN],TREATMENT2.bam[:FRAGLEN],...> [<CONTROL1.bam[:FRAGLEN],CONTROL2.bam[:FRAGLEN],...>] <RESULT.bw>"));
 
-    // handle help
-    if matches.is_present("help") {
-        println!("{}", matches.usage());
-        process::exit(0);
-    }
+    let matches = app.clone().get_matches();
+    let mut config = Config::default();
 
     // handle verbosity
-    let verbose_level = matches.occurrences_of("verbose") as u8;
-    let mut config = Config {
-        verbose: verbose_level,
-    };
+    config.verbose = matches.get_count("verbose") as u8;
 
     // handle file arguments
-    let files: Vec<_> = matches.values_of("files").unwrap().collect();
+    let files: Vec<_> = matches.get_many::<String>("files").unwrap().collect();
     if files.len() != 2 && files.len() != 3 {
         eprintln!("Error: Invalid number of arguments.");
-        println!("{}", matches.usage());
+        println!("{}", app.render_usage());
         process::exit(1);
     }
 
-    // Continue with other logic
     if config.verbose > 0 {
         println!("Verbose mode enabled with level: {}", config.verbose);
     }
