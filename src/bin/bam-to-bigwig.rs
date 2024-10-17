@@ -24,6 +24,8 @@ use clap::{Arg, ArgAction, Command};
 use plotters::prelude::*;
 
 use rustynetics::bam::bam_import_genome;
+use rustynetics::bigwig::BigWigParameters;
+use rustynetics::track_generic::GenericTrack;
 use rustynetics::track_coverage::{FraglenEstimate, OptionBamCoverage};
 use rustynetics::track_coverage::{bam_coverage, estimate_fraglen};
 
@@ -97,12 +99,13 @@ fn save_cross_corr(config: &Config, filename: &str, x: &[i32], y: &[f64]) -> io:
 /* -------------------------------------------------------------------------- */
 
 fn save_cross_corr_plot(
-    filename: &str,
-    cross_corr: &[f64],
+    config     : &Config,
+    filename   : &str,
+    cross_corr : &[f64],
     fraglen_est: FraglenEstimate,
-    outliers: &[usize],
-    _scale_x: bool, // You can implement scaling if needed
+    outliers   : &[usize],
 ) -> Result<(), Box<dyn Error>> {
+
     // Create a 600x400 image for the plot
     let root = BitMapBackend::new(filename, (600, 400)).into_drawing_area();
     root.fill(&WHITE)?;
@@ -144,6 +147,8 @@ fn save_cross_corr_plot(
 
     // Ensure the plot is saved
     root.present()?;
+
+    print_stderr!(config, 1, "Wrote cross-correlation plot to `{}`\n", filename);
 
     Ok(())
 }
@@ -548,14 +553,13 @@ fn main() {
         }
     }
 
-    bam_coverage(
-        &filename_track,
-        &filenames_treatment,
-        &filenames_control,
-        &fraglen_treatment,
-        &fraglen_control,
-        &options_list
-    )?;
+    let result = bam_coverage(
+        filenames_treatment,
+        filenames_control,
+        fraglen_treatment,
+        fraglen_control,
+        options_list
+    );
 
     // Save fragment length estimates if the option is set
     if opt_estimate_fraglen {
@@ -595,10 +599,10 @@ fn main() {
     } else {
         eprint!("Writing track `{}`... ", filename_track);
 
-        let mut parameters = DefaultBigWigParameters::new();
+        let mut parameters = BigWigParameters::default();
         parameters.reduction_levels = config.bw_zoom_levels.clone();
 
-        if let Err(err) = GenericTrack::new(result).export_bigwig(&filename_track, &parameters) {
+        if let Err(err) = GenericTrack::wrap(result.unwrap()).export_bigwig(&filename_track, Some(parameters)) {
             eprintln!("failed");
             log::error!("{}", err);
             std::process::exit(1);
