@@ -423,4 +423,127 @@ fn main() {
         config.bw_zoom_levels = bw_zoom_levels;
     }
 
+    if let Some(opt_normalize_track) = matches.get_one::<String>("normalize-track") {
+        match opt_normalize_track.to_lowercase().as_str() {
+            "rpkm" | "cpm" => {},
+            _ => {
+                eprintln!("invalid normalization method `{}`", opt_normalize_track);
+                process::exit(1);
+            }
+        }
+        options_list.push(OptionBamCoverage::NormalizeTrack(opt_normalize_track.to_lowercase()));
+    }
+    
+    if let Some(opt_fraglen_range) = matches.get_one::<String>("fraglen-range") {
+        let tmp: Vec<&str> = opt_fraglen_range.split(':').collect();
+        if tmp.len() != 2 {
+            eprintln!("{}", app.render_usage());
+            process::exit(1);
+        }
+        let t1 = tmp[0].parse::<i32>().expect("parsing fragment length range failed");
+        let t2 = tmp[1].parse::<i32>().expect("parsing fragment length range failed");
+        options_list.push(OptionBamCoverage::FraglenRange((t1, t2)));
+    }
+    
+    if let Some(&opt_fraglen_bin_size) = matches.get_one::<usize>("fraglen-bin-size") {
+        if opt_fraglen_bin_size > 0 {
+            options_list.push(OptionBamCoverage::FraglenBinSize(opt_fraglen_bin_size));
+        }
+    }
+    
+    if matches.get_flag("filter-paired-end") && matches.get_flag("estimate-fraglen") {
+        eprintln!("cannot estimate fragment length for paired end reads");
+        process::exit(1);
+    }
+    
+    if matches.get_flag("filter-paired-end") && matches.get_flag("filter-single-end") {
+        eprintln!("cannot filter for paired and single end reads");
+        process::exit(1);
+    }
+    
+    if let Some(opt_filter_chroms) = matches.get_one::<String>("filter-chroms") {
+        options_list.push(OptionBamCoverage::FilterChroms(
+            opt_filter_chroms.split(',').map(String::from).collect(),
+        ));
+    }
+    
+    options_list.push(OptionBamCoverage::EstimateFraglen(matches.get_flag("estimate-fraglen")));
+    options_list.push(OptionBamCoverage::LogScale(matches.get_flag("log-scale")));
+    options_list.push(OptionBamCoverage::PairedAsSingleEnd(matches.get_flag("paired-as-single-end")));
+    options_list.push(OptionBamCoverage::PairedEndStrandSpecific(matches.get_flag("paired-end-strand")));
+    options_list.push(OptionBamCoverage::FilterDuplicates(matches.get_flag("filter-duplicates")));
+    options_list.push(OptionBamCoverage::FilterPairedEnd(matches.get_flag("filter-paired-end")));
+    options_list.push(OptionBamCoverage::FilterSingleEnd(matches.get_flag("filter-single-end")));
+    
+    config.save_fraglen         = matches.get_flag("save-fraglen");
+    config.save_cross_corr      = matches.get_flag("save-crosscorr");
+    config.save_cross_corr_plot = matches.get_flag("save-crosscorr-plot");
+    
+    // Parse arguments
+    //////////////////////////////////////////////////////////////////////////////
+    
+    let mut filenames_treatment: Vec<String> = matches
+        .get_one::<String>("filenames-treatment")
+        .unwrap()
+        .split(',')
+        .map(String::from)
+        .collect();
+    
+    let mut filenames_control: Vec<String> = Vec::new();
+    let mut filename_track = String::new();
+    
+    if matches.get_many::<String>("args").unwrap().len() == 3 {
+        filenames_control = matches
+            .get_one::<String>("filenames-control")
+            .unwrap()
+            .split(',')
+            .map(String::from)
+            .collect();
+        filename_track = matches.get_one::<String>("filename-track").unwrap().to_string();
+    } else {
+        filename_track = matches.get_one::<String>("filenames-track").unwrap().to_string();
+    }
+    
+    let mut fraglen_treatment = vec![0; filenames_treatment.len()];
+    let mut fraglen_control = vec![0; filenames_control.len()];
+    
+    // Split filename:fraglen
+    for (i, filename) in filenames_treatment.iter().enumerate() {
+        let (new_filename, fraglen) = parse_filename(filename);
+        filenames_treatment[i] = new_filename;
+        fraglen_treatment[i] = fraglen;
+    }
+    
+    for (i, filename) in filenames_control.iter().enumerate() {
+        let (new_filename, fraglen) = parse_filename(filename);
+        filenames_control[i] = new_filename;
+        fraglen_control[i] = fraglen;
+    }
+    
+    if let Some(&opt_fraglen) = matches.get_one::<i32>("fraglen") {
+        if opt_fraglen != 0 {
+            for fraglen in &mut fraglen_treatment {
+                *fraglen = opt_fraglen;
+            }
+            for fraglen in &mut fraglen_control {
+                *fraglen = opt_fraglen;
+            }
+        }
+    }
+    
+    // Import fragment length
+    //////////////////////////////////////////////////////////////////////////////
+    
+    for (i, filename) in filenames_treatment.iter().enumerate() {
+        if fraglen_treatment[i] == 0 {
+            fraglen_treatment[i] = import_fraglen(&config, filename);
+        }
+    }
+    
+    for (i, filename) in filenames_control.iter().enumerate() {
+        if fraglen_control[i] == 0 {
+            fraglen_control[i] = import_fraglen(&config, filename);
+        }
+    }
+    
 }
