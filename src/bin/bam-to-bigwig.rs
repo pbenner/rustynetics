@@ -101,24 +101,24 @@ fn save_cross_corr(config: &Config, filename: &str, x: &[i32], y: &[f64]) -> io:
 fn save_cross_corr_plot(
     config     : &Config,
     filename   : &str,
-    cross_corr : &[f64],
-    fraglen_est: FraglenEstimate,
-    outliers   : &[usize],
+    fraglen    : i32,
+    x          : Vec<i32>,
+    y          : Vec<f64>,
 ) -> Result<(), Box<dyn Error>> {
 
     // Create a 600x400 image for the plot
     let root = BitMapBackend::new(filename, (600, 400)).into_drawing_area();
     root.fill(&WHITE)?;
 
-    let max_y = cross_corr.iter().cloned().fold(f64::MIN, f64::max);
-    let min_y = cross_corr.iter().cloned().fold(f64::MAX, f64::min);
+    let max_y = y.iter().cloned().fold(f64::MIN, f64::max);
+    let min_y = y.iter().cloned().fold(f64::MAX, f64::min);
 
     let mut chart = ChartBuilder::on(&root)
         .caption("Cross-correlation", ("sans-serif", 20))
         .x_label_area_size(30)
         .y_label_area_size(30)
         .margin(5)
-        .build_cartesian_2d(0..cross_corr.len(), min_y..max_y)?;
+        .build_cartesian_2d(0..y.len(), min_y..max_y)?;
 
     chart.configure_mesh()
         .x_desc("Fragment length")
@@ -127,23 +127,15 @@ fn save_cross_corr_plot(
 
     // Plot the cross-correlation line
     chart.draw_series(LineSeries::new(
-        cross_corr.iter().enumerate().map(|(i, &y)| (i, y)),
-        &RED,
+        x.iter().zip(y.iter()),
+        &BLACK,
     ))?;
 
     // Mark the estimated fragment length with a vertical line
     chart.draw_series(std::iter::once(PathElement::new(
-        vec![(fraglen_est.fraglen as usize, min_y as f64), (fraglen_est.fraglen as usize, max_y as f64)],
-        BLUE.stroke_width(1),
+        vec![(fraglen as usize, min_y as f64), (fraglen as usize, max_y as f64)],
+        RED.stroke_width(1),
     )))?;
-
-    // Mark outliers with blue lines
-    for &outlier in outliers {
-        chart.draw_series(std::iter::once(PathElement::new(
-            vec![(outlier, min_y), (outlier, max_y)],
-            GREEN.stroke_width(1),
-        )))?;
-    }
 
     // Ensure the plot is saved
     root.present()?;
@@ -607,7 +599,7 @@ fn main() {
 
         if let Err(err) = GenericTrack::wrap(&track).export_bigwig(&filename_track, Some(parameters)) {
             eprintln!("failed");
-            log::error!("{}", err);
+            eprintln!("{}", err);
             std::process::exit(1);
         } else {
             eprintln!("done");
