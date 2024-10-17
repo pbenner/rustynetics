@@ -315,12 +315,10 @@ fn main() {
     let files: Vec<_> = matches.get_many::<String>("files").unwrap().collect();
     if files.len() != 2 && files.len() != 3 {
         eprintln!("Error: Invalid number of arguments.");
-        println!("{}", app.render_usage());
+        eprintln!("{}", app.render_usage());
         process::exit(1);
     }
 
-    if config.verbose > 0 {
-        println!("Verbose mode enabled with level: {}", config.verbose);
-    }
+    print_stderr!(config, 1, "Verbose mode enabled with level: {}", config.verbose);
 
 }
