@@ -505,20 +505,22 @@ fn main() {
     }
     
     let mut fraglen_treatment = vec![0; filenames_treatment.len()];
-    let mut fraglen_control = vec![0; filenames_control.len()];
+    let mut fraglen_control   = vec![0; filenames_control.len()];
     
-    // Split filename:fraglen
-    for (i, filename) in filenames_treatment.iter().enumerate() {
-        let (new_filename, fraglen) = parse_filename(filename);
-        filenames_treatment[i] = new_filename;
-        fraglen_treatment[i] = fraglen;
+    // Split filename:fraglen for treatment filenames
+    for (filename, fraglen) in filenames_treatment.iter_mut().zip(fraglen_treatment.iter_mut()) {
+        let (new_filename, new_fraglen) = parse_filename(filename);
+        *filename = new_filename;
+        *fraglen  = new_fraglen;
     }
-    
-    for (i, filename) in filenames_control.iter().enumerate() {
-        let (new_filename, fraglen) = parse_filename(filename);
-        filenames_control[i] = new_filename;
-        fraglen_control[i] = fraglen;
+
+    // Split filename:fraglen for control filenames
+    for (filename, fraglen) in filenames_control.iter_mut().zip(fraglen_control.iter_mut()) {
+        let (new_filename, new_fraglen) = parse_filename(filename);
+        *filename = new_filename;
+        *fraglen  = new_fraglen;
     }
+
     
     if let Some(&opt_fraglen) = matches.get_one::<i32>("fraglen") {
         if opt_fraglen != 0 {
