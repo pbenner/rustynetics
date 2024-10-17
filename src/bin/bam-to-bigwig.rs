@@ -547,5 +547,64 @@ fn main() {
             fraglen_control[i] = import_fraglen(&config, filename);
         }
     }
-    
+
+    bam_coverage(
+        &filename_track,
+        &filenames_treatment,
+        &filenames_control,
+        &fraglen_treatment,
+        &fraglen_control,
+        &options_list
+    )?;
+
+    // Save fragment length estimates if the option is set
+    if opt_estimate_fraglen {
+        for (i, estimate) in fraglen_treatment_estimate.iter().enumerate() {
+            let filename = &filenames_treatment[i];
+
+            if config.save_fraglen && estimate.error.is_none() {
+                save_fraglen(&config, filename, estimate.fraglen);
+            }
+            if config.save_cross_corr && estimate.x.is_some() && estimate.y.is_some() {
+                save_cross_corr(&config, filename, estimate.x.as_ref().unwrap(), estimate.y.as_ref().unwrap());
+            }
+            if config.save_cross_corr_plot && estimate.x.is_some() && estimate.y.is_some() {
+                save_cross_corr_plot(&config, filename, estimate.fraglen, estimate.x.as_ref().unwrap(), estimate.y.as_ref().unwrap());
+            }
+        }
+
+        for (i, estimate) in fraglen_control_estimate.iter().enumerate() {
+            let filename = &filenames_control[i];
+
+            if config.save_fraglen && estimate.error.is_none() {
+                save_fraglen(&config, filename, estimate.fraglen);
+            }
+            if config.save_cross_corr && estimate.x.is_some() && estimate.y.is_some() {
+                save_cross_corr(&config, filename, estimate.x.as_ref().unwrap(), estimate.y.as_ref().unwrap());
+            }
+            if config.save_cross_corr_plot && estimate.x.is_some() && estimate.y.is_some() {
+                save_cross_corr_plot(&config, filename, estimate.fraglen, estimate.x.as_ref().unwrap(), estimate.y.as_ref().unwrap());
+            }
+        }
+    }
+
+    // Process the result
+    if let Err(err) = result {
+        eprintln!("Error: {}", err);
+        std::process::exit(1);
+    } else {
+        eprint!("Writing track `{}`... ", filename_track);
+
+        let mut parameters = DefaultBigWigParameters::new();
+        parameters.reduction_levels = config.bw_zoom_levels.clone();
+
+        if let Err(err) = GenericTrack::new(result).export_bigwig(&filename_track, &parameters) {
+            eprintln!("failed");
+            log::error!("{}", err);
+            std::process::exit(1);
+        } else {
+            eprintln!("done");
+        }
+    }
+
 }
