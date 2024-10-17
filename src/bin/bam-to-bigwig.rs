@@ -24,19 +24,18 @@ use clap::{Arg, ArgAction, Command};
 use plotters::prelude::*;
 
 use rustynetics::bam::bam_import_genome;
-use rustynetics::track_coverage::estimate_fraglen;
-use rustynetics::track_coverage::FraglenEstimate;
-use rustynetics::track_coverage::bam_coverage;
+use rustynetics::track_coverage::{FraglenEstimate, OptionBamCoverage};
+use rustynetics::track_coverage::{bam_coverage, estimate_fraglen};
 
 /* -------------------------------------------------------------------------- */
 
 #[derive(Clone, Debug, Default)]
 struct Config {
-    bw_zoom_levels: Vec<i32>,
-    save_fraglen: bool,
-    save_cross_corr: bool,
+    bw_zoom_levels      : Vec<i32>,
+    save_fraglen        : bool,
+    save_cross_corr     : bool,
     save_cross_corr_plot: bool,
-    verbose: u8,
+    verbose             : u8,
 }
 
 /* -------------------------------------------------------------------------- */
@@ -320,5 +319,108 @@ fn main() {
     }
 
     print_stderr!(config, 1, "Verbose mode enabled with level: {}", config.verbose);
+
+    let mut options_list: Vec<OptionBamCoverage> = Vec::new();
+
+    if let Some(opt_bin_size) = matches.get_one::<usize>("bin-size") {
+        if *opt_bin_size < 1 {
+            eprintln!("{}", app.render_usage());
+            process::exit(1);
+        } else {
+            options_list.push(OptionBamCoverage::BinSize(*opt_bin_size));
+        }
+    }
+
+    if let Some(opt_binning_method) = matches.get_one::<String>("binning-method") {
+        match opt_binning_method.as_str() {
+            "simple" | "default" | "overlap" | "mean overlap" => {}
+            _ => {
+                eprintln!("invalid binning method `{}`", opt_binning_method);
+                process::exit(1);
+            }
+        }
+        options_list.push(OptionBamCoverage::BinningMethod(opt_binning_method.clone()));
+    }
+
+    if let Some(opt_pseudocounts) = matches.get_one::<String>("pseudocounts") {
+        let tmp: Vec<&str> = opt_pseudocounts.split(',').collect();
+        if tmp.len() != 2 {
+            eprintln!("{}", app.render_usage());
+            process::exit(1);
+        }
+        let t1 = tmp[0].parse::<f64>().expect("Invalid pseudocount value");
+        let t2 = tmp[1].parse::<f64>().expect("Invalid pseudocount value");
+        options_list.push(OptionBamCoverage::Pseudocounts([t1, t2]));
+    }
+
+    if let Some(opt_read_length) = matches.get_one::<String>("filter-read-lengths") {
+        let tmp: Vec<&str> = opt_read_length.split(':').collect();
+        if tmp.len() != 2 {
+            eprintln!("{}", app.render_usage());
+            process::exit(1);
+        }
+        let t1 = tmp[0].parse::<usize>().expect("Invalid read length");
+        let t2 = tmp[1].parse::<usize>().expect("Invalid read length");
+        if t1 > t2 {
+            eprintln!("{}", app.render_usage());
+            process::exit(1);
+        }
+        options_list.push(OptionBamCoverage::FilterReadLengths([t1, t2]));
+    }
+
+    if let Some(&opt_filter_mapq) = matches.get_one::<i64>("filter-mapq") {
+        if opt_filter_mapq < 0 {
+            eprintln!("{}", app.render_usage());
+            process::exit(1);
+        }
+        options_list.push(OptionBamCoverage::FilterMapQ(opt_filter_mapq));
+    }
+
+    if let Some(opt_filter_strand) = matches.get_one::<String>("filter-strand") {
+        match opt_filter_strand.as_str() {
+            "+" => options_list.push(OptionBamCoverage::FilterStrand('+')),
+            "-" => options_list.push(OptionBamCoverage::FilterStrand('-')),
+            _ => {
+                eprintln!("{}", app.render_usage());
+                process::exit(1);
+            }
+        }
+    }
+
+    if let Some(opt_shift_reads) = matches.get_one::<String>("shift-reads") {
+        let tmp: Vec<&str> = opt_shift_reads.split(',').collect();
+        if tmp.len() != 2 {
+            eprintln!("{}", app.render_usage());
+            process::exit(1);
+        }
+        let t1 = tmp[0].parse::<usize>().expect("Invalid shift value");
+        let t2 = tmp[1].parse::<usize>().expect("Invalid shift value");
+        options_list.push(OptionBamCoverage::ShiftReads([t1, t2]));
+    }
+
+    if matches.get_flag("smoothen-control") {
+        options_list.push(OptionBamCoverage::SmoothenControl(true));
+    }
+
+    if let Some(opt_smoothen_sizes) = matches.get_one::<String>("smoothen-window-sizes") {
+        let tmp: Vec<&str> = opt_smoothen_sizes.split(',').collect();
+        let smoothen_sizes: Vec<usize> = tmp.iter()
+            .map(|&s| s.parse::<usize>().expect("Invalid smoothen size"))
+            .collect();
+        options_list.push(OptionBamCoverage::SmoothenSizes(smoothen_sizes));
+    }
+
+    if let Some(opt_smoothen_min) = matches.get_one::<String>("smoothen-min-counts") {
+        let t = opt_smoothen_min.parse::<f64>().expect("Invalid minimum counts");
+        options_list.push(OptionBamCoverage::SmoothenMin(t));
+    }
+
+    if let Some(opt_bw_zoom_levels) = matches.get_one::<String>("bigwig-zoom-levels") {
+        let tmp: Vec<&str> = opt_bw_zoom_levels.split(',').collect();
+        let bw_zoom_levels: Vec<i32> = tmp.iter()
+            .map(|&s| s.parse::<i32>().expect("Invalid zoom level"))
+            .collect();
+        config.bw_zoom_levels = bw_zoom_levels;
+    }
 
 }
