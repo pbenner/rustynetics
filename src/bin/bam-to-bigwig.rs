@@ -280,6 +280,15 @@ fn main() {
             .long("estimate-fragment-length")
             .action(ArgAction::SetTrue)
             .help("Use crosscorrelation to estimate the fragment length"))
+        .arg(Arg::new("fraglen-range")
+            .long("fraglen-range")
+            .num_args(1)
+            .help("Feasible range of fragment lengths [format from:to]"))
+        .arg(Arg::new("fraglen-bin-size")
+            .long("fraglen-bin-size")
+            .num_args(1)
+            .default_value("10")
+            .help("Bin size used when estimating the fragment length [default: 10]"))
         .arg(Arg::new("save-fraglen")
             .long("save-fraglen")
             .action(ArgAction::SetTrue)
@@ -471,30 +480,28 @@ fn main() {
         process::exit(1);
     }
     
-    if let Some(opt_filter_chroms) = matches.get_one::<String>("filter-chroms") {
+    if let Some(opt_filter_chroms) = matches.get_one::<String>("filter-chromosomes") {
         options_list.push(OptionBamCoverage::FilterChroms(
             opt_filter_chroms.split(',').map(String::from).collect(),
         ));
     }
     
-    options_list.push(OptionBamCoverage::EstimateFraglen(matches.get_flag("estimate-fraglen")));
+    options_list.push(OptionBamCoverage::EstimateFraglen(matches.get_flag("estimate-fragment-length")));
     options_list.push(OptionBamCoverage::LogScale(matches.get_flag("log-scale")));
     options_list.push(OptionBamCoverage::PairedAsSingleEnd(matches.get_flag("paired-as-single-end")));
-    options_list.push(OptionBamCoverage::PairedEndStrandSpecific(matches.get_flag("paired-end-strand")));
+    options_list.push(OptionBamCoverage::PairedEndStrandSpecific(matches.get_flag("paired-end-strand-specific")));
     options_list.push(OptionBamCoverage::FilterDuplicates(matches.get_flag("filter-duplicates")));
     options_list.push(OptionBamCoverage::FilterPairedEnd(matches.get_flag("filter-paired-end")));
     options_list.push(OptionBamCoverage::FilterSingleEnd(matches.get_flag("filter-single-end")));
     
     config.save_fraglen         = matches.get_flag("save-fraglen");
-    config.save_cross_corr      = matches.get_flag("save-crosscorr");
-    config.save_cross_corr_plot = matches.get_flag("save-crosscorr-plot");
+    config.save_cross_corr      = matches.get_flag("save-crosscorrelation");
+    config.save_cross_corr_plot = matches.get_flag("save-crosscorrelation-plot");
     
     // Parse arguments
     //////////////////////////////////////////////////////////////////////////////
     
-    let mut filenames_treatment: Vec<String> = matches
-        .get_one::<String>("filenames-treatment")
-        .unwrap()
+    let mut filenames_treatment: Vec<String> = files[0]
         .split(',')
         .map(String::from)
         .collect();
@@ -502,16 +509,14 @@ fn main() {
     let mut filenames_control: Vec<String> = Vec::new();
     let filename_track : String;
     
-    if matches.get_many::<String>("args").unwrap().len() == 3 {
-        filenames_control = matches
-            .get_one::<String>("filenames-control")
-            .unwrap()
+    if files.len() == 3 {
+        filenames_control = files[1]
             .split(',')
             .map(String::from)
             .collect();
-        filename_track = matches.get_one::<String>("filename-track").unwrap().to_string();
+        filename_track = String::from(files[2]);
     } else {
-        filename_track = matches.get_one::<String>("filenames-track").unwrap().to_string();
+        filename_track = String::from(files[1]);
     }
     
     let mut fraglen_treatment = vec![None; filenames_treatment.len()];
@@ -532,7 +537,7 @@ fn main() {
     }
 
     
-    if let Some(&opt_fraglen) = matches.get_one::<usize>("fraglen") {
+    if let Some(&opt_fraglen) = matches.get_one::<usize>("fragment-length") {
         if opt_fraglen != 0 {
             for fraglen in &mut fraglen_treatment {
                 *fraglen = Some(opt_fraglen);
@@ -582,7 +587,7 @@ fn main() {
     }
 
     // Save fragment length estimates if the option is set
-    if matches.get_flag("estimate-fraglen") {
+    if matches.get_flag("estimate-fragment-length") {
         for (i, estimate) in fraglen_treatment_estimate.iter().enumerate() {
             let filename = &filenames_treatment[i];
 
