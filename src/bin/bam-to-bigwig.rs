@@ -549,8 +549,8 @@ fn main() {
     let result = bam_coverage(
         &filenames_treatment,
         &filenames_control,
-        fraglen_treatment,
-        fraglen_control,
+        &fraglen_treatment,
+        &fraglen_control,
         options_list
     );
 

@@ -736,11 +736,11 @@ pub fn bam_coverage_impl(
 /* -------------------------------------------------------------------------- */
 
 pub fn bam_coverage(
-    filenames_treatment  : &Vec<String>,
-    filenames_control    : &Vec<String>,
-    mut fraglen_treatment: Vec<Option<usize>>,
-    mut fraglen_control  : Vec<Option<usize>>,
-    options: Vec<OptionBamCoverage>,
+    filenames_treatment: &Vec<String>,
+    filenames_control  : &Vec<String>,
+    fraglen_treatment  : &Vec<Option<usize>>,
+    fraglen_control    : &Vec<Option<usize>>,
+    options            : Vec<OptionBamCoverage>,
 ) -> Result<(SimpleTrack, Vec<FraglenEstimate>, Vec<FraglenEstimate>), CoverageError> {
 
     let mut config = BamCoverageConfig::default();
@@ -749,6 +749,9 @@ pub fn bam_coverage(
     for option in options {
         config.insert_option(option);
     }
+
+    let mut fraglen_treatment = fraglen_treatment.clone();
+    let mut fraglen_control   = fraglen_control  .clone();
 
     // Check fraglen arguments
     if fraglen_treatment.is_empty() {
