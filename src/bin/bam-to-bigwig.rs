@@ -554,74 +554,90 @@ fn main() {
         options_list
     );
 
-    if let Err(err) = result {
-        eprintln!("Error: {}", err);
-        std::process::exit(1);
+    let fraglen_treatment_estimate;
+    let fraglen_control_estimate;
+
+    // Get fraglen estimates
+    match result {
+        Ok((ref _track, ref fraglen_treatment_estimate_, ref fraglen_control_estimate_)) => {
+            fraglen_treatment_estimate = fraglen_treatment_estimate_.clone();
+            fraglen_control_estimate   = fraglen_control_estimate_.clone();
+        },
+        Err(ref err) => {
+            fraglen_treatment_estimate = err.treatment_fraglen_estimates.clone();
+            fraglen_control_estimate   = err.control_fraglen_estimates.clone();
+        }
     }
-    if let Ok((track, fraglen_treatment_estimate, fraglen_control_estimate)) = result {
 
-        // Save fragment length estimates if the option is set
-        if matches.get_flag("estimate-fraglen") {
-            for (i, estimate) in fraglen_treatment_estimate.iter().enumerate() {
-                let filename = &filenames_treatment[i];
+    // Save fragment length estimates if the option is set
+    if matches.get_flag("estimate-fraglen") {
+        for (i, estimate) in fraglen_treatment_estimate.iter().enumerate() {
+            let filename = &filenames_treatment[i];
 
-                if config.save_fraglen {
-                    if let Err(e) = save_fraglen(&config, filename, estimate.fraglen) {
-                        eprintln!("{}", e);
-                        std::process::exit(1);
-                    }
-                }
-                if config.save_cross_corr && estimate.x.len() > 0 {
-                    if let Err(e) = save_cross_corr(&config, filename, &estimate.x, &estimate.y) {
-                        eprintln!("{}", e);
-                        std::process::exit(1);
-                    }
-                }
-                if config.save_cross_corr_plot && estimate.x.len() > 0 {
-                    if let Err(e) = save_cross_corr_plot(&config, filename, estimate.fraglen, &estimate.x, &estimate.y) {
-                        eprintln!("{}", e);
-                        std::process::exit(1);
-                    }
+            if config.save_fraglen {
+                if let Err(e) = save_fraglen(&config, filename, estimate.fraglen) {
+                    eprintln!("{}", e);
+                    std::process::exit(1);
                 }
             }
-
-            for (i, estimate) in fraglen_control_estimate.iter().enumerate() {
-                let filename = &filenames_control[i];
-
-                if config.save_fraglen {
-                    if let Err(e) = save_fraglen(&config, filename, estimate.fraglen) {
-                        eprintln!("{}", e);
-                        std::process::exit(1);
-                    }
+            if config.save_cross_corr && estimate.x.len() > 0 {
+                if let Err(e) = save_cross_corr(&config, filename, &estimate.x, &estimate.y) {
+                    eprintln!("{}", e);
+                    std::process::exit(1);
                 }
-                if config.save_cross_corr && estimate.x.len() > 0 {
-                    if let Err(e) = save_cross_corr(&config, filename, &estimate.x, &estimate.y) {
-                        eprintln!("{}", e);
-                        std::process::exit(1);
-                    }
-                }
-                if config.save_cross_corr_plot && estimate.x.len() > 0 {
-                    if let Err(e) = save_cross_corr_plot(&config, filename, estimate.fraglen, &estimate.x, &estimate.y) {
-                        eprintln!("{}", e);
-                        std::process::exit(1);
-                    }
+            }
+            if config.save_cross_corr_plot && estimate.x.len() > 0 {
+                if let Err(e) = save_cross_corr_plot(&config, filename, estimate.fraglen, &estimate.x, &estimate.y) {
+                    eprintln!("{}", e);
+                    std::process::exit(1);
                 }
             }
         }
 
-        // Process the result
+        for (i, estimate) in fraglen_control_estimate.iter().enumerate() {
+            let filename = &filenames_control[i];
 
-        eprint!("Writing track `{}`... ", filename_track);
+            if config.save_fraglen {
+                if let Err(e) = save_fraglen(&config, filename, estimate.fraglen) {
+                    eprintln!("{}", e);
+                    std::process::exit(1);
+                }
+            }
+            if config.save_cross_corr && estimate.x.len() > 0 {
+                if let Err(e) = save_cross_corr(&config, filename, &estimate.x, &estimate.y) {
+                    eprintln!("{}", e);
+                    std::process::exit(1);
+                }
+            }
+            if config.save_cross_corr_plot && estimate.x.len() > 0 {
+                if let Err(e) = save_cross_corr_plot(&config, filename, estimate.fraglen, &estimate.x, &estimate.y) {
+                    eprintln!("{}", e);
+                    std::process::exit(1);
+                }
+            }
+        }
 
-        let mut parameters = BigWigParameters::default();
-        parameters.reduction_levels = config.bw_zoom_levels.clone();
-
-        if let Err(err) = GenericTrack::wrap(&track).export_bigwig(&filename_track, Some(parameters)) {
-            eprintln!("failed");
-            eprintln!("{}", err);
+        // Exit on error
+        if let Err(err) = result {
+            eprintln!("Error: {}", err);
             std::process::exit(1);
-        } else {
-            eprintln!("done");
+        }
+        // Process the result
+        if let Ok((track, _, _)) = result {
+
+            eprint!("Writing track `{}`... ", filename_track);
+
+            let mut parameters = BigWigParameters::default();
+            parameters.reduction_levels = config.bw_zoom_levels.clone();
+
+            if let Err(err) = GenericTrack::wrap(&track).export_bigwig(&filename_track, Some(parameters)) {
+                eprintln!("failed");
+                eprintln!("{}", err);
+                std::process::exit(1);
+            } else {
+                eprintln!("done");
+            }
+
         }
 
     }
