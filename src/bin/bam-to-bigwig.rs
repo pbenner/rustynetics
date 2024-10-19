@@ -112,6 +112,8 @@ fn save_cross_corr_plot(
     let max_y = y.iter().cloned().fold(f64::MIN, f64::max);
     let min_y = y.iter().cloned().fold(f64::MAX, f64::min);
 
+    let z : Vec<(usize, f64)> = x.iter().map(|&x| x as usize).zip(y.iter().map(|&x| x)).collect();
+
     let mut chart = ChartBuilder::on(&root)
         .caption("Cross-correlation", ("sans-serif", 20))
         .x_label_area_size(30)
@@ -126,13 +128,13 @@ fn save_cross_corr_plot(
 
     // Plot the cross-correlation line
     chart.draw_series(LineSeries::new(
-        x.iter().zip(y.iter()),
+        z,
         &BLACK,
     ))?;
 
     // Mark the estimated fragment length with a vertical line
     chart.draw_series(std::iter::once(PathElement::new(
-        vec![(fraglen as i32, min_y as f64), (fraglen as i32, max_y as f64)],
+        vec![(fraglen, min_y as f64), (fraglen, max_y as f64)],
         RED.stroke_width(1),
     )))?;
 
@@ -564,13 +566,22 @@ fn main() {
                 let filename = &filenames_treatment[i];
 
                 if config.save_fraglen {
-                    save_fraglen(&config, filename, estimate.fraglen);
+                    if let Err(e) = save_fraglen(&config, filename, estimate.fraglen) {
+                        eprintln!("{}", e);
+                        std::process::exit(1);
+                    }
                 }
                 if config.save_cross_corr && estimate.x.len() > 0 {
-                    save_cross_corr(&config, filename, &estimate.x, &estimate.y);
+                    if let Err(e) = save_cross_corr(&config, filename, &estimate.x, &estimate.y) {
+                        eprintln!("{}", e);
+                        std::process::exit(1);
+                    }
                 }
                 if config.save_cross_corr_plot && estimate.x.len() > 0 {
-                    save_cross_corr_plot(&config, filename, estimate.fraglen, &estimate.x, &estimate.y);
+                    if let Err(e) = save_cross_corr_plot(&config, filename, estimate.fraglen, &estimate.x, &estimate.y) {
+                        eprintln!("{}", e);
+                        std::process::exit(1);
+                    }
                 }
             }
 
@@ -578,13 +589,22 @@ fn main() {
                 let filename = &filenames_control[i];
 
                 if config.save_fraglen {
-                    save_fraglen(&config, filename, estimate.fraglen);
+                    if let Err(e) = save_fraglen(&config, filename, estimate.fraglen) {
+                        eprintln!("{}", e);
+                        std::process::exit(1);
+                    }
                 }
                 if config.save_cross_corr && estimate.x.len() > 0 {
-                    save_cross_corr(&config, filename, &estimate.x, &estimate.y);
+                    if let Err(e) = save_cross_corr(&config, filename, &estimate.x, &estimate.y) {
+                        eprintln!("{}", e);
+                        std::process::exit(1);
+                    }
                 }
                 if config.save_cross_corr_plot && estimate.x.len() > 0 {
-                    save_cross_corr_plot(&config, filename, estimate.fraglen, &estimate.x, &estimate.y);
+                    if let Err(e) = save_cross_corr_plot(&config, filename, estimate.fraglen, &estimate.x, &estimate.y) {
+                        eprintln!("{}", e);
+                        std::process::exit(1);
+                    }
                 }
             }
         }
