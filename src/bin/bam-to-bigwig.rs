@@ -633,30 +633,28 @@ fn main() {
                 }
             }
         }
+    }
 
-        // Exit on error
-        if let Err(err) = result {
-            eprintln!("Error: {}", err);
+    // Exit on error
+    if let Err(err) = result {
+        eprintln!("Error: {}", err);
+        std::process::exit(1);
+    }
+    // Process the result
+    if let Ok((track, _, _)) = result {
+
+        eprint!("Writing track `{}`... ", filename_track);
+
+        let mut parameters = BigWigParameters::default();
+        parameters.reduction_levels = config.bw_zoom_levels.clone();
+
+        if let Err(err) = GenericTrack::wrap(&track).export_bigwig(&filename_track, Some(parameters)) {
+            eprintln!("failed");
+            eprintln!("{}", err);
             std::process::exit(1);
+        } else {
+            eprintln!("done");
         }
-        // Process the result
-        if let Ok((track, _, _)) = result {
-
-            eprint!("Writing track `{}`... ", filename_track);
-
-            let mut parameters = BigWigParameters::default();
-            parameters.reduction_levels = config.bw_zoom_levels.clone();
-
-            if let Err(err) = GenericTrack::wrap(&track).export_bigwig(&filename_track, Some(parameters)) {
-                eprintln!("failed");
-                eprintln!("{}", err);
-                std::process::exit(1);
-            } else {
-                eprintln!("done");
-            }
-
-        }
-
     }
 
 }
