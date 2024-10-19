@@ -320,12 +320,16 @@ fn main() {
 
     let mut options_list: Vec<OptionBamCoverage> = Vec::new();
 
-    if let Some(opt_bin_size) = matches.get_one::<usize>("bin-size") {
-        if *opt_bin_size < 1 {
+    if let Some(opt_bin_size) = matches.get_one::<String>("bin-size") {
+        let bin_size : usize = opt_bin_size.parse().unwrap_or_else(|_| {
+            eprintln!("Invalid bin size");
+            process::exit(1);
+        });
+        if bin_size < 1 {
             eprintln!("{}", app.render_usage());
             process::exit(1);
         } else {
-            options_list.push(OptionBamCoverage::BinSize(*opt_bin_size));
+            options_list.push(OptionBamCoverage::BinSize(bin_size));
         }
     }
 
@@ -366,12 +370,16 @@ fn main() {
         options_list.push(OptionBamCoverage::FilterReadLengths([t1, t2]));
     }
 
-    if let Some(&opt_filter_mapq) = matches.get_one::<i64>("filter-mapq") {
-        if opt_filter_mapq < 0 {
+    if let Some(opt_filter_mapq) = matches.get_one::<String>("filter-mapq") {
+        let filter_mapq : i64 = opt_filter_mapq.parse().unwrap_or_else(|_| {
+            eprintln!("Invalid bin size");
+            process::exit(1);
+        });
+        if filter_mapq < 0 {
             eprintln!("{}", app.render_usage());
             process::exit(1);
         }
-        options_list.push(OptionBamCoverage::FilterMapQ(opt_filter_mapq));
+        options_list.push(OptionBamCoverage::FilterMapQ(filter_mapq));
     }
 
     if let Some(opt_filter_strand) = matches.get_one::<String>("filter-strand") {
@@ -443,9 +451,13 @@ fn main() {
         options_list.push(OptionBamCoverage::FraglenRange((t1, t2)));
     }
     
-    if let Some(&opt_fraglen_bin_size) = matches.get_one::<usize>("fraglen-bin-size") {
-        if opt_fraglen_bin_size > 0 {
-            options_list.push(OptionBamCoverage::FraglenBinSize(opt_fraglen_bin_size));
+    if let Some(opt_fraglen_bin_size) = matches.get_one::<String>("fraglen-bin-size") {
+        let fraglen_bin_size : usize = opt_fraglen_bin_size.parse().unwrap_or_else(|_| {
+            eprintln!("Invalid bin size");
+            process::exit(1);
+        });
+        if fraglen_bin_size > 0 {
+            options_list.push(OptionBamCoverage::FraglenBinSize(fraglen_bin_size));
         }
     }
     
