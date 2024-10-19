@@ -676,11 +676,11 @@ impl BbiRawBlockEncoder {
         E::write_u32(buffer, (value as f32).to_bits());
     }
 
-    fn encode(&self, chrom_id: usize, sequence: &Vec<f64>, bin_size: usize) -> BbiRawBlockEncoderIterator {
+    fn encode<'a>(&'a self, chrom_id: usize, sequence: &'a Vec<f64>, bin_size: usize) -> BbiRawBlockEncoderIterator {
         BbiRawBlockEncoderIterator {
             encoder     : Box::new(self.clone()),
             chrom_id,
-            sequence    : sequence.to_vec(),
+            sequence    : sequence,
             bin_size,
             position    : 0,
             position_old: 0,
@@ -692,10 +692,10 @@ impl BbiRawBlockEncoder {
 /* -------------------------------------------------------------------------- */
 
 #[derive(Clone)]
-struct BbiRawBlockEncoderIterator {
+struct BbiRawBlockEncoderIterator<'a> {
     encoder     : Box<BbiRawBlockEncoder>,
     chrom_id    : usize,
-    sequence    : Vec<f64>,
+    sequence    : &'a Vec<f64>,
     bin_size    : usize,
     position    : usize,
     position_old: usize,
@@ -704,7 +704,7 @@ struct BbiRawBlockEncoderIterator {
 
 /* -------------------------------------------------------------------------- */
 
-impl BbiRawBlockEncoderIterator {
+impl<'a> BbiRawBlockEncoderIterator<'a> {
 
     fn write<E: ByteOrder>(&self) -> io::Result<BbiBlockEncoderType> {
 
@@ -747,7 +747,7 @@ impl BbiRawBlockEncoderIterator {
 
 /* -------------------------------------------------------------------------- */
 
-impl Iterator for BbiRawBlockEncoderIterator {
+impl<'a> Iterator for BbiRawBlockEncoderIterator<'a> {
 
     type Item = Self;
 
