@@ -247,7 +247,7 @@ impl BamCoverageConfig {
 
 #[derive(Clone, Debug, Default)]
 pub struct FraglenEstimate {
-    pub fraglen: i32,
+    pub fraglen: usize,
     pub x: Vec<i32>,
     pub y: Vec<f64>,
 }
@@ -558,7 +558,7 @@ pub fn estimate_fraglen(config: &BamCoverageConfig, filename: &str, genome: &Gen
     let r = match estimate_fragment_length(reads_iter, genome, 2000, config.fraglen_bin_size, config.fraglen_range) {
         Ok((fraglen, x, y, _n)) => {
             log!(config.logger, "Estimated mean fragment length: {}", fraglen);
-            Ok(FraglenEstimate { fraglen, x, y })
+            Ok(FraglenEstimate { fraglen: fraglen as usize, x, y })
         },
         Err(err) => Err(err),
     };
@@ -573,12 +573,12 @@ pub fn estimate_fraglen(config: &BamCoverageConfig, filename: &str, genome: &Gen
 /* -------------------------------------------------------------------------- */
 
 pub fn bam_coverage_impl(
-    mut config: BamCoverageConfig,
-    filenames_treatment: Vec<String>,
-    filenames_control: Vec<String>,
-    fraglen_treatment: Vec<usize>,
-    fraglen_control: Vec<usize>,
-    genome: Genome,
+    mut config         : BamCoverageConfig,
+    filenames_treatment: &Vec<String>,
+    filenames_control  : &Vec<String>,
+    fraglen_treatment  : &Vec<usize>,
+    fraglen_control    : &Vec<usize>,
+    genome             : Genome,
 ) -> Result<SimpleTrack, Box<dyn Error>> {
     // Treatment data
     let mut track1 = SimpleTrack::alloc("treatment".to_string(), genome.clone(), config.bin_size);
@@ -736,12 +736,12 @@ pub fn bam_coverage_impl(
 /* -------------------------------------------------------------------------- */
 
 pub fn bam_coverage(
-    filenames_treatment  : Vec<String>,
-    filenames_control    : Vec<String>,
-    mut fraglen_treatment: Vec<usize>,
-    mut fraglen_control  : Vec<usize>,
+    filenames_treatment  : &Vec<String>,
+    filenames_control    : &Vec<String>,
+    mut fraglen_treatment: Vec<Option<usize>>,
+    mut fraglen_control  : Vec<Option<usize>>,
     options: Vec<OptionBamCoverage>,
-) -> Result<(SimpleTrack, Vec<FraglenEstimate>, Vec<FraglenEstimate>), Box<dyn Error>> {
+) -> Result<(SimpleTrack, Vec<FraglenEstimate>, Vec<FraglenEstimate>), CoverageError> {
 
     let mut config = BamCoverageConfig::default();
 
@@ -750,56 +750,138 @@ pub fn bam_coverage(
         config.insert_option(option);
     }
 
+    // Check fraglen arguments
+    if fraglen_treatment.is_empty() {
+        fraglen_treatment = vec![None; filenames_treatment.len()];
+    }
+    if fraglen_control.is_empty() {
+        fraglen_control   = vec![None; filenames_control.len()];
+    }
+    if fraglen_treatment.len() != filenames_treatment.len() {
+        let e = ArgumentError(
+            format!("Number of provided treatment fragment lengths `{}` does not match number of treatment files `{}`",
+                fraglen_treatment.len(), filenames_treatment.len())
+        );
+        return Err(CoverageError::new_empty(Box::new(e)));
+    }
+    if fraglen_control.len() != filenames_control.len() {
+        let e = ArgumentError(
+            format!("Number of provided control fragment lengths `{}` does not match number of control files `{}`",
+                fraglen_control.len(), filenames_control.len())
+        );
+        return Err(CoverageError::new_empty(Box::new(e)));
+    }
+
     // Read genome
     let mut genome: Genome = Genome::default();
     for filename in filenames_treatment.iter().chain(filenames_control.iter()) {
-        let g = bam_import_genome(filename)?;
+        let g = bam_import_genome(filename).map_err(
+            |e| CoverageError::new_empty(e)
+        )?;
+
         if genome.len() == 0 {
             genome = g;
         } else if genome != g {
-            return Err(Box::new(ArgumentError("Treatment and control tracks have different genomes".to_string())));
+            let e = ArgumentError("Treatment and control tracks have different genomes".to_string());
+            return Err(CoverageError::new_empty(Box::new(e)));
         }
     }
 
     let mut treatment_fraglen_estimates = vec![FraglenEstimate::default(); filenames_treatment.len()];
-    let mut control_fraglen_estimates   = vec![FraglenEstimate::default(); filenames_control  .len()];
+    let mut   control_fraglen_estimates = vec![FraglenEstimate::default(); filenames_control  .len()];
 
-    // Check fraglen arguments
-    if fraglen_treatment.is_empty() {
-        fraglen_treatment = vec![0; filenames_treatment.len()];
-    }
-    if fraglen_control.is_empty() {
-        fraglen_control = vec![0; filenames_control.len()];
-    }
+    // No fragment length estimation, copy fragment lengths from arguments
     if !config.estimate_fraglen {
         for (i, fraglen) in fraglen_treatment.iter().enumerate() {
-            treatment_fraglen_estimates[i].fraglen = *fraglen as i32;
+            if let Some(k) = *fraglen {
+                treatment_fraglen_estimates[i].fraglen = k;
+            } else {
+                // If no fragment length is provided and also estimation is
+                // switched off, then do not extend reads
+                treatment_fraglen_estimates[i].fraglen = 0;
+            }
         }
         for (i, fraglen) in fraglen_control.iter().enumerate() {
-            control_fraglen_estimates[i].fraglen = *fraglen as i32;
+            if let Some(k) = *fraglen {
+                control_fraglen_estimates[i].fraglen = k;
+            } else {
+                // If no fragment length is provided and also estimation is
+                // switched off, then do not extend reads
+                control_fraglen_estimates[i].fraglen = 0;
+            }
         }
     }
-
     // Fragment length estimation
-    if config.estimate_fraglen {
+    else {
+
         for (i, filename) in filenames_treatment.iter().enumerate() {
 
-            let estimate = estimate_fraglen(&config, filename, &genome)?;
+            match fraglen_treatment[i] {
+                Some(k) => treatment_fraglen_estimates[i].fraglen = k,
+                None    => {
+                    let estimate = estimate_fraglen(&config, filename, &genome).map_err(
+                        |e| CoverageError::new_empty(e)
+                    )?;
 
-            treatment_fraglen_estimates[i] = estimate.clone();
-            fraglen_treatment[i] = estimate.fraglen as usize;
+                    treatment_fraglen_estimates[i] = estimate;
+                }
+            }
         }
 
         for (i, filename) in filenames_control.iter().enumerate() {
 
-            let estimate = estimate_fraglen(&config, filename, &genome)?;
+            match fraglen_control[i] {
+                Some(k) => control_fraglen_estimates[i].fraglen = k,
+                None    => {
+                    let estimate = estimate_fraglen(&config, filename, &genome).map_err(
+                        |e| CoverageError::new_empty(e)
+                    )?;
 
-            control_fraglen_estimates[i] = estimate.clone();
-            fraglen_control[i] = estimate.fraglen as usize;
+                    control_fraglen_estimates[i] = estimate;
+                }
+            }
         }
     }
+    let fraglen_treatment_arg : Vec<usize> = treatment_fraglen_estimates.iter().map(|x| x.fraglen as usize).collect();
+    let fraglen_control_arg   : Vec<usize> =   control_fraglen_estimates.iter().map(|x| x.fraglen as usize).collect();
 
-    let result = bam_coverage_impl(config, filenames_treatment, filenames_control, fraglen_treatment, fraglen_control, genome)?;
+    let track = bam_coverage_impl(config, filenames_treatment, filenames_control, &fraglen_treatment_arg, &fraglen_control_arg, genome).map_err(
+        |e| CoverageError::new(e, treatment_fraglen_estimates.clone(), control_fraglen_estimates.clone())
+    )?;
 
-    Ok((result, treatment_fraglen_estimates, control_fraglen_estimates))
+    Ok((track, treatment_fraglen_estimates, control_fraglen_estimates))
 }
+
+/* Coverage error type
+ * -------------------------------------------------------------------------- */
+
+#[derive(Debug)]
+pub struct CoverageError{
+    pub error                      : Box<dyn Error>,
+    pub treatment_fraglen_estimates: Vec<FraglenEstimate>,
+    pub   control_fraglen_estimates: Vec<FraglenEstimate>,
+}
+
+impl CoverageError {
+
+    pub fn new(
+        error                      : Box<dyn Error>,
+        treatment_fraglen_estimates: Vec<FraglenEstimate>,
+        control_fraglen_estimates  : Vec<FraglenEstimate>
+    ) -> CoverageError {
+        CoverageError{error, treatment_fraglen_estimates, control_fraglen_estimates}
+    }
+
+    pub fn new_empty(error: Box<dyn Error>) -> CoverageError {
+        CoverageError{error, treatment_fraglen_estimates: vec![], control_fraglen_estimates: vec![]}
+    }
+
+}
+
+impl fmt::Display for CoverageError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.error)
+    }
+}
+
+impl std::error::Error for CoverageError {}

@@ -23,11 +23,10 @@ use std::error::Error;
 use clap::{Arg, ArgAction, Command};
 use plotters::prelude::*;
 
-use rustynetics::bam::bam_import_genome;
 use rustynetics::bigwig::BigWigParameters;
 use rustynetics::track_generic::GenericTrack;
-use rustynetics::track_coverage::{FraglenEstimate, OptionBamCoverage};
-use rustynetics::track_coverage::{bam_coverage, estimate_fraglen};
+use rustynetics::track_coverage::OptionBamCoverage;
+use rustynetics::track_coverage::bam_coverage;
 
 /* -------------------------------------------------------------------------- */
 
@@ -53,24 +52,24 @@ macro_rules! print_stderr {
 
 /* -------------------------------------------------------------------------- */
 
-fn parse_filename(filename: &str) -> (String, i32) {
+fn parse_filename(filename: &str) -> (String, Option<usize>) {
     let parts: Vec<&str> = filename.split(':').collect();
     if parts.len() == 2 {
-        let t = parts[1].parse::<i32>().unwrap_or_else(|err| {
+        let t = parts[1].parse::<usize>().unwrap_or_else(|err| {
             eprintln!("Error parsing filename: {}", err);
             process::exit(1);
         });
-        return (parts[0].to_string(), t);
+        return (parts[0].to_string(), Some(t));
     } else if parts.len() >= 2 {
         eprintln!("Invalid input file description `{}`", filename);
         process::exit(1);
     }
-    (filename.to_string(), -1)
+    (filename.to_string(), None)
 }
 
 /* -------------------------------------------------------------------------- */
 
-fn save_fraglen(config: &Config, filename: &str, fraglen: i32) -> io::Result<()> {
+fn save_fraglen(config: &Config, filename: &str, fraglen: usize) -> io::Result<()> {
     let basename = filename.trim_end_matches(Path::new(filename).extension().unwrap_or_default().to_str().unwrap());
     let out_filename = format!("{}.fraglen.txt", basename);
 
@@ -101,9 +100,9 @@ fn save_cross_corr(config: &Config, filename: &str, x: &[i32], y: &[f64]) -> io:
 fn save_cross_corr_plot(
     config     : &Config,
     filename   : &str,
-    fraglen    : i32,
-    x          : Vec<i32>,
-    y          : Vec<f64>,
+    fraglen    : usize,
+    x          : &Vec<i32>,
+    y          : &Vec<f64>,
 ) -> Result<(), Box<dyn Error>> {
 
     // Create a 600x400 image for the plot
@@ -133,7 +132,7 @@ fn save_cross_corr_plot(
 
     // Mark the estimated fragment length with a vertical line
     chart.draw_series(std::iter::once(PathElement::new(
-        vec![(fraglen as usize, min_y as f64), (fraglen as usize, max_y as f64)],
+        vec![(fraglen as i32, min_y as f64), (fraglen as i32, max_y as f64)],
         RED.stroke_width(1),
     )))?;
 
@@ -147,7 +146,7 @@ fn save_cross_corr_plot(
 
 /* -------------------------------------------------------------------------- */
 
-fn import_fraglen(config: &Config, filename: &str) -> i32 {
+fn import_fraglen(config: &Config, filename: &str) -> Option<usize> {
     // Try reading the fragment length from file
     let basename = Path::new(filename).with_extension(""); // Remove file extension
     let fraglen_filename = format!("{}.fraglen.txt", basename.display());
@@ -159,16 +158,16 @@ fn import_fraglen(config: &Config, filename: &str) -> i32 {
             let mut lines = reader.lines();
 
             if let Some(Ok(line)) = lines.next() {
-                if let Ok(fraglen) = line.parse::<i64>() {
+                if let Ok(fraglen) = line.parse::<usize>() {
                     print_stderr!(config, 1, "done\n");
-                    return fraglen as i32;
+                    return Some(fraglen);
                 }
             }
 
             print_stderr!(config, 1, "failed\n");
-            -1
+            None
         }
-        Err(_) => -1,
+        Err(_) => None,
     }
 }
 
@@ -487,7 +486,7 @@ fn main() {
         .collect();
     
     let mut filenames_control: Vec<String> = Vec::new();
-    let mut filename_track = String::new();
+    let filename_track : String;
     
     if matches.get_many::<String>("args").unwrap().len() == 3 {
         filenames_control = matches
@@ -501,8 +500,8 @@ fn main() {
         filename_track = matches.get_one::<String>("filenames-track").unwrap().to_string();
     }
     
-    let mut fraglen_treatment = vec![0; filenames_treatment.len()];
-    let mut fraglen_control   = vec![0; filenames_control.len()];
+    let mut fraglen_treatment = vec![None; filenames_treatment.len()];
+    let mut fraglen_control   = vec![None; filenames_control  .len()];
     
     // Split filename:fraglen for treatment filenames
     for (filename, fraglen) in filenames_treatment.iter_mut().zip(fraglen_treatment.iter_mut()) {
@@ -519,13 +518,13 @@ fn main() {
     }
 
     
-    if let Some(&opt_fraglen) = matches.get_one::<i32>("fraglen") {
+    if let Some(&opt_fraglen) = matches.get_one::<usize>("fraglen") {
         if opt_fraglen != 0 {
             for fraglen in &mut fraglen_treatment {
-                *fraglen = opt_fraglen;
+                *fraglen = Some(opt_fraglen);
             }
             for fraglen in &mut fraglen_control {
-                *fraglen = opt_fraglen;
+                *fraglen = Some(opt_fraglen);
             }
         }
     }
@@ -534,20 +533,20 @@ fn main() {
     //////////////////////////////////////////////////////////////////////////////
     
     for (i, filename) in filenames_treatment.iter().enumerate() {
-        if fraglen_treatment[i] == 0 {
+        if fraglen_treatment[i] == None {
             fraglen_treatment[i] = import_fraglen(&config, filename);
         }
     }
     
     for (i, filename) in filenames_control.iter().enumerate() {
-        if fraglen_control[i] == 0 {
+        if fraglen_control[i] == None {
             fraglen_control[i] = import_fraglen(&config, filename);
         }
     }
 
     let result = bam_coverage(
-        filenames_treatment,
-        filenames_control,
+        &filenames_treatment,
+        &filenames_control,
         fraglen_treatment,
         fraglen_control,
         options_list
@@ -560,18 +559,18 @@ fn main() {
     if let Ok((track, fraglen_treatment_estimate, fraglen_control_estimate)) = result {
 
         // Save fragment length estimates if the option is set
-        if opt_estimate_fraglen {
+        if matches.get_flag("estimate-fraglen") {
             for (i, estimate) in fraglen_treatment_estimate.iter().enumerate() {
                 let filename = &filenames_treatment[i];
 
-                if config.save_fraglen && estimate.error.is_none() {
+                if config.save_fraglen {
                     save_fraglen(&config, filename, estimate.fraglen);
                 }
-                if config.save_cross_corr && estimate.x.is_some() && estimate.y.is_some() {
-                    save_cross_corr(&config, filename, estimate.x.as_ref().unwrap(), estimate.y.as_ref().unwrap());
+                if config.save_cross_corr && estimate.x.len() > 0 {
+                    save_cross_corr(&config, filename, &estimate.x, &estimate.y);
                 }
-                if config.save_cross_corr_plot && estimate.x.is_some() && estimate.y.is_some() {
-                    save_cross_corr_plot(&config, filename, estimate.fraglen, estimate.x.as_ref().unwrap(), estimate.y.as_ref().unwrap());
+                if config.save_cross_corr_plot && estimate.x.len() > 0 {
+                    save_cross_corr_plot(&config, filename, estimate.fraglen, &estimate.x, &estimate.y);
                 }
             }
 
@@ -581,11 +580,11 @@ fn main() {
                 if config.save_fraglen {
                     save_fraglen(&config, filename, estimate.fraglen);
                 }
-                if config.save_cross_corr && estimate.x.is_some() && estimate.y.is_some() {
-                    save_cross_corr(&config, filename, estimate.x.as_ref().unwrap(), estimate.y.as_ref().unwrap());
+                if config.save_cross_corr && estimate.x.len() > 0 {
+                    save_cross_corr(&config, filename, &estimate.x, &estimate.y);
                 }
-                if config.save_cross_corr_plot && estimate.x.is_some() && estimate.y.is_some() {
-                    save_cross_corr_plot(&config, filename, estimate.fraglen, estimate.x.as_ref().unwrap(), estimate.y.as_ref().unwrap());
+                if config.save_cross_corr_plot && estimate.x.len() > 0 {
+                    save_cross_corr_plot(&config, filename, estimate.fraglen, &estimate.x, &estimate.y);
                 }
             }
         }
