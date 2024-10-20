@@ -270,7 +270,7 @@ impl fmt::Display for BbiSummaryRecord {
 
 /* -------------------------------------------------------------------------- */
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 struct BbiDataHeader {
     chrom_id  : u32,
     start     : u32,
@@ -691,7 +691,7 @@ impl BbiRawBlockEncoder {
 
 /* -------------------------------------------------------------------------- */
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 struct BbiRawBlockEncoderIterator<'a> {
     encoder     : &'a BbiRawBlockEncoder,
     chrom_id    : usize,
@@ -803,7 +803,7 @@ impl<'a> Iterator for BbiRawBlockEncoderIterator<'a> {
         self.header.end   = (self.bin_size * self.position    ) as u32;
 
         if self.header.item_count > 0 {
-            Some(self.clone())
+            Some(*self)
         }
         else {
             None
