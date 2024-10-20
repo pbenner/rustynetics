@@ -23,7 +23,7 @@ use std::error::Error;
 use clap::{Arg, ArgAction, Command};
 use plotters::prelude::*;
 
-use rustynetics::bigwig::BigWigParameters;
+use rustynetics::bigwig::OptionBigWig;
 use rustynetics::track_generic::GenericTrack;
 use rustynetics::track_coverage::OptionBamCoverage;
 use rustynetics::track_coverage::bam_coverage;
@@ -32,7 +32,7 @@ use rustynetics::track_coverage::bam_coverage;
 
 #[derive(Clone, Debug, Default)]
 struct Config {
-    bw_zoom_levels      : Vec<i32>,
+    bw_zoom_levels      : Option<Vec<i32>>,
     save_fraglen        : bool,
     save_cross_corr     : bool,
     save_cross_corr_plot: bool,
@@ -435,7 +435,7 @@ fn main() {
         let bw_zoom_levels: Vec<i32> = tmp.iter()
             .map(|&s| s.parse::<i32>().expect("Invalid zoom level"))
             .collect();
-        config.bw_zoom_levels = bw_zoom_levels;
+        config.bw_zoom_levels = Some(bw_zoom_levels);
     }
 
     if let Some(opt_normalize_track) = matches.get_one::<String>("normalize-track") {
@@ -645,10 +645,13 @@ fn main() {
 
         eprint!("Writing track `{}`... ", filename_track);
 
-        let mut parameters = BigWigParameters::default();
-        parameters.reduction_levels = config.bw_zoom_levels.clone();
+        let mut parameters = vec![];
 
-        if let Err(err) = GenericTrack::wrap(&track).export_bigwig(&filename_track, Some(parameters)) {
+        if let Some(x) = config.bw_zoom_levels {
+            parameters.push(OptionBigWig::ReductionLevels(x));
+        }
+
+        if let Err(err) = GenericTrack::wrap(&track).export_bigwig(&filename_track, parameters) {
             eprintln!("failed");
             eprintln!("{}", err);
             std::process::exit(1);

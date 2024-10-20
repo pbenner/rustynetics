@@ -20,7 +20,7 @@ use std::error::Error;
 use std::fs::File;
 
 use crate::bbi::{BBI_MAX_ZOOM_LEVELS, BBI_RES_INCREMENT};
-use crate::bigwig::{BigWigReader, BigWigWriter, BigWigParameters};
+use crate::bigwig::{BigWigReader, BigWigWriter, BigWigParameters, OptionBigWig};
 use crate::bigwig::BigWigFile;
 use crate::genome::Genome;
 use crate::granges_row::GRangesRow;
@@ -126,7 +126,7 @@ impl<R: Read + Seek> Track for BigWigTrack<R> {
 
 impl<'a> GenericTrack<'a> {
 
-    fn write_bigwig_reduction_levels(&self, parameters: &BigWigParameters) -> Vec<i32> {
+    fn bigwig_automatic_reduction_levels(&self, items_per_slot : usize) -> Vec<i32> {
 
         let c = (BBI_RES_INCREMENT as usize) * self.track.get_bin_size();
         let mut n = Vec::new();
@@ -144,7 +144,7 @@ impl<'a> GenericTrack<'a> {
 
         // Compute number of zoom levels
         while n.len() <= BBI_MAX_ZOOM_LEVELS {
-            if l / r > parameters.items_per_slot {
+            if l / r > items_per_slot {
                 n.push(r as i32);
                 r *= c;
             } else {
@@ -155,18 +155,28 @@ impl<'a> GenericTrack<'a> {
         n
     }
 
-    pub fn write_bigwig<W: Write + Seek>(&self, writer: &mut W, params: Option<BigWigParameters>) -> Result<(), Box<dyn Error>> {
+    pub fn write_bigwig<W: Write + Seek>(&self, writer: &mut W, mut parameters_arg: Vec<OptionBigWig>) -> Result<(), Box<dyn Error>> {
 
-        let parameters = if let Some(p) = params {
-            p
-        } else {
-            let mut p = BigWigParameters::default();
-            p.reduction_levels = self.write_bigwig_reduction_levels(&p);
-            p
-        };
+        // We need idems_per_slot to compute default zoom levels
+        let mut items_per_slot = BigWigParameters::default().items_per_slot;
+        // Variable for checking if reduction levels are given
+        let mut has_reduction_levels = false;
+
+        for p in &parameters_arg {
+            if let OptionBigWig::ItemsPerSlot(x) = *p {
+                items_per_slot = x;
+            }
+            if let OptionBigWig::ReductionLevels(_) = *p {
+                has_reduction_levels = true;
+            }
+        }
+        // If no reduction levels are given, compute a default set of zoom levels
+        if has_reduction_levels == false {
+            parameters_arg.push(OptionBigWig::ReductionLevels(self.bigwig_automatic_reduction_levels(items_per_slot)));
+        }
 
         // Create new BigWig writer
-        let mut bww = BigWigWriter::new(writer, self.track.get_genome().clone(), parameters.clone())?;
+        let mut bww = BigWigWriter::new(writer, self.track.get_genome().clone(), parameters_arg)?;
 
         // Write data
         for name in self.track.get_seq_names() {
@@ -177,7 +187,7 @@ impl<'a> GenericTrack<'a> {
         bww.write_index()?;
 
         // Write zoomed data
-        for (i, &reduction_level) in parameters.reduction_levels.iter().enumerate() {
+        for (i, &reduction_level) in bww.parameters().reduction_levels.clone().iter().enumerate() {
             bww.start_zoom_data(i)?;
             for name in self.track.get_seq_names() {
                 let sequence = self.track.get_sequence(&name)?;
@@ -191,7 +201,7 @@ impl<'a> GenericTrack<'a> {
         Ok(())
     }
 
-    pub fn export_bigwig(&self, filename: &str, params: Option<BigWigParameters>) -> Result<(), Box<dyn Error>> {
+    pub fn export_bigwig(&self, filename: &str, params: Vec<OptionBigWig>) -> Result<(), Box<dyn Error>> {
         let mut file = File::create(filename)?;
         self.write_bigwig(&mut file, params)?;
         Ok(())

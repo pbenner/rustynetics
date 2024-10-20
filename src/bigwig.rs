@@ -53,12 +53,32 @@ pub fn is_bigwig_file(filename: &str) -> Result<bool, Box<dyn Error>> {
 
 /* -------------------------------------------------------------------------- */
 
+pub enum OptionBigWig {
+    BlockSize(usize),
+    ItemsPerSlot(usize),
+    ReductionLevels(Vec<i32>),
+}
+
+/* -------------------------------------------------------------------------- */
+
 // Struct for BigWigParameters
 #[derive(Clone, Debug)]
 pub struct BigWigParameters {
     pub block_size      : usize,
     pub items_per_slot  : usize,
     pub reduction_levels: Vec<i32>,
+}
+
+/* -------------------------------------------------------------------------- */
+
+impl BigWigParameters {
+    pub fn insert_option(&mut self, option: OptionBigWig) {
+        match option {
+            OptionBigWig::BlockSize(x)       => self.block_size       = x,
+            OptionBigWig::ItemsPerSlot(x)    => self.items_per_slot   = x,
+            OptionBigWig::ReductionLevels(x) => self.reduction_levels = x,
+        }
+    }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -90,7 +110,7 @@ impl BigWigFile {
 
     }
 
-    pub fn new_writer(filename : &str, genome: Genome, parameters: BigWigParameters) -> Result<BigWigWriter<File>, Box<dyn Error>> {
+    pub fn new_writer(filename : &str, genome: Genome, parameters: Vec<OptionBigWig>) -> Result<BigWigWriter<File>, Box<dyn Error>> {
 
         let file = File::create(filename)?;
 
@@ -361,12 +381,23 @@ impl<W: Write + Seek> BigWigWriter<W> {
         self.leaves.clear();
     }
 
+    pub fn parameters(&self) -> &BigWigParameters {
+        return &self.parameters;
+    }
+
 }
 
 /* -------------------------------------------------------------------------- */
 
 impl<W: Write + Seek> BigWigWriter<W> {
-    pub fn new(writer: W, genome: Genome, parameters: BigWigParameters) -> Result<Self, Box<dyn Error>> {
+    pub fn new(writer: W, genome: Genome, parameters_arg: Vec<OptionBigWig>) -> Result<Self, Box<dyn Error>> {
+
+        let mut parameters = BigWigParameters::default();
+
+        for parameter in parameters_arg {
+            parameters.insert_option(parameter);
+        }
+
         let mut bwf = BbiFile::default();
         bwf.header.magic = BIGWIG_MAGIC;
 
