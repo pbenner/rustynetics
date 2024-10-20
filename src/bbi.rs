@@ -596,7 +596,7 @@ impl<'a> BbiZoomBlockDecoder<'a> {
 
 /* -------------------------------------------------------------------------- */
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 struct BbiZoomBlockDecoderIterator<'a> {
     decoder : &'a BbiZoomBlockDecoder<'a>,
     position: usize
@@ -636,7 +636,7 @@ impl<'a> Iterator for BbiZoomBlockDecoderIterator<'a> {
 
         self.position += BbiZoomBlockDecoderType::LENGTH;
 
-        Some(self.clone())
+        Some(*self)
     }
 }
 
