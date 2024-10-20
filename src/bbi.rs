@@ -652,7 +652,7 @@ struct BbiBlockEncoderType {
 
 /* -------------------------------------------------------------------------- */
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 struct BbiRawBlockEncoder {
     items_per_slot: usize,
     fixed_step    : bool,
@@ -822,16 +822,21 @@ struct BbiZoomBlockEncoder {
 /* -------------------------------------------------------------------------- */
 
 #[derive(Clone)]
-struct BbiZoomBlockEncoderIterator {
-    encoder : Box<BbiZoomBlockEncoder>,
+struct BbiZoomBlockEncoderIterator<'a> {
+    encoder : &'a BbiZoomBlockEncoder,
     chrom_id: usize,
-    sequence: Vec<f64>,
+    sequence: &'a Vec<f64>,
     bin_size: usize,
     position: usize,
-    records : Vec<BbiZoomRecord>,
+}
+
+/* -------------------------------------------------------------------------- */
+
+#[derive(Clone)]
+struct BbiZoomBlockEncoderItem {
     from    : i64,
     to      : i64,
-    count   : usize,
+    records : Vec<BbiZoomRecord>,
 }
 
 /* -------------------------------------------------------------------------- */
@@ -845,24 +850,28 @@ impl BbiZoomBlockEncoder {
         }
     }
 
-    fn encode(&self, chrom_id: usize, sequence: &Vec<f64>, bin_size: usize) -> BbiZoomBlockEncoderIterator {
+    fn encode<'a>(&'a self, chrom_id: usize, sequence: &'a Vec<f64>, bin_size: usize) -> BbiZoomBlockEncoderIterator<'a> {
         BbiZoomBlockEncoderIterator {
-            encoder  : Box::new(self.clone()),
+            encoder  : self,
             chrom_id : chrom_id,
-            sequence : sequence.to_vec(),
+            sequence : sequence,
             bin_size : bin_size,
             position : 0,
-            records  : vec![],
-            from     : 0,
-            to       : 0,
-            count    : 0,
         }
     }
 }
 
 /* -------------------------------------------------------------------------- */
 
-impl BbiZoomBlockEncoderIterator {
+impl BbiZoomBlockEncoderItem {
+
+    fn new(items_per_slot : usize) -> Self {
+        Self{
+            from   : -1,
+            to     : -1,
+            records: Vec::with_capacity(items_per_slot),
+        }
+    }
 
     fn write<E: ByteOrder>(&mut self) -> io::Result<BbiBlockEncoderType> {
 
@@ -882,19 +891,14 @@ impl BbiZoomBlockEncoderIterator {
 
 /* -------------------------------------------------------------------------- */
 
-impl Iterator for BbiZoomBlockEncoderIterator {
+impl<'a> Iterator for BbiZoomBlockEncoderIterator<'a> {
 
-    type Item = Self;
+    type Item = BbiZoomBlockEncoderItem;
 
     fn next(&mut self) -> Option<Self::Item> {
 
         let n = (self.encoder.reduction_level + self.bin_size - 1) / self.bin_size;
-
-        self.from  = -1;
-        self.to    = -1;
-        self.count =  0;
-
-        self.records.clear();
+        let mut item = BbiZoomBlockEncoderItem::new(self.encoder.items_per_slot);
 
         for p in (self.position..self.bin_size * self.sequence.len()).step_by(self.encoder.reduction_level) {
 
@@ -919,20 +923,19 @@ impl Iterator for BbiZoomBlockEncoderIterator {
 
             if record.valid > 0 {
 
-                self.records.push(record);
+                item.records.push(record);
 
-                if self.from == -1 {
-                    self.from = record.start as i64;
+                if item.from == -1 {
+                    item.from = record.start as i64;
                 }
-                self.to     = record.end as i64;
-                self.count += 1;
+                item.to = record.end as i64;
             }
 
-            if self.count == self.encoder.items_per_slot || p + self.encoder.reduction_level >= self.bin_size * self.sequence.len() {
+            if item.records.len() >= self.encoder.items_per_slot || p + self.encoder.reduction_level >= self.bin_size * self.sequence.len() {
   
                 self.position = p + self.encoder.reduction_level;
                     
-                return Some(self.clone())
+                return Some(item)
             }
         }
         None
