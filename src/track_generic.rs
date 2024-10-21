@@ -293,8 +293,10 @@ impl<'a> GenericMutableTrack<'a> {
             if j >= seq.n_bins() {
                 break;
             } else {
-                let new_value = seq.at_bin(j) + 1.0;
-                seq.set_bin(j, new_value);
+                let mut v = seq.at_bin(j); if v.is_nan() {
+                    v = 0.0;
+                }
+                seq.set_bin(j, v + 1.0);
             }
         }
 
@@ -320,9 +322,13 @@ impl<'a> GenericMutableTrack<'a> {
             if j >= seq.n_bins() {
                 break;
             } else {
+                let mut v = seq.at_bin(j); if v.is_nan() {
+                    v = 0.0;
+                }
                 let jfrom = std::cmp::max(from, j * bin_size);
                 let jto   = std::cmp::min(to, (j + 1) * bin_size);
-                seq.set_bin(j, seq.at_bin(j) + (jto - jfrom) as f64 / bin_size as f64);
+
+                seq.set_bin(j, v + (jto - jfrom) as f64 / bin_size as f64);
             }
         }
 
@@ -348,9 +354,12 @@ impl<'a> GenericMutableTrack<'a> {
             if j >= seq.n_bins() {
                 break;
             } else {
+                let mut v = seq.at_bin(j); if v.is_nan() {
+                    v = 0.0;
+                }
                 let jfrom = std::cmp::max(from, j * bin_size);
                 let jto   = std::cmp::min(to, (j + 1) * bin_size);
-                seq.set_bin(j, seq.at_bin(j) + (jto - jfrom) as f64);
+                seq.set_bin(j, v + (jto - jfrom) as f64);
             }
         }
 

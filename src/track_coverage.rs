@@ -46,6 +46,7 @@ pub enum OptionBamCoverage {
     ShiftReads([usize; 2]),
     PairedAsSingleEnd(bool),
     PairedEndStrandSpecific(bool),
+    InitialValue(f64),
     LogScale(bool),
     Pseudocounts([f64; 2]),
     EstimateFraglen(bool),
@@ -77,6 +78,7 @@ impl fmt::Display for OptionBamCoverage {
             OptionBamCoverage::ShiftReads(arr) => write!(f, "Shift Reads: {:?}", arr),
             OptionBamCoverage::PairedAsSingleEnd(b) => write!(f, "Paired as Single End: {}", b),
             OptionBamCoverage::PairedEndStrandSpecific(b) => write!(f, "Paired End Strand Specific: {}", b),
+            OptionBamCoverage::InitialValue(v) => write!(f, "Initial Value: {}", v),
             OptionBamCoverage::LogScale(b) => write!(f, "Log Scale: {}", b),
             OptionBamCoverage::Pseudocounts(arr) => write!(f, "Pseudocounts: {:?}", arr),
             OptionBamCoverage::EstimateFraglen(b) => write!(f, "Estimate Fraglen: {}", b),
@@ -109,6 +111,7 @@ pub struct BamCoverageConfig {
     pub shift_reads: [usize; 2],
     pub paired_as_single_end: bool,
     pub paired_end_strand_specific: bool,
+    pub initial_value: f64,
     pub log_scale: bool,
     pub pseudocounts: [f64; 2],
     pub estimate_fraglen: bool,
@@ -144,6 +147,9 @@ impl BamCoverageConfig {
             }
             OptionBamCoverage::BinOverlap(overlap) => {
                 self.bin_overlap = overlap;
+            }
+            OptionBamCoverage::InitialValue(value) => {
+                self.initial_value = value;
             }
             OptionBamCoverage::NormalizeTrack(track) => {
                 self.normalize_track = track;
@@ -223,6 +229,7 @@ impl BamCoverageConfig {
             shift_reads: [0, 0],
             paired_as_single_end: false,
             paired_end_strand_specific: false,
+            initial_value: 0.0,
             log_scale: false,
             pseudocounts: [0.0, 0.0],
             estimate_fraglen: false,
@@ -581,7 +588,7 @@ pub fn bam_coverage_impl(
     genome             : Genome,
 ) -> Result<SimpleTrack, Box<dyn Error>> {
     // Treatment data
-    let mut track1 = SimpleTrack::alloc("treatment".to_string(), genome.clone(), config.bin_size);
+    let mut track1 = SimpleTrack::alloc("treatment".to_string(), genome.clone(), config.initial_value, config.bin_size);
     let mut n_treatment = 0;
     let mut n_control = 0;
 
@@ -638,7 +645,7 @@ pub fn bam_coverage_impl(
 
     if !filenames_control.is_empty() {
         // Control data
-        let mut track2 = SimpleTrack::alloc("control".to_string(), genome.clone(), config.bin_size);
+        let mut track2 = SimpleTrack::alloc("control".to_string(), genome.clone(), config.initial_value, config.bin_size);
 
         for (i, filename) in filenames_control.iter().enumerate() {
             let mut err_opt = None;

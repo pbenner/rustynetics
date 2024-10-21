@@ -85,6 +85,7 @@ pub fn track_crosscorrelation(
     to: i32,
     normalize: bool,
 ) -> Result<(Vec<i32>, Vec<f64>), Box<dyn Error>> {
+
     if from < 0 || to < from {
         return Err("Crosscorrelation(): invalid parameters".into());
     }
@@ -107,11 +108,11 @@ pub fn track_crosscorrelation(
         }
     }
 
-    let b = track1.get_bin_size();
-    let n = div_int_up(to - from, b as i32);
-    let mut m = 0.0;
-    let mut mean1 = 0.0;
-    let mut mean2 = 0.0;
+    let b             = track1.get_bin_size();
+    let n             = div_int_up(to - from, b as i32);
+    let mut m         = 0.0;
+    let mut mean1     = 0.0;
+    let mut mean2     = 0.0;
     let mut variance1 = 1.0;
     let mut variance2 = 1.0;
 
@@ -191,8 +192,8 @@ pub fn crosscorrelate_reads(
     bin_size : usize,
 ) -> Result<(Vec<i32>, Vec<f64>, i32, u64), Box<dyn Error>> {
 
-    let mut track1 = SimpleTrack::alloc("forward".to_string(), genome.clone(), bin_size);
-    let mut track2 = SimpleTrack::alloc("reverse".to_string(), genome.clone(), bin_size);
+    let mut track1 = SimpleTrack::alloc("forward".to_string(), genome.clone(), 0.0, bin_size);
+    let mut track2 = SimpleTrack::alloc("reverse".to_string(), genome.clone(), 0.0, bin_size);
     let mut n = 0_u64;
     let mut read_length = 0_u64;
 

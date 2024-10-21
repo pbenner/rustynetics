@@ -258,6 +258,11 @@ fn main() {
             .long("smoothen-min-counts")
             .num_args(1)
             .help("Minimum number of counts for the smoothening method"))
+        .arg(Arg::new("initial-value")
+            .long("initial-value")
+            .num_args(1)
+            .default_value("NaN")
+            .help("Initialize track with the given initial value"))
         .arg(Arg::new("log-scale")
             .long("log-scale")
             .action(ArgAction::SetTrue)
@@ -448,7 +453,7 @@ fn main() {
         }
         options_list.push(OptionBamCoverage::NormalizeTrack(opt_normalize_track.to_lowercase()));
     }
-    
+
     if let Some(opt_fraglen_range) = matches.get_one::<String>("fraglen-range") {
         let tmp: Vec<&str> = opt_fraglen_range.split(':').collect();
         if tmp.len() != 2 {
@@ -459,7 +464,7 @@ fn main() {
         let t2 = tmp[1].parse::<i32>().expect("parsing fragment length range failed");
         options_list.push(OptionBamCoverage::FraglenRange((t1, t2)));
     }
-    
+
     if let Some(opt_fraglen_bin_size) = matches.get_one::<String>("fraglen-bin-size") {
         let fraglen_bin_size : usize = opt_fraglen_bin_size.parse().unwrap_or_else(|_| {
             eprintln!("Invalid bin size");
@@ -469,7 +474,7 @@ fn main() {
             options_list.push(OptionBamCoverage::FraglenBinSize(fraglen_bin_size));
         }
     }
-    
+
     if matches.get_flag("filter-paired-end") && matches.get_flag("estimate-fraglen") {
         eprintln!("cannot estimate fragment length for paired end reads");
         process::exit(1);
@@ -485,7 +490,15 @@ fn main() {
             opt_filter_chroms.split(',').map(String::from).collect(),
         ));
     }
-    
+
+    if let Some(opt_initial_value) = matches.get_one::<String>("initial-value") {
+        let value : f64 = opt_initial_value.parse().unwrap_or_else(|_| {
+            eprintln!("Invalid initial value specified");
+            process::exit(1);
+        });
+        options_list.push(OptionBamCoverage::InitialValue(value));
+    }
+
     options_list.push(OptionBamCoverage::EstimateFraglen(matches.get_flag("estimate-fragment-length")));
     options_list.push(OptionBamCoverage::LogScale(matches.get_flag("log-scale")));
     options_list.push(OptionBamCoverage::PairedAsSingleEnd(matches.get_flag("paired-as-single-end")));

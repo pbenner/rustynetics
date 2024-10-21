@@ -61,7 +61,7 @@ impl SimpleTrack {
         Ok(SimpleTrack { name, genome, data, bin_size })
     }
 
-    pub fn alloc(name: String, genome: Genome, bin_size: usize) -> Self {
+    pub fn alloc(name: String, genome: Genome, init : f64, bin_size: usize) -> Self {
         let mut data: TMapType = HashMap::new();
 
         for i in 0..genome.len() {
@@ -70,7 +70,7 @@ impl SimpleTrack {
             // wig-related tools.
             data.insert(
                 genome.seqnames[i].clone(),
-                Rc::new(RefCell::new(vec![0.0; genome.lengths[i] / bin_size])),
+                Rc::new(RefCell::new(vec![init; genome.lengths[i] / bin_size])),
             );
         }
         SimpleTrack { name, genome, data, bin_size }
