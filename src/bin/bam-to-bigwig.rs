@@ -175,6 +175,56 @@ fn import_fraglen(config: &Config, filename: &str) -> Option<usize> {
 
 /* -------------------------------------------------------------------------- */
 
+/// This tool takes an alignment of sequencing reads or fragments (BAM file)
+/// and generates a genome-wide coverage track in bigWig format. The tool is
+/// designed to calculate coverage by binning the genome into short, consecutive
+/// windows of a user-defined size and counting the number of reads within
+/// each bin.
+///
+/// ### Command-line Arguments:
+///
+/// - `--bigwig-zoom-levels`: Comma-separated list of BigWig zoom levels.
+/// - `--shift-reads`: Shift reads on the positive strand by `x` bps and those on the negative strand by `y` bps (format: `x,y`).
+/// - `--paired-as-single-end`: Treat paired reads as single-end reads.
+/// - `--paired-end-strand-specific`: Enable strand-specific paired-end sequencing.
+/// - `--filter-strand`: Filter reads on the forward (`+`) or reverse (`-`) strand.
+/// - `--filter-read-lengths`: Specify a feasible range of read lengths (format: `min:max`).
+/// - `--filter-mapq`: Filter reads based on minimum mapping quality (default: 0).
+/// - `--filter-duplicates`: Remove reads marked as duplicates.
+/// - `--filter-paired-end`: Remove all single-end reads.
+/// - `--filter-single-end`: Remove all paired-end reads.
+/// - `--filter-chromosomes`: Exclude reads from specific chromosomes (comma-separated list).
+/// - `--binning-method`: Specify the method used for binning data (valid values: `simple`, `default`, `overlap`, `mean overlap`).
+/// - `--bin-size`: Size of the bins for track (default: 10).
+/// - `--normalize-track`: Method used to normalize the track (`rpkm` or `cpm`).
+/// - `--pseudocounts`: Pseudocounts added to treatment and control signal (default: `0.0,0.0`).
+/// - `--smoothen-control`: Enable adaptive window smoothing for control data.
+/// - `--smoothen-window-sizes`: Specify feasible window sizes for the smoothing method (format: `s1,s2,...`).
+/// - `--smoothen-min-counts`: Minimum number of counts required for smoothing.
+/// - `--initial-value`: Initialize track with the given value (default: NaN).
+/// - `--log-scale`: Log-transform the data.
+/// - `--fragment-length`: Set a fixed fragment length for all input files (reads are extended to this length).
+/// - `--fragment-length-range`: Specify a feasible range of fragment lengths (format: `from:to`).
+/// - `--fragment-length-bin-size`: Bin size used for fragment length estimation (default: 10).
+/// - `--estimate-fragment-length`: Use cross-correlation to estimate fragment length.
+/// - `--save-fraglen`: Save the estimated fragment length to a file.
+/// - `--save-crosscorrelation`: Save cross-correlation data between forward and reverse strands.
+/// - `--save-crosscorrelation-plot`: Save a plot of the cross-correlation data.
+/// - `-v, --verbose`: Set the verbosity level (use `-v` or `-vv` for higher verbosity).
+///
+/// ### Files:
+/// - `<TREATMENT1.bam[:FRAGLEN],TREATMENT2.bam[:FRAGLEN],...>`:
+///     - Input treatment BAM files (optional fragment lengths can be appended).
+/// - `<CONTROL1.bam[:FRAGLEN],CONTROL2.bam[:FRAGLEN],...>`:
+///     - Input control BAM files (optional fragment lengths can be appended).
+/// - `<RESULT.bw>`:
+///     - Output BigWig file.
+///
+/// ### Example:
+/// ```sh
+/// bam-to-bigwig --bin-size 10 --filter-mapq 30 treatment.bam control.bam result.bw
+/// ```
+
 fn main() {
     let mut app = Command::new("bam-to-bigwig")
         .version("1.0")
