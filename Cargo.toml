@@ -1,7 +1,13 @@
 [package]
 name = "rustynetics"
 version = "0.1.0"
-edition = "2018"
+authors = ["Philipp Benner"]
+description = "A high-performance genomics libary specialized in handling BAM and BigWig files"
+license = "MIT"
+repository = "https://github.com/pbenner/rustynetics"
+documentation = "https://docs.rs/rustynetics"
+keywords = ["rust", "genomics", "bioinformatics"]
+categories = ["command-line-utilities", "science", "data-structures"]
 
 #[profile.release]
 #debug = true
