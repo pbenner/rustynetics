@@ -1,6 +1,7 @@
 [package]
 name = "rustynetics"
 version = "0.1.0"
+edition = "2021"
 authors = ["Philipp Benner"]
 description = "A high-performance genomics libary specialized in handling BAM and BigWig files"
 license = "MIT"
