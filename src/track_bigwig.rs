@@ -217,7 +217,7 @@ mod tests {
 
     use std::fs;
 
-    use crate::track_bigwig::{BigWigFile, BigWigParameters};
+    use crate::track_bigwig::{BigWigFile, OptionBigWig};
     use crate::track_generic::GenericTrack;
     use crate::track_simple::SimpleTrack;
     use crate::genome::Genome;
@@ -239,10 +239,11 @@ mod tests {
 
         let track = SimpleTrack::new("track_name".to_string(), sequences, genome, 10).unwrap();
 
-        let mut params = BigWigParameters::default();
-        params.reduction_levels.push(20);
+        let params = vec![
+            OptionBigWig::ReductionLevels(vec![20])
+        ];
 
-        if let Err(e) = GenericTrack::wrap(&track).export_bigwig(filename, Some(params)) {
+        if let Err(e) = GenericTrack::wrap(&track).export_bigwig(filename, params) {
             println!("{}", e);
         }
 
