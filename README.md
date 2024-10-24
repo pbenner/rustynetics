@@ -11,7 +11,7 @@ Designed with performance and usability in mind, this library is ideal for large
 
 ## Documentation
 
-Please find the API documentation [here](https://docs.rs/rustynetics/latest/rustynetics/).
+Please find the API documentation [here](https://docs.rs/crate/rustynetics/latest).
 
 ## Examples
 
