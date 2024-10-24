@@ -24,10 +24,10 @@ futures-util = "0.3.30"
 flate2 = "1.0"
 regex = "1.10"
 list_comprehension_macro = "0.1"
-mysql = "24.0.0"
+mysql = "25.0.1"
 num = "0.4"
 plotters = "0.3.7"
 rand = "0.8.5"
-reqwest = { version = "0.11", features = ["blocking"] }
+reqwest = { version = "0.12.8", features = ["blocking"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
