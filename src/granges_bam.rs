@@ -30,7 +30,7 @@ const BUFSIZE : usize = 10000;
 
 impl GRanges {
 
-    pub fn read_bam_single_end<R: Read>(&mut self, reader: R, options_arg: Option<BamReaderOptions>) -> Result<(), Box<dyn Error>> {
+    pub fn read_bam_single_end<R: Read>(reader: R, options_arg: Option<BamReaderOptions>) -> Result<Self, Box<dyn Error>> {
 
         let options = options_arg.unwrap_or_default();
 
@@ -99,23 +99,23 @@ impl GRanges {
         flag    .shrink_to_fit();
         qual    .shrink_to_fit();
 
-        *self = GRanges::new(seqnames, from, to, strand);
-        self.meta.add("flag", MetaData::IntArray(flag))?;
-        self.meta.add("mapq", MetaData::IntArray(mapq))?;
+        let mut granges = GRanges::new(seqnames, from, to, strand);
+        granges.meta.add("flag", MetaData::IntArray(flag))?;
+        granges.meta.add("mapq", MetaData::IntArray(mapq))?;
         if options.read_sequence {
-            self.meta.add("sequence", MetaData::StringArray(sequence))?;
+            granges.meta.add("sequence", MetaData::StringArray(sequence))?;
         }
         if options.read_cigar {
-            self.meta.add("cigar", MetaData::StringArray(cigar))?;
+            granges.meta.add("cigar", MetaData::StringArray(cigar))?;
         }
         if options.read_qual {
-            self.meta.add("qual", MetaData::StringArray(qual))?;
+            granges.meta.add("qual", MetaData::StringArray(qual))?;
         }
 
-        Ok(())
+        Ok(granges)
     }
 
-    pub fn read_bam_paired_end<R: Read>(&mut self, reader: R, options_arg: Option<BamReaderOptions>) -> Result<(), Box<dyn Error>> {
+    pub fn read_bam_paired_end<R: Read>(reader: R, options_arg: Option<BamReaderOptions>) -> Result<Self, Box<dyn Error>> {
 
         let mut options = options_arg.unwrap_or_default();
 
@@ -225,26 +225,26 @@ impl GRanges {
         qual1    .shrink_to_fit();
         qual2    .shrink_to_fit();
 
-        *self = GRanges::new(seqnames, from, to, strand);
-        self.meta.add("flag1", MetaData::IntArray(flag1))?;
-        self.meta.add("flag2", MetaData::IntArray(flag2))?;
-        self.meta.add("mapq1", MetaData::IntArray(mapq1))?;
-        self.meta.add("mapq2", MetaData::IntArray(mapq2))?;
+        let mut granges = GRanges::new(seqnames, from, to, strand);
+        granges.meta.add("flag1", MetaData::IntArray(flag1))?;
+        granges.meta.add("flag2", MetaData::IntArray(flag2))?;
+        granges.meta.add("mapq1", MetaData::IntArray(mapq1))?;
+        granges.meta.add("mapq2", MetaData::IntArray(mapq2))?;
 
         if options.read_sequence {
-            self.meta.add("sequence1", MetaData::StringArray(sequence1))?;
-            self.meta.add("sequence2", MetaData::StringArray(sequence2))?;
+            granges.meta.add("sequence1", MetaData::StringArray(sequence1))?;
+            granges.meta.add("sequence2", MetaData::StringArray(sequence2))?;
         }
         if options.read_cigar {
-            self.meta.add("cigar1", MetaData::StringArray(cigar1))?;
-            self.meta.add("cigar2", MetaData::StringArray(cigar2))?;
+            granges.meta.add("cigar1", MetaData::StringArray(cigar1))?;
+            granges.meta.add("cigar2", MetaData::StringArray(cigar2))?;
         }
         if options.read_qual {
-            self.meta.add("qual1", MetaData::StringArray(qual1))?;
-            self.meta.add("qual2", MetaData::StringArray(qual2))?;
+            granges.meta.add("qual1", MetaData::StringArray(qual1))?;
+            granges.meta.add("qual2", MetaData::StringArray(qual2))?;
         }
 
-        Ok(())
+        Ok(granges)
     }
 
 }
@@ -253,14 +253,14 @@ impl GRanges {
 
 impl GRanges {
 
-    pub fn import_bam_single_end(&mut self, filename: &str, options: Option<BamReaderOptions>) -> Result<(), Box<dyn Error>> {
+    pub fn import_bam_single_end(filename: &str, options: Option<BamReaderOptions>) -> Result<Self, Box<dyn Error>> {
         let file = NetFile::open(filename)?;
-        self.read_bam_single_end(file, options)
+        Self::read_bam_single_end(file, options)
     }
 
-    pub fn import_bam_paired_end(&mut self, filename: &str, options: Option<BamReaderOptions>) -> Result<(), Box<dyn Error>> {
+    pub fn import_bam_paired_end(filename: &str, options: Option<BamReaderOptions>) -> Result<Self, Box<dyn Error>> {
         let file = NetFile::open(filename)?;
-        self.read_bam_paired_end(file, options)
+        Self::read_bam_paired_end(file, options)
     }
 }
 
@@ -279,15 +279,13 @@ mod tests {
 
         let n = 4891;
 
-        let mut granges = GRanges::default();
         let mut options = BamReaderOptions::default();
 
         options.read_cigar = true;
         options.read_qual  = true;
 
-        assert!(
-            granges.import_bam_single_end("tests/test_bam_2.bam", Some(options)).is_ok()
-        );
+        let granges = GRanges::import_bam_single_end("tests/test_bam_2.bam", Some(options)).unwrap();
+
         assert_eq!(
             granges.num_rows(), n
         );
@@ -328,16 +326,14 @@ mod tests {
 
         let n = 2335;
 
-        let mut granges = GRanges::default();
         let mut options = BamReaderOptions::default();
 
         options.read_cigar    = true;
         options.read_qual     = true;
         options.read_sequence = true;
 
-        assert!(
-            granges.import_bam_paired_end("tests/test_bam_2.bam", Some(options)).is_ok()
-        );
+        let granges = GRanges::import_bam_paired_end("tests/test_bam_2.bam", Some(options)).unwrap();
+
         assert_eq!(
             granges.num_rows(), n
         );

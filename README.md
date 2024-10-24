@@ -21,13 +21,12 @@ Please find the API documentation [here](https://docs.rs/rustynetics/latest/rust
 use crate::bam::BamReaderOptions;
 use crate::granges::GRanges;
 
-let mut granges = GRanges::default();
 let mut options = BamReaderOptions::default();
 
 options.read_cigar = true;
 options.read_qual  = true;
 
-if Ok(_) = granges.import_bam_single_end("tests/test_bam_2.bam", Some(options)) {
+if Ok(granges) = GRanges::import_bam_single_end("tests/test_bam_2.bam", Some(options)) {
     println!("{}", granges);
 }
 ```
