@@ -14,6 +14,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+use std::fmt;
 use std::collections::HashMap;
 use std::error::Error;
 
@@ -133,4 +134,20 @@ impl Genes {
         self.index.get(name).cloned()
     }
 
+}
+
+/* -------------------------------------------------------------------------- */
+
+impl PartialEq for Genes {
+    fn eq(&self, other: &Self) -> bool {
+        self.granges == other.granges
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+
+impl fmt::Display for Genes {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.pad(&format!("{}", self.granges))
+    }
 }

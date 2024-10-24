@@ -15,6 +15,32 @@ Please find the API documentation [here](https://docs.rs/rustynetics/latest/rust
 
 ## Examples
 
+### Import genes from UCSC
+
+```rust
+use crate::genes::Genes;
+
+if let Ok(genes) = Genes::import_genes_from_ucsc("hg19", "knownGene") {
+
+    println!("{}", genes);
+}
+```
+The result is:
+```bash
+       seqnames ranges                 strand |               names                  cds
+     1 chr1     [    11868,     14409) +      | ENST00000456328.2_1       [11868, 11868)
+     2 chr1     [    29553,     31097) +      | ENST00000473358.1_5       [29553, 29553)
+     3 chr1     [    30266,     31109) +      | ENST00000469289.1_1       [30266, 30266)
+     4 chr1     [    34553,     36081) -      | ENST00000417324.1_4       [34553, 34553)
+     5 chr1     [    35244,     36073) -      | ENST00000461467.1_3       [35244, 35244)
+       ...      ...                           |                 ...                  ...
+254531 chrY     [ 59161253,  59162245) -      | ENST00000711258.1_1 [59161253, 59161253)
+254532 chrY     [ 59208304,  59208554) +      | ENST00000711259.1_1 [59208304, 59208304)
+254533 chrY     [ 59311662,  59311996) -      | ENST00000711266.1_1 [59311662, 59311662)
+254534 chrY     [ 59318040,  59318920) -      | ENST00000711267.1_1 [59318040, 59318040)
+254535 chrY     [ 59358334,  59360548) -      | ENST00000711270.1_1 [59358334, 59358334)
+```
+
 ### Read a BAM file into a GRanges object
 
 ```rust
