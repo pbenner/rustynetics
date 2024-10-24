@@ -29,7 +29,7 @@ use crate::utility::is_gzip;
 
 impl Genes {
 
-    pub fn read_ucsc_genes(filename: &str) -> Result<Genes, Box<dyn std::error::Error>> {
+    pub fn import_genes(filename: &str) -> Result<Genes, Box<dyn std::error::Error>> {
         let mut names    = vec![];
         let mut seqnames = vec![];
         let mut tx_from  = vec![];

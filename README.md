@@ -20,6 +20,12 @@ Please find the API documentation [here](https://docs.rs/rustynetics/latest/rust
 ```rust
 use crate::genes::Genes;
 
+// Import from local file
+if let Ok(genes) = Genes::import_genes("data/hg19.knownGene.txt.gz") {
+
+    println!("{}", genes);
+}
+// Retrieve from USCS server
 if let Ok(genes) = Genes::import_genes_from_ucsc("hg19", "knownGene") {
 
     println!("{}", genes);
