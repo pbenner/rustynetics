@@ -295,7 +295,7 @@ fn main() {
         .arg(Arg::new("pseudocounts")
             .long("pseudocounts")
             .num_args(1)
-            .help("Pseudocounts added to treatment and control signal [default: `0.0,0.0']"))
+            .help("Pseudocounts added to treatment and control signal [default: `1.0,1.0']"))
         .arg(Arg::new("smoothen-control")
             .long("smoothen-control")
             .action(ArgAction::SetTrue)
@@ -627,8 +627,8 @@ fn main() {
     }
 
     let result = bam_coverage(
-        &filenames_treatment,
-        &filenames_control,
+        &filenames_treatment.iter().map(|s| s.as_str()).collect(),
+        &filenames_control  .iter().map(|s| s.as_str()).collect(),
         &fraglen_treatment,
         &fraglen_control,
         options_list

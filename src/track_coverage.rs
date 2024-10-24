@@ -231,7 +231,7 @@ impl BamCoverageConfig {
             paired_end_strand_specific: false,
             initial_value: 0.0,
             log_scale: false,
-            pseudocounts: [0.0, 0.0],
+            pseudocounts: [1.0, 1.0],
             estimate_fraglen: false,
             fraglen_range: (-1, -1),
             fraglen_bin_size: 10,
@@ -581,8 +581,8 @@ pub fn estimate_fraglen(config: &BamCoverageConfig, filename: &str, genome: &Gen
 
 pub fn bam_coverage_impl(
     mut config         : BamCoverageConfig,
-    filenames_treatment: &Vec<String>,
-    filenames_control  : &Vec<String>,
+    filenames_treatment: &Vec<&str>,
+    filenames_control  : &Vec<&str>,
     fraglen_treatment  : &Vec<usize>,
     fraglen_control    : &Vec<usize>,
     genome             : Genome,
@@ -743,8 +743,8 @@ pub fn bam_coverage_impl(
 /* -------------------------------------------------------------------------- */
 
 pub fn bam_coverage(
-    filenames_treatment: &Vec<String>,
-    filenames_control  : &Vec<String>,
+    filenames_treatment: &Vec<&str>,
+    filenames_control  : &Vec<&str>,
     fraglen_treatment  : &Vec<Option<usize>>,
     fraglen_control    : &Vec<Option<usize>>,
     options            : Vec<OptionBamCoverage>,

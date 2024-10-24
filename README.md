@@ -113,3 +113,25 @@ We download a BAM file from a ChIP-seq experiment in Homo sapiens A549 with FOXS
 wget https://www.encodeproject.org/files/ENCFF504WRM/@@download/ENCFF504WRM.bam
 wget https://www.encodeproject.org/files/ENCFF739ECZ/@@download/ENCFF739ECZ.bam
 ```
+
+```rust
+let tracks_treatment = vec!["ENCFF504WRM.bam"];
+let tracks_control   = vec!["ENCFF739ECZ.bam"];
+
+// Set fragment length to 0, which means that fragments will not be extended.
+// Setting this to None will trigger automatic fragment length estimation
+let fraglen_treatment = &vec![Some(0)];
+let fraglen_control   = &vec![Some(0)];
+
+let (track, _treatment_fraglen_estimates, _control_fraglen_estimates) = bam_coverage(
+    &tracks_treatment,
+    &tracks_control,
+    &fraglen_treatment,
+    &fraglen_control,
+    vec![]
+).unwrap();
+
+if let Err(e) = track.export_bigwig("track.bw", vec![]) {
+    panic!("{}", e);
+}
+```
