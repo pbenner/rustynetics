@@ -58,11 +58,10 @@ let mut options = BamReaderOptions::default();
 options.read_cigar = true;
 options.read_qual  = true;
 
-if Ok(granges) = GRanges::import_bam_single_end("tests/test_bam_2.bam", Some(options)) {
+if let Ok(granges) = GRanges::import_bam_single_end("tests/test_bam_2.bam", Some(options)) {
     println!("{}", granges);
 }
 ```
-
 The result is:
 ```bash
      seqnames     ranges                 strand | flag mapq cigar                                                qual
@@ -77,4 +76,30 @@ The result is:
 4889 chr7         [  3303050,   3303101) +      |  163   60   51M <@<DADADAAFFFC@>DGEHIICEGH@HCCEGHCCEBGGGFG:BFCGGGBB
 4890 chr11        [  4737838,   4737889) -      |   83   60   51M DB9;HCD?D??:?:):)CCA<C2:@HFAHEEHF@<?<?:ACADB;:BB1@?
 4891 chr11        [  4737786,   4737837) +      |  163   60   51M @@<DDBDDFD+C?A:1CFDHBFHC<?F9+CGGI:49CCGFACE99?DC990
+```
+
+### Reading BigWig files
+
+BigWig files contain data in a binary format optimized for fast random access. In addition to the raw data, bigWig files typically contain several zoom levels for which the data has been summarized. The BigWigReader class allows to query data and it automatically selects an appropriate zoom level for the given binsize:
+```rust
+let seqname = "chrY"; // (can be a regular expression)
+let from    = 1838100;
+let to      = 1838600;
+let binsize = 100;
+
+if let Ok(mut reader) = BigWigFile::new_reader("tests/test_bigwig_2.bw") {
+
+    for item in reader.query(seqname, from, to, binsize) {
+        println!("{}", item.unwrap());
+    }
+
+}
+```
+The result is:
+```bash
+(data=(chrom_id=5, from=1838100, to=1838200, statistics=(valid=1, min=1.0000, max=1.0000, sum=1.0000, sum_squares=1.0000)), type=3)
+(data=(chrom_id=5, from=1838200, to=1838300, statistics=(valid=1, min=1.0000, max=1.0000, sum=1.0000, sum_squares=1.0000)), type=3)
+(data=(chrom_id=5, from=1838300, to=1838400, statistics=(valid=1, min=0.0000, max=0.0000, sum=0.0000, sum_squares=0.0000)), type=3)
+(data=(chrom_id=5, from=1838400, to=1838500, statistics=(valid=1, min=0.0000, max=0.0000, sum=0.0000, sum_squares=0.0000)), type=3)
+(data=(chrom_id=5, from=1838500, to=1838600, statistics=(valid=1, min=0.0000, max=0.0000, sum=0.0000, sum_squares=0.0000)), type=3)
 ```
