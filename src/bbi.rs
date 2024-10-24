@@ -35,8 +35,8 @@ use crate::utility_io::indent_fmt;
 
 /* -------------------------------------------------------------------------- */
 
-const CIRTREE_MAGIC      : u32   = 0x78ca8c91;
-const IDX_MAGIC          : u32   = 0x2468ace0;
+const CIRTREE_MAGIC      : u32 = 0x78ca8c91;
+const IDX_MAGIC          : u32 = 0x2468ace0;
 
 /* -------------------------------------------------------------------------- */
 

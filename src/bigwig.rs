@@ -14,6 +14,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+use std::fmt;
 use std::fs::File;
 use std::io::{self, Read, Write, Seek, SeekFrom};
 use std::result::Result;
@@ -29,8 +30,8 @@ use futures::StreamExt;
 use byteorder::{ByteOrder, ReadBytesExt, LittleEndian};
 
 use crate::genome::Genome;
-use crate::bbi::{BbiHeader, BbiFile, BbiQueryType, BbiHeaderZoom, BbiSummaryRecord, RTree, RVertex, RVertexGenerator};
-use crate::bbi::BBI_TYPE_BED_GRAPH;
+use crate::bbi::{BbiHeader, BbiFile, BbiQueryType, BbiHeaderZoom, BbiSummaryRecord, BbiSummaryStatistics, RTree, RVertex, RVertexGenerator};
+use crate::bbi::{BBI_TYPE_FIXED, BBI_TYPE_VARIABLE, BBI_TYPE_BED_GRAPH};
 use crate::netfile::NetFile;
 use crate::track_statistics::BinSummaryStatistics;
 use crate::utility::div_int_down;
@@ -91,6 +92,78 @@ impl Default for BigWigParameters {
             items_per_slot  : 1024,
             reduction_levels: vec![],
         }
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+
+#[derive(Clone, Debug)]
+pub struct BigWigSummaryRecord {
+    pub chrom     : String,
+    pub from      : i32,
+    pub to        : i32,
+    pub statistics: BbiSummaryStatistics,
+}
+
+/* -------------------------------------------------------------------------- */
+
+impl fmt::Display for BigWigSummaryRecord {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "(chrom={}, from={}, to={}, statistics={})",
+            self.chrom,
+            self.from,
+            self.to,
+            self.statistics)
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+
+impl From<(BbiSummaryRecord, &Genome)> for BigWigSummaryRecord {
+    // Required method
+    fn from(value: (BbiSummaryRecord, &Genome)) -> Self {
+        let record = value.0;
+        BigWigSummaryRecord{
+            chrom     : value.1.seqnames[record.chrom_id as usize].clone(),
+            from      : record.from,
+            to        : record.to,
+            statistics: record.statistics,
+        }
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+
+#[derive(Clone, Debug)]
+pub struct BigWigQueryType {
+    pub data     : BigWigSummaryRecord,
+    pub data_type: u8,
+}
+
+/* -------------------------------------------------------------------------- */
+
+impl From<(BbiQueryType, &Genome)> for BigWigQueryType {
+    // Required method
+    fn from(value: (BbiQueryType, &Genome)) -> Self {
+        BigWigQueryType{
+            data     : (value.0.data, value.1).into(),
+            data_type: value.0.data_type,
+        }
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+
+impl<'a> fmt::Display for BigWigQueryType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let type_str = match self.data_type {
+            BBI_TYPE_FIXED     => "fixed",
+            BBI_TYPE_VARIABLE  => "variable",
+            BBI_TYPE_BED_GRAPH => "bedgraph",
+            _                  => panic!("internal error"),
+        };
+        write!(f, "(data={}, type={})",
+            self.data, type_str)
     }
 }
 
@@ -190,7 +263,7 @@ impl<R: Read + Seek> BigWigReader<R> {
         from     : usize,
         to       : usize,
         bin_size : usize
-    ) -> impl Stream<Item = io::Result<BbiQueryType>> + 'a {
+    ) -> impl Stream<Item = io::Result<BigWigQueryType>> + 'a {
 
         stream! {
 
@@ -206,7 +279,10 @@ impl<R: Read + Seek> BigWigReader<R> {
 
                     while let Some(item) = iterator.next().await {
 
-                        yield item;
+                        match item {
+                            Ok (r) => yield Ok(BigWigQueryType::from((r, &self.genome))),
+                            Err(e) => yield Err(e)
+                        }
 
                     }
                 }
@@ -220,7 +296,7 @@ impl<R: Read + Seek> BigWigReader<R> {
         from     : usize,
         to       : usize,
         bin_size : usize,
-    ) -> BlockingStream<impl Stream<Item = io::Result<BbiQueryType>> + 'a> {
+    ) -> BlockingStream<impl Stream<Item = io::Result<BigWigQueryType>> + 'a> {
 
         let s = Box::pin(self.query_stream(seq_regex, from, to, bin_size));
 
@@ -235,12 +311,28 @@ impl<R: Read + Seek> BigWigReader<R> {
         &self.bwf.header
     }
 
-    pub fn query_slice(&mut self, seqregex: &str, from: usize, to: usize, f: BinSummaryStatistics, mut bin_size: usize, bin_overlap: usize, init: f64) -> Result<(Vec<f64>, usize), Box<dyn Error>> {
+    pub fn query_slice(
+        &mut self,
+        seqname     : &str,
+        from        : usize,
+        to          : usize,
+        f           : BinSummaryStatistics,
+        mut bin_size: usize,
+        bin_overlap : usize,
+        init        : f64
+    ) -> Result<(Vec<f64>, usize), Box<dyn Error>> {
+
+        // We don't want to use regular expressions here, otherwise our sequence may come
+        // from multiple chromosomes
+        let id = self.genome.get_idx(seqname).ok_or(
+            std::io::Error::new(std::io::ErrorKind::InvalidData, format!("Sequence '{}' not found", seqname))
+        )?;
+
         let mut r: Vec<BbiSummaryRecord> = vec![];
 
         // A bin_size of 0 means that the raw data is returned as is
         if bin_size == 0 {
-            for item in self.query(seqregex, from, to, bin_size) {
+            for item in self.bwf.query::<LittleEndian, R>(&mut self.reader, id as u32, from as u32, to as u32, bin_size as u32) {
                 if let Err(err) = item {
                     return Err(Box::new(err));
                 }
@@ -262,7 +354,7 @@ impl<R: Read + Seek> BigWigReader<R> {
             }
         } else {
             r = vec![BbiSummaryRecord::default(); div_int_down(to - from, bin_size)];
-            for item in self.query(seqregex, from, to, bin_size) {
+            for item in self.bwf.query::<LittleEndian, R>(&mut self.reader, id as u32, from as u32, to as u32, bin_size as u32) {
                 if let Err(err) = item {
                     return Err(Box::new(err));
                 }

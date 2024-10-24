@@ -21,8 +21,7 @@ mod tests {
 
     use approx::assert_relative_eq;
 
-    use rustynetics::bbi::BbiQueryType;
-    use rustynetics::bigwig::BigWigFile;
+    use rustynetics::bigwig::{BigWigFile, BigWigQueryType};
 
     #[test]
     fn bigwig_test_1() {
@@ -38,7 +37,6 @@ mod tests {
             assert_eq!(bw.genome().seqnames[0], "test1");
             assert_eq!(bw.genome().seqnames[1], "test2");
 
-            let mut sum_id   = 0;
             let mut sum_from = 0;
             let mut sum_to   = 0;
             let mut sum_min  = 0.0;
@@ -46,7 +44,7 @@ mod tests {
 
             for result in bw.query("test1", 0, 100, 10) {
                 if let Ok(item) = result {
-                    sum_id   += item.data.chrom_id;
+                    assert_eq!(item.data.chrom, "test1");
                     sum_from += item.data.from;
                     sum_to   += item.data.to;
                     sum_min  += item.data.statistics.min;
@@ -54,7 +52,6 @@ mod tests {
                 }
             }
 
-            assert_eq!(sum_id  ,   0);
             assert_eq!(sum_from, 450);
             assert_eq!(sum_to  , 550);
 
@@ -66,19 +63,19 @@ mod tests {
     #[test]
     fn bigwig_test_2() {
 
-        let result =  BigWigFile::new_reader("tests/test_bigwig_2.bw");
+        let result = BigWigFile::new_reader("tests/test_bigwig_2.bw");
 
         assert!(result.is_ok());
 
         if let Ok(mut bw) = result {
 
             // Query raw data
-            let r1 : Vec<BbiQueryType> = bw.query("chrY", 1838100, 1838600, 100)
+            let r1 : Vec<BigWigQueryType> = bw.query("chrY", 1838100, 1838600, 100)
                 .filter_map(|r| r.ok())
                 .collect();
 
             // Query zoom data
-            let r2 : Vec<BbiQueryType> = bw.query("chrY", 1838100, 1838600, 400)
+            let r2 : Vec<BigWigQueryType> = bw.query("chrY", 1838100, 1838600, 400)
                 .filter_map(|r| r.ok())
                 .collect();
 

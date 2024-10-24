@@ -99,9 +99,17 @@ if let Ok(mut reader) = BigWigFile::new_reader("tests/test_bigwig_2.bw") {
 ```
 The result is:
 ```bash
-(data=(chrom_id=5, from=1838100, to=1838200, statistics=(valid=1, min=1.0000, max=1.0000, sum=1.0000, sum_squares=1.0000)), type=3)
-(data=(chrom_id=5, from=1838200, to=1838300, statistics=(valid=1, min=1.0000, max=1.0000, sum=1.0000, sum_squares=1.0000)), type=3)
-(data=(chrom_id=5, from=1838300, to=1838400, statistics=(valid=1, min=0.0000, max=0.0000, sum=0.0000, sum_squares=0.0000)), type=3)
-(data=(chrom_id=5, from=1838400, to=1838500, statistics=(valid=1, min=0.0000, max=0.0000, sum=0.0000, sum_squares=0.0000)), type=3)
-(data=(chrom_id=5, from=1838500, to=1838600, statistics=(valid=1, min=0.0000, max=0.0000, sum=0.0000, sum_squares=0.0000)), type=3)
+(data=(chrom_id=chrY, from=1838100, to=1838200, statistics=(valid=1, min=1.0000, max=1.0000, sum=1.0000, sum_squares=1.0000)), type=fixed)
+(data=(chrom_id=chrY, from=1838200, to=1838300, statistics=(valid=1, min=1.0000, max=1.0000, sum=1.0000, sum_squares=1.0000)), type=fixed)
+(data=(chrom_id=chrY, from=1838300, to=1838400, statistics=(valid=1, min=0.0000, max=0.0000, sum=0.0000, sum_squares=0.0000)), type=fixed)
+(data=(chrom_id=chrY, from=1838400, to=1838500, statistics=(valid=1, min=0.0000, max=0.0000, sum=0.0000, sum_squares=0.0000)), type=fixed)
+(data=(chrom_id=chrY, from=1838500, to=1838600, statistics=(valid=1, min=0.0000, max=0.0000, sum=0.0000, sum_squares=0.0000)), type=fixed)
+```
+
+### Compute coverage tracks from BAM files
+
+We download a BAM file from a ChIP-seq experiment in Homo sapiens A549 with FOXS1 as target (ENCFF504WRM) in addition to the control data (ENCFF739ECZ):
+```bash
+wget https://www.encodeproject.org/files/ENCFF504WRM/@@download/ENCFF504WRM.bam
+wget https://www.encodeproject.org/files/ENCFF739ECZ/@@download/ENCFF739ECZ.bam
 ```
