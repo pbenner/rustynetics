@@ -87,6 +87,8 @@ let from    = 1838100;
 let to      = 1838600;
 let binsize = 100;
 
+// The reader accepts either a local file or a file
+// hosted on a HTTP server
 if let Ok(mut reader) = BigWigFile::new_reader("tests/test_bigwig_2.bw") {
 
     for item in reader.query(seqname, from, to, binsize) {
