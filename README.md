@@ -70,8 +70,8 @@ The result is:
 use crate::granges::GRanges;
 
 let granges = GRanges::import_gtf("src/granges_gtf.gtf",
-    vec!["gene_id".to_string()], // Names of optional fields
-    vec!["str"    .to_string()], // Types of optional fields
+    vec!["gene_id"], // Names of optional fields
+    vec!["str"    ], // Types of optional fields
     vec![]
 ).unwrap();
 

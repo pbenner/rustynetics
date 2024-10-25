@@ -85,8 +85,8 @@ impl GRanges {
 
     pub fn read_gtf<R: BufRead>(
         reader   : R,
-        opt_names: Vec<String>,
-        opt_types: Vec<String>,
+        opt_names: Vec<&str>,
+        opt_types: Vec<&str>,
         defaults : Vec<Option<String>>,
     ) -> Result<Self, Box<dyn Error>> {
 
@@ -105,9 +105,9 @@ impl GRanges {
         let mut has_frame = false;
 
         for (i, name) in opt_names.iter().enumerate() {
-            type_map.insert(name.clone(), opt_types[i].clone());
+            type_map.insert(String::from(*name), String::from(opt_types[i]));
             if let Some(def) = defaults.get(i) {
-                gtf_def.insert(name.clone(), def.clone());
+                gtf_def.insert(String::from(*name), def.clone());
             }
         }
 
@@ -287,8 +287,8 @@ impl GRanges {
 
     pub fn import_gtf(
         filename : &str,
-        opt_names: Vec<String>,
-        opt_types: Vec<String>,
+        opt_names: Vec<&str>,
+        opt_types: Vec<&str>,
         opt_def  : Vec<Option<String>>,
     ) -> Result<Self, Box<dyn Error>> {
 
@@ -324,12 +324,10 @@ mod tests {
     fn test_granges_gtf() {
 
         let granges = GRanges::import_gtf("src/granges_gtf.gtf",
-            vec!["gene_id".to_string()], // Names of optional fields
-            vec!["str"    .to_string()], // Types of optional fields
+            vec!["gene_id"], // Names of optional fields
+            vec!["str"    ], // Types of optional fields
             vec![]
         ).unwrap();
-
-        println!("{}", granges);
 
         assert_eq!(granges.num_rows(), 2);
         assert_eq!(granges.ranges[0].from, 11869);
