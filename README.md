@@ -63,6 +63,26 @@ The result is:
 254535 chrY     [ 59358334,  59360548) -      | ENST00000711270.1_1 [59358334, 59358334)
 ```
 
+### Read GTF files
+
+```rust
+
+use crate::granges::GRanges;
+
+let granges = GRanges::import_gtf("src/granges_gtf.gtf",
+    vec!["gene_id".to_string()], // Names of optional fields
+    vec!["str"    .to_string()], // Types of optional fields
+    vec![]
+).unwrap();
+
+```
+The result is:
+```bash
+  seqnames ranges         strand |                             source    feature           gene_id
+1 1        [11869, 14409) +      | transcribed_unprocessed_pseudogene       gene "ENSG00000223972"
+2 1        [11870, 14410) +      |               processed_transcript transcript "ENSG00000223972"
+```
+
 ### Read a BAM file into a GRanges object
 
 ```rust

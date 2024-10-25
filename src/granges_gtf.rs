@@ -84,12 +84,13 @@ impl GRanges {
 impl GRanges {
 
     pub fn read_gtf<R: BufRead>(
-        &mut self,
         reader   : R,
         opt_names: Vec<String>,
         opt_types: Vec<String>,
         defaults : Vec<Option<String>>,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<Self, Box<dyn Error>> {
+
+        let mut granges  = GRanges::default();
 
         let mut type_map = HashMap::new();
         let mut gtf_opt  = HashMap::new();
@@ -122,9 +123,9 @@ impl GRanges {
             let from = fields[3].parse::<usize>()?;
             let to   = fields[4].parse::<usize>()?;
 
-            self.seqnames.push(fields[0].clone());
-            self.ranges  .push(Range::new(from, to));
-            self.strand  .push(fields[6].chars().next().unwrap_or('*'));
+            granges.seqnames.push(fields[0].clone());
+            granges.ranges  .push(Range::new(from, to));
+            granges.strand  .push(fields[6].chars().next().unwrap_or('*'));
 
             source .push(fields[1].clone());
             feature.push(fields[2].clone());
@@ -144,25 +145,25 @@ impl GRanges {
             }
 
             let optional_fields = &fields[8..];
-            self.parse_optional_fields(optional_fields, &type_map, &mut gtf_opt, &gtf_def, self.num_rows())?;
+            granges.parse_optional_fields(optional_fields, &type_map, &mut gtf_opt, &gtf_def, granges.num_rows())?;
         }
 
         // Add meta data to GRanges
-        self.meta.add("source" , MetaData::StringArray(source))?;
-        self.meta.add("feature", MetaData::StringArray(feature))?;
+        granges.meta.add("source" , MetaData::StringArray(source))?;
+        granges.meta.add("feature", MetaData::StringArray(feature))?;
 
         if has_score {
-            self.meta.add("score", MetaData::FloatArray(score))?;
+            granges.meta.add("score", MetaData::FloatArray(score))?;
         }
         if has_frame {
-            self.meta.add("frame", MetaData::IntArray(frame))?;
+            granges.meta.add("frame", MetaData::IntArray(frame))?;
         }
 
         for (name, values) in gtf_opt {
-            self.meta.add(&name, MetaData::StringArray(values))?;
+            granges.meta.add(&name, MetaData::StringArray(values))?;
         }
 
-        Ok(())
+        Ok(granges)
     }
 
     pub fn write_gtf<W: Write>(&self, writer: W) -> Result<(), Box<dyn Error>> {
@@ -285,12 +286,11 @@ impl GRanges {
 impl GRanges {
 
     pub fn import_gtf(
-        &mut self,
         filename : &str,
         opt_names: Vec<String>,
         opt_types: Vec<String>,
         opt_def  : Vec<Option<String>>,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<Self, Box<dyn Error>> {
 
         let file = File::open(filename)?;
         let reader: Box<dyn BufRead> = if is_gzip(filename) {
@@ -300,7 +300,7 @@ impl GRanges {
             Box::new(BufReader::new(file))
         };
 
-        self.read_gtf(reader, opt_names, opt_types, opt_def)
+        GRanges::read_gtf(reader, opt_names, opt_types, opt_def)
 
     }
 
@@ -323,14 +323,13 @@ mod tests {
     #[test]
     fn test_granges_gtf() {
 
-        let mut granges = GRanges::default();
-        
-        let r = granges.import_gtf("src/granges_gtf.gtf",
-            vec!["gene_id".to_string()],
-            vec!["str".to_string()],
-            vec![]);
+        let granges = GRanges::import_gtf("src/granges_gtf.gtf",
+            vec!["gene_id".to_string()], // Names of optional fields
+            vec!["str"    .to_string()], // Types of optional fields
+            vec![]
+        ).unwrap();
 
-        assert!(r.is_ok());
+        println!("{}", granges);
 
         assert_eq!(granges.num_rows(), 2);
         assert_eq!(granges.ranges[0].from, 11869);
