@@ -29,7 +29,7 @@ use futures::executor::block_on_stream;
 
 use crate::bam::{BamFile, bam_import_genome};
 use crate::genome::Genome;
-use crate::reads;
+use crate::read;
 use crate::infologger::Logger;
 use crate::error::ArgumentError;
 
@@ -265,7 +265,7 @@ pub struct FraglenEstimate {
 
 /* -------------------------------------------------------------------------- */
 
-type ReadStream<'a> = Pin<Box<dyn Stream<Item = io::Result<reads::Read>> + 'a>>;
+type ReadStream<'a> = Pin<Box<dyn Stream<Item = io::Result<read::Read>> + 'a>>;
 
 /* -------------------------------------------------------------------------- */
 

@@ -32,7 +32,7 @@ use crate::bgzf::BgzfReader;
 use crate::genome::Genome;
 use crate::netfile::NetFile;
 use crate::range::Range;
-use crate::reads;
+use crate::read;
 use crate::utility_io::{read_until_null, skip_n_bytes};
 
 /* -------------------------------------------------------------------------- */
@@ -673,7 +673,7 @@ impl<R: Read> BamReader<R> {
         &'a mut self,
         join_pairs: bool,
         paired_end_strand_specific: bool
-    ) -> impl Stream<Item = io::Result<reads::Read>> + 'a {
+    ) -> impl Stream<Item = io::Result<read::Read>> + 'a {
 
         let genome = self.genome.clone();
 
@@ -717,7 +717,7 @@ impl<R: Read> BamReader<R> {
                                 }
                             }
 
-                            yield Ok(reads::Read {
+                            yield Ok(read::Read {
                                 seqname   : seqname,
                                 range     : Range::new(from as usize, to as usize),
                                 strand    : strand as char,
@@ -736,7 +736,7 @@ impl<R: Read> BamReader<R> {
                             let duplicate = r.block1.flag.duplicate();
                             let paired    = r.block1.flag.read_paired();
 
-                            yield Ok(reads::Read {
+                            yield Ok(read::Read {
                                 seqname   : seqname,
                                 range     : Range::new(from as usize, to as usize),
                                 strand    : strand as char,
@@ -776,7 +776,7 @@ impl<R: Read> BamReader<R> {
         &'a mut self,
         join_pairs: bool,
         paired_end_strand_specific: bool
-    ) -> impl Iterator<Item = io::Result<reads::Read>> + 'a {
+    ) -> impl Iterator<Item = io::Result<read::Read>> + 'a {
 
         let s = Box::pin(self.read_simple_stream(join_pairs, paired_end_strand_specific));
 

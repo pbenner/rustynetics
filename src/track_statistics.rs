@@ -22,7 +22,7 @@ use std::f64;
 use std::error::Error;
 
 use crate::genome::Genome;
-use crate::reads::Read;
+use crate::read::Read;
 use crate::track::Track;
 use crate::track_simple::SimpleTrack;
 use crate::track_generic::GenericMutableTrack;

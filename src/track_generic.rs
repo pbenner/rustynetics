@@ -23,7 +23,7 @@ use std::collections::HashMap;
 use std::error::Error;
 
 use crate::range::Range;
-use crate::reads::Read;
+use crate::read::Read;
 use crate::track::{MutableTrack, Track};
 use crate::utility::{div_int_up, div_int_down};
 use crate::utility_cumdist::{CumDist, OrderedFloat};

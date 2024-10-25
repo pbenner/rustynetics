@@ -45,7 +45,7 @@ pub mod granges_sort;
 pub mod infologger;
 pub mod meta;
 pub mod range;
-pub mod reads;
+pub mod read;
 pub mod error;
 pub mod track;
 pub mod track_bed;
