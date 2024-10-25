@@ -321,9 +321,9 @@ pub fn bam_coverage_impl(
     genome             : Genome,
 ) -> Result<SimpleTrack, Box<dyn Error>> {
     // Treatment data
-    let mut track1 = SimpleTrack::alloc("treatment".to_string(), genome.clone(), config.initial_value, config.bin_size);
+    let mut track1      = SimpleTrack::alloc("treatment".to_string(), genome.clone(), config.initial_value, config.bin_size);
     let mut n_treatment = 0;
-    let mut n_control = 0;
+    let mut n_control   = 0;
 
     for (i, filename) in filenames_treatment.iter().enumerate() {
         let mut err_opt = None;
