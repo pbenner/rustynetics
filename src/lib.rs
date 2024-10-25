@@ -23,6 +23,7 @@
 // Public crates
 pub mod alphabet;
 pub mod bam;
+pub mod bam_coverage;
 pub mod bbi;
 pub mod bgzf;
 pub mod bigwig;
@@ -52,7 +53,6 @@ pub mod error;
 pub mod track;
 pub mod track_bed;
 pub mod track_bigwig;
-pub mod track_coverage;
 pub mod track_generic;
 pub mod track_generic_coverage;
 pub mod track_granges;

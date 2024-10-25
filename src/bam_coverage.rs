@@ -25,6 +25,7 @@ use futures::executor::block_on_stream;
 use crate::bam::{BamFile, bam_import_genome};
 use crate::genome::Genome;
 use crate::error::ArgumentError;
+use crate::log;
 
 use crate::coverage::{CoverageError, CoverageConfig, OptionCoverage, FraglenEstimate};
 use crate::read_stream::ReadStream;

@@ -30,7 +30,7 @@ use plotters::prelude::*;
 use rustynetics::bigwig::OptionBigWig;
 use rustynetics::coverage::OptionCoverage;
 use rustynetics::track_generic::GenericTrack;
-use rustynetics::track_coverage::bam_coverage;
+use rustynetics::bam_coverage::bam_coverage;
 
 /* -------------------------------------------------------------------------- */
 
