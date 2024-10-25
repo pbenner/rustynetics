@@ -159,8 +159,8 @@ let tracks_control   = vec!["ENCFF739ECZ.bam"];
 
 // Set fragment length to 0, which means that fragments will not be extended.
 // Setting this to None will trigger automatic fragment length estimation
-let fraglen_treatment = &vec![Some(0)];
-let fraglen_control   = &vec![Some(0)];
+let fraglen_treatment = vec![Some(0)];
+let fraglen_control   = vec![Some(0)];
 
 let (track, _treatment_fraglen_estimates, _control_fraglen_estimates) = bam_coverage(
     &tracks_treatment,
