@@ -191,6 +191,10 @@ impl Track for SimpleTrack {
 
 impl MutableTrack for SimpleTrack {
 
+    fn as_track(&self) -> &dyn Track {
+        self
+    }
+
     fn get_sequence_mut(&mut self, query: &str) -> Result<TrackMutableSequence, Box<dyn Error>> {
         match self.data.get_mut(query) {
             Some(seq) => Ok(TrackMutableSequence::new(seq.clone(), self.bin_size)),

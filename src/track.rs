@@ -128,6 +128,7 @@ pub trait Track {
 /* -------------------------------------------------------------------------- */
 
 pub trait MutableTrack : Track {
+    fn as_track(&self) -> &dyn Track;
     fn get_sequence_mut(&mut self, seqname: &str) -> Result<TrackMutableSequence, Box<dyn Error>>;
 }
 

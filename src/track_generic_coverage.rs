@@ -25,10 +25,8 @@ use futures::executor::block_on_stream;
 use crate::coverage::CoverageConfig;
 use crate::genome::Genome;
 use crate::read_stream::ReadStream;
-use crate::track::MutableTrack;
 use crate::track_generic::GenericMutableTrack;
 use crate::bam::BamFile;
-use crate::track_simple::SimpleTrack;
 
 /* -------------------------------------------------------------------------- */
 
@@ -36,14 +34,15 @@ impl<'a> GenericMutableTrack<'a> {
 
     pub fn coverage_from_bam(
         mut config         : CoverageConfig,
+        track1             : GenericMutableTrack,
+        track2_arg         : Option<GenericMutableTrack>,
         filenames_treatment: &Vec<&str>,
         filenames_control  : &Vec<&str>,
         fraglen_treatment  : &Vec<usize>,
         fraglen_control    : &Vec<usize>,
         genome             : Genome,
-    ) -> Result<SimpleTrack, Box<dyn Error>> {
+    ) -> Result<(), Box<dyn Error>> {
         // Treatment data
-        let mut track1      = SimpleTrack::alloc("treatment".to_string(), genome.clone(), config.initial_value, config.bin_size);
         let mut n_treatment = 0;
         let mut n_control   = 0;
 
@@ -76,7 +75,7 @@ impl<'a> GenericMutableTrack<'a> {
                 }
             });
         
-            n_treatment += GenericMutableTrack::wrap(&mut track1).add_reads(treatment_iter, fraglen, &config.binning_method);
+            n_treatment += track1.add_reads(treatment_iter, fraglen, &config.binning_method);
 
             if let Some(err) = err_opt {
                 return Err(Box::new(err));
@@ -87,20 +86,19 @@ impl<'a> GenericMutableTrack<'a> {
         if config.normalize_track == "rpkm" {
             log!(config.logger, "Normalizing treatment track (rpkm)");
             let c = 1_000_000.0 / (n_treatment as f64 * config.bin_size as f64);
-            GenericMutableTrack::wrap(&mut track1).map(|_name, _i, x| c * x)?;
+            track1.map(|_name, _i, x| c * x)?;
             config.pseudocounts[0] *= c;
         }
 
         if config.normalize_track == "cpm" {
             log!(config.logger, "Normalizing treatment track (cpm)");
             let c = 1_000_000.0 / n_treatment as f64;
-            GenericMutableTrack::wrap(&mut track1).map(|_name, _i, x| c * x)?;
+            track1.map(|_name, _i, x| c * x)?;
             config.pseudocounts[0] *= c;
         }
 
-        if !filenames_control.is_empty() {
+        if let Some(track2) = track2_arg {
             // Control data
-            let mut track2 = SimpleTrack::alloc("control".to_string(), genome.clone(), config.initial_value, config.bin_size);
 
             for (i, filename) in filenames_control.iter().enumerate() {
                 let mut err_opt = None;
@@ -131,7 +129,7 @@ impl<'a> GenericMutableTrack<'a> {
                     }
                 });
         
-                n_control += GenericMutableTrack::wrap(&mut track2).add_reads(control_iter, fraglen, &config.binning_method);
+                n_control += track2.add_reads(control_iter, fraglen, &config.binning_method);
 
                 if let Some(err) = err_opt {
                     return Err(Box::new(err));
@@ -142,32 +140,33 @@ impl<'a> GenericMutableTrack<'a> {
             if config.normalize_track == "rpkm" {
                 log!(config.logger, "Normalizing control track (rpkm)");
                 let c = 1_000_000.0 / (n_control as f64 * config.bin_size as f64);
-                GenericMutableTrack::wrap(&mut track2).map(|_name, _i, x| c * x)?;
+                track2.map(|_name, _i, x| c * x)?;
                 config.pseudocounts[1] *= c;
             }
 
             if config.normalize_track == "cpm" {
                 log!(config.logger, "Normalizing control track (cpm)");
                 let c = 1_000_000.0 / n_control as f64;
-                GenericMutableTrack::wrap(&mut track2).map(|_name, _i, x| c * x)?;
+                track2.map(|_name, _i, x| c * x)?;
                 config.pseudocounts[1] *= c;
             }
 
             if config.smoothen_control {
-                GenericMutableTrack::wrap(&mut track2).smoothen(config.smoothen_min, config.smoothen_sizes.clone())?;
+                track2.smoothen(config.smoothen_min, config.smoothen_sizes.clone())?;
             }
 
             log!(config.logger, "Combining treatment and control tracks...");
-            GenericMutableTrack::wrap(&mut track1).normalize(&track2, config.pseudocounts[0], config.pseudocounts[1], config.log_scale)?;
+            track1.normalize(
+                track2.track.as_track(), config.pseudocounts[0], config.pseudocounts[1], config.log_scale)?;
         } else {
             // No control data
             if config.pseudocounts[0] != 0.0 {
                 log!(config.logger, "Adding pseudocount `{}`", config.pseudocounts[0]);
-                GenericMutableTrack::wrap(&mut track1).map(|_name, _i, x| x + config.pseudocounts[0])?;
+                track1.map(|_name, _i, x| x + config.pseudocounts[0])?;
             }
             if config.log_scale {
                 log!(config.logger, "Log-transforming data");
-                GenericMutableTrack::wrap(&mut track1).map(|_name, _i, x| x.ln())?;
+                track1.map(|_name, _i, x| x.ln())?;
             }
         }
 
@@ -183,7 +182,7 @@ impl<'a> GenericMutableTrack<'a> {
             if !config.filter_chroms.is_empty() {
                 log!(config.logger, "Removing all reads from `{}`", config.filter_chroms.join(", "));
                 for chr in &config.filter_chroms {
-                    if let Ok(mut s) = track1.get_sequence_mut(chr) {
+                    if let Ok(mut s) = track1.track.get_sequence_mut(chr) {
                         for i in 0..s.n_bins() {
                             s.set_bin(i, 0.0);
                         }
@@ -192,7 +191,8 @@ impl<'a> GenericMutableTrack<'a> {
             }
         }
 
-        Ok(track1)
+        Ok(())
+
     }
 
 }

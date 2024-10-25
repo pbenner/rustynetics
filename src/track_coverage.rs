@@ -28,7 +28,6 @@ use crate::error::ArgumentError;
 
 use crate::coverage::{CoverageError, CoverageConfig, OptionCoverage, FraglenEstimate};
 use crate::read_stream::ReadStream;
-use crate::track_generic::GenericMutableTrack;
 use crate::track_simple::SimpleTrack;
 use crate::track_statistics::estimate_fragment_length;
 
@@ -198,7 +197,7 @@ pub fn bam_coverage(
     let fraglen_treatment_arg : Vec<usize> = treatment_fraglen_estimates.iter().map(|x| x.fraglen as usize).collect();
     let fraglen_control_arg   : Vec<usize> =   control_fraglen_estimates.iter().map(|x| x.fraglen as usize).collect();
 
-    let track = GenericMutableTrack::coverage_from_bam(config, filenames_treatment, filenames_control, &fraglen_treatment_arg, &fraglen_control_arg, genome).map_err(
+    let track = SimpleTrack::coverage_from_bam(config, filenames_treatment, filenames_control, &fraglen_treatment_arg, &fraglen_control_arg, genome).map_err(
         |e| CoverageError::new(e, treatment_fraglen_estimates.clone(), control_fraglen_estimates.clone())
     )?;
 
