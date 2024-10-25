@@ -13,6 +13,22 @@ Designed with performance and usability in mind, this library is ideal for large
 
 Please find the API documentation [here](https://docs.rs/crate/rustynetics/latest).
 
+### Tools
+
+The package contains the following command line tools:
+
+| Tool                     | Description                                                              |
+| ------------------------ | ------------------------------------------------------------------------ |
+| bam-check-bin            | check bin records of a bam file                                          |
+| bam-genome               | print the genome (sequence table) of a bam file                          |
+| bam-to-bigwig            | convert bam to bigWig (estimate fragment length if required)             |
+| bam-view                 | print contents of a bam file                                             |
+| bigwig-genome            | print the genome (sequence table) of a bigWig file                       |
+| bigwig-info              | print information about a bigWig file                                    |
+| bigwig-query             | retrieve data from a bigWig file                                         |
+| bigwig-query-sequence    | retrieve sequences from a bigWig file                                    |
+
+
 ## Examples
 
 ### Import genes from UCSC
