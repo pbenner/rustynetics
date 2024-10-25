@@ -98,26 +98,6 @@ impl SimpleTrack {
         position / self.bin_size
     }
 
-    pub fn filter_genome<F>(&mut self, f: F)
-    where
-        F: Fn(&str, usize) -> bool,
-    {
-        let retain_seqnames: Vec<String> = self
-            .data
-            .keys()
-            .filter(|seqname| {
-                let idx = self.genome.seqnames.iter().position(|x| x == *seqname).unwrap();
-                f(seqname, self.genome.lengths[idx])
-            })
-            .cloned()
-            .collect();
-
-        // Retain the seqnames in self.data
-        self.data.retain(|seqname, _| retain_seqnames.contains(seqname));
-
-        // Perform the filtering on genome
-        self.genome.filter(f);
-    }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -193,6 +173,25 @@ impl MutableTrack for SimpleTrack {
 
     fn as_track(&self) -> &dyn Track {
         self
+    }
+
+    fn filter_genome(&mut self, f: &dyn Fn(&str, usize) -> bool)
+    {
+        let retain_seqnames: Vec<String> = self
+            .data
+            .keys()
+            .filter(|seqname| {
+                let idx = self.genome.seqnames.iter().position(|x| x == *seqname).unwrap();
+                f(seqname, self.genome.lengths[idx])
+            })
+            .cloned()
+            .collect();
+
+        // Retain the seqnames in self.data
+        self.data.retain(|seqname, _| retain_seqnames.contains(seqname));
+
+        // Perform the filtering on genome
+        self.genome.filter(f);
     }
 
     fn get_sequence_mut(&mut self, query: &str) -> Result<TrackMutableSequence, Box<dyn Error>> {

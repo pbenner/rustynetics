@@ -23,7 +23,6 @@ use std::error::Error;
 use futures::executor::block_on_stream;
 
 use crate::coverage::CoverageConfig;
-use crate::genome::Genome;
 use crate::read_stream::ReadStream;
 use crate::track_generic::GenericMutableTrack;
 use crate::bam::BamFile;
@@ -34,13 +33,12 @@ impl<'a> GenericMutableTrack<'a> {
 
     pub fn coverage_from_bam(
         mut config         : CoverageConfig,
-        track1             : GenericMutableTrack,
+        mut track1         : GenericMutableTrack,
         track2_arg         : Option<GenericMutableTrack>,
         filenames_treatment: &Vec<&str>,
         filenames_control  : &Vec<&str>,
         fraglen_treatment  : &Vec<usize>,
         fraglen_control    : &Vec<usize>,
-        genome             : Genome,
     ) -> Result<(), Box<dyn Error>> {
         // Treatment data
         let mut n_treatment = 0;
@@ -97,7 +95,7 @@ impl<'a> GenericMutableTrack<'a> {
             config.pseudocounts[0] *= c;
         }
 
-        if let Some(track2) = track2_arg {
+        if let Some(mut track2) = track2_arg {
             // Control data
 
             for (i, filename) in filenames_control.iter().enumerate() {
@@ -174,7 +172,7 @@ impl<'a> GenericMutableTrack<'a> {
         if config.remove_filtered_chroms {
             if !config.filter_chroms.is_empty() {
                 log!(config.logger, "Removing chromosomes `{}`", config.filter_chroms.join(", "));
-                track1.filter_genome(|name, _length| {
+                track1.track.filter_genome(&|name : &str, _length : usize| {
                     !config.filter_chroms.contains(&name.to_string())
                 });
             }

@@ -50,8 +50,7 @@ impl SimpleTrack {
                 filenames_treatment,
                 filenames_control,
                 fraglen_treatment,
-                fraglen_control,
-                genome)?;
+                fraglen_control)?;
 
         } else {
 
@@ -62,8 +61,7 @@ impl SimpleTrack {
                 filenames_treatment,
                 filenames_control,
                 fraglen_treatment,
-                fraglen_control,
-                genome)?;
+                fraglen_control)?;
 
         };
 
