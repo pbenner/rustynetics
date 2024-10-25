@@ -28,8 +28,8 @@ use clap::{Arg, ArgAction, Command};
 use plotters::prelude::*;
 
 use rustynetics::bigwig::OptionBigWig;
+use rustynetics::coverage::OptionCoverage;
 use rustynetics::track_generic::GenericTrack;
-use rustynetics::track_coverage::OptionBamCoverage;
 use rustynetics::track_coverage::bam_coverage;
 
 /* -------------------------------------------------------------------------- */
@@ -386,7 +386,7 @@ fn main() {
 
     print_stderr!(config, 1, "Verbose mode enabled with level: {}", config.verbose);
 
-    let mut options_list: Vec<OptionBamCoverage> = Vec::new();
+    let mut options_list: Vec<OptionCoverage> = Vec::new();
 
     if let Some(opt_bin_size) = matches.get_one::<String>("bin-size") {
         let bin_size : usize = opt_bin_size.parse().unwrap_or_else(|_| {
@@ -397,7 +397,7 @@ fn main() {
             eprintln!("{}", app.render_usage());
             process::exit(1);
         } else {
-            options_list.push(OptionBamCoverage::BinSize(bin_size));
+            options_list.push(OptionCoverage::BinSize(bin_size));
         }
     }
 
@@ -409,7 +409,7 @@ fn main() {
                 process::exit(1);
             }
         }
-        options_list.push(OptionBamCoverage::BinningMethod(opt_binning_method.clone()));
+        options_list.push(OptionCoverage::BinningMethod(opt_binning_method.clone()));
     }
 
     if let Some(opt_pseudocounts) = matches.get_one::<String>("pseudocounts") {
@@ -420,7 +420,7 @@ fn main() {
         }
         let t1 = tmp[0].parse::<f64>().expect("Invalid pseudocount value");
         let t2 = tmp[1].parse::<f64>().expect("Invalid pseudocount value");
-        options_list.push(OptionBamCoverage::Pseudocounts([t1, t2]));
+        options_list.push(OptionCoverage::Pseudocounts([t1, t2]));
     }
 
     if let Some(opt_read_length) = matches.get_one::<String>("filter-read-lengths") {
@@ -435,7 +435,7 @@ fn main() {
             eprintln!("{}", app.render_usage());
             process::exit(1);
         }
-        options_list.push(OptionBamCoverage::FilterReadLengths([t1, t2]));
+        options_list.push(OptionCoverage::FilterReadLengths([t1, t2]));
     }
 
     if let Some(opt_filter_mapq) = matches.get_one::<String>("filter-mapq") {
@@ -447,13 +447,13 @@ fn main() {
             eprintln!("{}", app.render_usage());
             process::exit(1);
         }
-        options_list.push(OptionBamCoverage::FilterMapQ(filter_mapq));
+        options_list.push(OptionCoverage::FilterMapQ(filter_mapq));
     }
 
     if let Some(opt_filter_strand) = matches.get_one::<String>("filter-strand") {
         match opt_filter_strand.as_str() {
-            "+" => options_list.push(OptionBamCoverage::FilterStrand('+')),
-            "-" => options_list.push(OptionBamCoverage::FilterStrand('-')),
+            "+" => options_list.push(OptionCoverage::FilterStrand('+')),
+            "-" => options_list.push(OptionCoverage::FilterStrand('-')),
             _ => {
                 eprintln!("{}", app.render_usage());
                 process::exit(1);
@@ -469,11 +469,11 @@ fn main() {
         }
         let t1 = tmp[0].parse::<usize>().expect("Invalid shift value");
         let t2 = tmp[1].parse::<usize>().expect("Invalid shift value");
-        options_list.push(OptionBamCoverage::ShiftReads([t1, t2]));
+        options_list.push(OptionCoverage::ShiftReads([t1, t2]));
     }
 
     if matches.get_flag("smoothen-control") {
-        options_list.push(OptionBamCoverage::SmoothenControl(true));
+        options_list.push(OptionCoverage::SmoothenControl(true));
     }
 
     if let Some(opt_smoothen_sizes) = matches.get_one::<String>("smoothen-window-sizes") {
@@ -481,12 +481,12 @@ fn main() {
         let smoothen_sizes: Vec<usize> = tmp.iter()
             .map(|&s| s.parse::<usize>().expect("Invalid smoothen size"))
             .collect();
-        options_list.push(OptionBamCoverage::SmoothenSizes(smoothen_sizes));
+        options_list.push(OptionCoverage::SmoothenSizes(smoothen_sizes));
     }
 
     if let Some(opt_smoothen_min) = matches.get_one::<String>("smoothen-min-counts") {
         let t = opt_smoothen_min.parse::<f64>().expect("Invalid minimum counts");
-        options_list.push(OptionBamCoverage::SmoothenMin(t));
+        options_list.push(OptionCoverage::SmoothenMin(t));
     }
 
     if let Some(opt_bw_zoom_levels) = matches.get_one::<String>("bigwig-zoom-levels") {
@@ -505,7 +505,7 @@ fn main() {
                 process::exit(1);
             }
         }
-        options_list.push(OptionBamCoverage::NormalizeTrack(opt_normalize_track.to_lowercase()));
+        options_list.push(OptionCoverage::NormalizeTrack(opt_normalize_track.to_lowercase()));
     }
 
     if let Some(opt_fraglen_range) = matches.get_one::<String>("fraglen-range") {
@@ -516,7 +516,7 @@ fn main() {
         }
         let t1 = tmp[0].parse::<i32>().expect("parsing fragment length range failed");
         let t2 = tmp[1].parse::<i32>().expect("parsing fragment length range failed");
-        options_list.push(OptionBamCoverage::FraglenRange((t1, t2)));
+        options_list.push(OptionCoverage::FraglenRange((t1, t2)));
     }
 
     if let Some(opt_fraglen_bin_size) = matches.get_one::<String>("fraglen-bin-size") {
@@ -525,7 +525,7 @@ fn main() {
             process::exit(1);
         });
         if fraglen_bin_size > 0 {
-            options_list.push(OptionBamCoverage::FraglenBinSize(fraglen_bin_size));
+            options_list.push(OptionCoverage::FraglenBinSize(fraglen_bin_size));
         }
     }
 
@@ -540,7 +540,7 @@ fn main() {
     }
     
     if let Some(opt_filter_chroms) = matches.get_one::<String>("filter-chromosomes") {
-        options_list.push(OptionBamCoverage::FilterChroms(
+        options_list.push(OptionCoverage::FilterChroms(
             opt_filter_chroms.split(',').map(String::from).collect(),
         ));
     }
@@ -550,16 +550,16 @@ fn main() {
             eprintln!("Invalid initial value specified");
             process::exit(1);
         });
-        options_list.push(OptionBamCoverage::InitialValue(value));
+        options_list.push(OptionCoverage::InitialValue(value));
     }
 
-    options_list.push(OptionBamCoverage::EstimateFraglen(matches.get_flag("estimate-fragment-length")));
-    options_list.push(OptionBamCoverage::LogScale(matches.get_flag("log-scale")));
-    options_list.push(OptionBamCoverage::PairedAsSingleEnd(matches.get_flag("paired-as-single-end")));
-    options_list.push(OptionBamCoverage::PairedEndStrandSpecific(matches.get_flag("paired-end-strand-specific")));
-    options_list.push(OptionBamCoverage::FilterDuplicates(matches.get_flag("filter-duplicates")));
-    options_list.push(OptionBamCoverage::FilterPairedEnd(matches.get_flag("filter-paired-end")));
-    options_list.push(OptionBamCoverage::FilterSingleEnd(matches.get_flag("filter-single-end")));
+    options_list.push(OptionCoverage::EstimateFraglen(matches.get_flag("estimate-fragment-length")));
+    options_list.push(OptionCoverage::LogScale(matches.get_flag("log-scale")));
+    options_list.push(OptionCoverage::PairedAsSingleEnd(matches.get_flag("paired-as-single-end")));
+    options_list.push(OptionCoverage::PairedEndStrandSpecific(matches.get_flag("paired-end-strand-specific")));
+    options_list.push(OptionCoverage::FilterDuplicates(matches.get_flag("filter-duplicates")));
+    options_list.push(OptionCoverage::FilterPairedEnd(matches.get_flag("filter-paired-end")));
+    options_list.push(OptionCoverage::FilterSingleEnd(matches.get_flag("filter-single-end")));
     
     config.save_fraglen         = matches.get_flag("save-fraglen");
     config.save_cross_corr      = matches.get_flag("save-crosscorrelation");
