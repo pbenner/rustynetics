@@ -46,6 +46,7 @@ pub mod infologger;
 pub mod meta;
 pub mod range;
 pub mod read;
+pub mod read_stream;
 pub mod error;
 pub mod track;
 pub mod track_bed;
