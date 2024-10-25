@@ -131,6 +131,9 @@ wget https://www.encodeproject.org/files/ENCFF739ECZ/@@download/ENCFF739ECZ.bam
 ```
 
 ```rust
+
+use rustynetics::bam_coverage::bam_coverage;
+
 let tracks_treatment = vec!["ENCFF504WRM.bam"];
 let tracks_control   = vec!["ENCFF739ECZ.bam"];
 
