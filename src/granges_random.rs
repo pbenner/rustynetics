@@ -29,6 +29,12 @@ use crate::granges::GRanges;
 /* -------------------------------------------------------------------------- */
 
 #[derive(Debug)]
+/// A structure representing a random number generator for genomic ranges based on the provided genome.
+///
+/// # Fields
+/// - `weights`: A vector of cumulative probabilities for each genomic length.
+/// - `genome`: A clone of the input genome structure, containing genomic information.
+/// - `max_len`: The maximum length of any genomic range in the genome.
 struct GenomeRng {
     weights: Vec<f64>,
     genome : Genome,
@@ -38,6 +44,17 @@ struct GenomeRng {
 /* -------------------------------------------------------------------------- */
 
 impl GenomeRng {
+
+    /// Creates a new `GenomeRng` instance from a given genome.
+    ///
+    /// This constructor initializes the cumulative probability weights based on the lengths of the genome's 
+    /// sequences, allowing for probabilistic sampling of genomic ranges.
+    ///
+    /// # Arguments
+    /// - `genome`: A reference to a `Genome` object from which to create the `GenomeRng`.
+    ///
+    /// # Returns
+    /// A new instance of `GenomeRng` initialized with the provided genome's lengths and cumulative weights.
     fn new(genome: &Genome) -> GenomeRng {
         let max_len = genome.lengths.iter().max().unwrap_or(&0);
         let weights: Vec<f64> = genome
@@ -58,6 +75,19 @@ impl GenomeRng {
         }
     }
 
+    /// Draws a random genomic range from the genome.
+    ///
+    /// This method samples a starting position and a corresponding sequence index based on the
+    /// cumulative weights, ensuring the selected range can accommodate the specified window size.
+    ///
+    /// # Arguments
+    /// - `wsize`: The window size for the genomic range to draw.
+    ///
+    /// # Returns
+    /// An `Option<(usize, usize)>`:
+    /// - `Some((k, i))`: A tuple where `k` is the index of the selected sequence and `i` is the starting
+    ///   position within that sequence.
+    /// - `None`: If the window size exceeds the maximum length of any sequence in the genome.
     fn draw(&self, wsize: usize) -> Option<(usize, usize)> {
         if wsize > self.max_len {
             return None;
@@ -87,6 +117,19 @@ impl GenomeRng {
 
 impl GRanges {
 
+    /// Generates a random set of genomic ranges.
+    ///
+    /// This method creates `n` random genomic ranges of the specified window size from the provided
+    /// genome, optionally including strand information.
+    ///
+    /// # Arguments
+    /// - `n`: The number of genomic ranges to generate.
+    /// - `wsize`: The fixed window size for each genomic range.
+    /// - `genome`: A reference to the `Genome` object from which to sample ranges.
+    /// - `use_strand`: A boolean indicating whether to randomly assign strand information.
+    ///
+    /// # Returns
+    /// A `GRanges` object containing the randomly generated genomic ranges.
     pub fn random(n: usize, wsize: usize, genome: &Genome, use_strand: bool) -> GRanges {
         let gnome_rng = GenomeRng::new(genome);
         let mut seqnames = Vec::with_capacity(n);
@@ -110,6 +153,13 @@ impl GRanges {
         GRanges::new(seqnames, from, to, strand)
     }
 
+    /// Returns a random permutation of the genomic ranges.
+    ///
+    /// This method shuffles the existing genomic ranges and returns a new `GRanges` object containing
+    /// the permuted ranges.
+    ///
+    /// # Returns
+    /// A new `GRanges` object containing the same genomic ranges in random order.
     pub fn random_permutation(&self) -> GRanges {
         let mut rng = rand::thread_rng();
         let mut idx: Vec<usize> = (0..self.num_rows()).collect();
@@ -117,4 +167,3 @@ impl GRanges {
         self.subset(&idx)
     }
 }
-
