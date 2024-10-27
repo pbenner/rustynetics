@@ -419,6 +419,17 @@ impl PartialEq for GRanges {
 /* -------------------------------------------------------------------------- */
 
 impl fmt::Display for GRanges {
+    /// Formats the `GRanges` instance as a string for display.
+    ///
+    /// This method implements the `Display` trait, allowing the `GRanges` instance to be easily printed using
+    /// formatting macros like `println!`. It calls `format_pretty` to obtain the formatted string representation
+    /// and pads it for display.
+    ///
+    /// # Arguments
+    /// - `f`: A mutable reference to a `Formatter`, which is used to write the formatted string.
+    ///
+    /// # Returns
+    /// A `fmt::Result`, which indicates the success or failure of the formatting operation.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.pad(&format!("{}", self.format_pretty(10).unwrap()))
     }

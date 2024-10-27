@@ -26,6 +26,18 @@ use crate::granges::GRanges;
 
 impl GRanges {
 
+    /// Prints the contents of the `GRanges` instance in a pretty-printed format to the provided writer.
+    ///
+    /// This method formats the `GRanges` data into a human-readable string and writes it to the specified
+    /// output stream. It calculates the maximum widths of each column to ensure proper alignment in the output.
+    ///
+    /// # Arguments
+    /// - `writer`: A mutable reference to a writer that implements the `Write` trait, where the formatted output will be written.
+    /// - `n`: The maximum number of rows to print. This allows for controlling the output size and is useful for
+    ///         displaying a limited number of rows.
+    ///
+    /// # Returns
+    /// An `io::Result<()>`, which will be `Ok(())` if the operation succeeds or an error if the writing fails.
     fn print_pretty<W: Write>(&self, writer: &mut W, n: usize) -> io::Result<()> {
         let meta_str = format!("{}", self.meta);
         let mut meta_reader = BufReader::new(meta_str.as_bytes());
@@ -45,6 +57,16 @@ impl GRanges {
         Ok(())
     }
 
+    /// Formats the contents of the `GRanges` instance into a pretty-printed string.
+    ///
+    /// This method collects the formatted representation of the `GRanges` data into a string, which can be
+    /// useful for displaying or logging purposes. It internally calls `print_pretty` to handle the formatting.
+    ///
+    /// # Arguments
+    /// - `n`: The maximum number of rows to include in the formatted output.
+    ///
+    /// # Returns
+    /// An `io::Result<String>` containing the formatted string if successful, or an error if the formatting fails.
     pub fn format_pretty(&self, n: usize) -> io::Result<String> {
         let mut buffer = Vec::new();
         {
