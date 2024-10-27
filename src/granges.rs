@@ -33,6 +33,46 @@ use crate::utility::remove_duplicates_int;
 
 /* -------------------------------------------------------------------------- */
 
+/// A structure representing genomic ranges with associated metadata, 
+/// commonly used for handling regions of interest in genomic data processing.
+///
+/// The `GRanges` struct stores chromosome names (`seqnames`), genomic ranges
+/// (`ranges`), strand orientation (`strand`), and additional metadata (`meta`).
+///
+/// # Fields
+/// - `seqnames`: A vector of chromosome names where each entry corresponds
+///   to a genomic range in `ranges`.
+/// - `ranges`: A vector of `Range` structs representing genomic intervals,
+///   each defined by start and end positions.
+/// - `strand`: A vector indicating the strand orientation (`+`, `-`, or `*`)
+///   for each range. A strand of `'*'` denotes an unspecified or neutral strand.
+/// - `meta`: An instance of the `Meta` struct, holding additional user-defined
+///   metadata, such as associated gene expression values or other annotations.
+///
+/// # Examples
+/// ```
+/// use rustynetics::granges::GRanges;
+///
+/// // Example of creating a new GRanges instance
+/// let granges = GRanges::new(
+///     vec!["chr1".to_string(), "chr2".to_string()],
+///     vec![100, 200],
+///     vec![150, 250],
+///     vec!['+', '-']
+/// );
+/// ```
+///
+/// # Usage
+/// The `GRanges` struct provides several methods for manipulating and querying
+/// genomic ranges, such as `subset`, `intersection`, `filter_genome`, and more.
+/// Additionally, methods for adjusting range lengths (`set_lengths`) or filtering
+/// based on strand orientation are available, facilitating flexible operations 
+/// on genomic data.
+///
+/// # Note
+/// The `GRanges` struct is particularly useful for bioinformatics applications
+/// where analysis of specific genomic regions or annotations is needed, and 
+/// supports various metadata types via the `Meta` struct.
 #[derive(Clone, Debug)]
 pub struct GRanges {
     pub seqnames: Vec<String>,
