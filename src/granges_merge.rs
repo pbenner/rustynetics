@@ -27,6 +27,23 @@ use crate::granges_find_endpoint::{EndPoint, EndPointList};
 
 impl GRanges {
 
+    /// Merges overlapping or contiguous genomic ranges from the given `GRanges` object.
+    ///
+    /// This function processes an `EndPointList` for a specific sequence name, combining
+    /// overlapping and contiguous intervals into larger ranges. The resulting ranges are appended
+    /// to the provided `GRanges` object.
+    ///
+    /// # Arguments
+    /// - `r`: A reference to a `GRanges` object where the merged ranges will be appended.
+    /// - `seqname`: A string representing the name of the genomic sequence being processed.
+    /// - `entry`: A reference to an `EndPointList`, which contains the start and end points of genomic ranges.
+    ///
+    /// # Returns
+    /// A `GRanges` object containing the merged ranges from the specified sequence name.
+    ///
+    /// # Panics
+    /// This function will panic if it encounters an invalid state in the `EndPointList`,
+    /// specifically if it does not start with a start position.
     fn merge_impl(r: &GRanges, seqname: String, entry: &EndPointList) -> GRanges {
 
         let mut seqnames = vec![];
@@ -65,6 +82,29 @@ impl GRanges {
         r.append(&GRanges::new(seqnames, from, to, vec![])).unwrap()
     }
 
+    /// Merges a collection of `GRanges` objects into a single `GRanges` object.
+    ///
+    /// This function iterates through a slice of `GRanges`, collects start and end points for each range,
+    /// and merges overlapping or contiguous ranges based on sequence names. The resulting merged ranges are returned.
+    ///
+    /// # Arguments
+    /// - `granges`: A slice of `GRanges` objects to be merged.
+    ///
+    /// # Returns
+    /// A new `GRanges` object containing the merged ranges.
+    ///
+    /// # Example
+    /// ```
+    /// use rustynetics::granges::GRanges;
+    ///
+    /// let seqnames = vec!["chr1", "chr1", "chr1", "chr2", "chr2"].iter().map(|&x| x.into()).collect();
+    /// let from = vec![6, 10, 24, 6, 10];
+    /// let to = vec![21, 31, 81, 21, 31];
+    /// let strand = vec![];
+    ///
+    /// let granges = GRanges::new(seqnames, from, to, strand);
+    /// let merged = GRanges::merge(&[granges]);
+    /// ```
     pub fn merge(granges: &[GRanges]) -> GRanges {
 
         let mut r = GRanges::default();
