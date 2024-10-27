@@ -36,6 +36,18 @@ use crate::utility::is_gzip;
 
 impl GRanges {
 
+    /// Parses a single GTF file line, extracting each field value.
+    ///
+    /// This method uses a regular expression to match quoted and unquoted fields, splitting the line
+    /// into separate components to be processed as GTF fields.
+    ///
+    /// # Arguments
+    ///
+    /// * `line` - A string slice representing a line from the GTF file.
+    ///
+    /// # Returns
+    ///
+    /// * `Vec<String>` - A vector of field values extracted from the GTF line.
     fn parse_gtf_line(line: &str) -> Vec<String> {
         let re = Regex::new(r#""[^"]*"|[^ \t;]+"#).unwrap();
         re.find_iter(line)
@@ -43,6 +55,22 @@ impl GRanges {
             .collect()
     }
 
+    /// Parses optional fields in GTF, matching field names with specified types and populating values.
+    ///
+    /// This method ensures that all specified optional fields are populated with their respective
+    /// values from the GTF file, falling back to default values when necessary.
+    ///
+    /// # Arguments
+    ///
+    /// * `fields` - A slice of parsed field names and values as strings.
+    /// * `type_map` - A hashmap associating field names with their data types.
+    /// * `gtf_opt` - A mutable hashmap to store parsed optional field values.
+    /// * `gtf_def` - A hashmap of field names to their default values.
+    /// * `length` - The current row length to ensure all fields are populated.
+    ///
+    /// # Errors
+    ///
+    /// Returns an `io::Error` if a required field is missing and has no default value.
     fn parse_optional_fields(
         &self,
         fields  : &[String],
@@ -83,6 +111,21 @@ impl GRanges {
  
 impl GRanges {
 
+    /// Reads GTF-formatted data and constructs a `GRanges` object, with support for optional fields.
+    ///
+    /// Parses each line of the GTF data to extract the main fields and optional fields based on
+    /// provided names, types, and default values, storing the data in `GRanges`.
+    ///
+    /// # Arguments
+    ///
+    /// * `reader` - A buffered reader for the GTF file input.
+    /// * `opt_names` - Vector of optional field names.
+    /// * `opt_types` - Vector of types for each optional field.
+    /// * `defaults` - Vector of default values for optional fields.
+    ///
+    /// # Returns
+    ///
+    /// Returns a `GRanges` object populated with parsed GTF data or an error if parsing fails.
     pub fn read_gtf<R: BufRead>(
         reader   : R,
         opt_names: Vec<&str>,
@@ -166,6 +209,18 @@ impl GRanges {
         Ok(granges)
     }
 
+    /// Writes `GRanges` data to a GTF-formatted output, including optional metadata fields.
+    ///
+    /// Outputs the `GRanges` data in a GTF-compatible format. Metadata fields are included
+    /// in a semi-colon separated format after the core fields.
+    ///
+    /// # Arguments
+    ///
+    /// * `writer` - A writable output for the GTF-formatted data.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if writing fails due to IO issues or missing data fields.
     pub fn write_gtf<W: Write>(&self, writer: W) -> Result<(), Box<dyn Error>> {
         let mut w = io::BufWriter::new(writer);
 
@@ -285,6 +340,21 @@ impl GRanges {
  
 impl GRanges {
 
+    /// Imports GTF data from a file, with optional gzip support.
+    ///
+    /// This method reads from a file path and determines if the file is gzipped.
+    /// Parses optional field names, types, and default values to complete a `GRanges` object.
+    ///
+    /// # Arguments
+    ///
+    /// * `filename` - The GTF file path to import from.
+    /// * `opt_names` - Vector of optional field names to parse.
+    /// * `opt_types` - Vector of types corresponding to each optional field.
+    /// * `opt_def` - Vector of default values for optional fields.
+    ///
+    /// # Returns
+    ///
+    /// A `GRanges` object populated with data from the GTF file, or an error if import fails.
     pub fn import_gtf(
         filename : &str,
         opt_names: Vec<&str>,
@@ -304,6 +374,17 @@ impl GRanges {
 
     }
 
+    /// Exports `GRanges` data to a GTF file.
+    ///
+    /// This method writes `GRanges` data, including optional metadata, to a specified file path.
+    ///
+    /// # Arguments
+    ///
+    /// * `filename` - The GTF file path to export to.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if exporting fails due to IO issues.
     pub fn export_gtf(&self, filename: &str) -> Result<(), Box<dyn Error>> {
         let file = File::create(filename)?;
         self.write_gtf(file)
