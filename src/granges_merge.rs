@@ -85,7 +85,7 @@ impl GRanges {
     /// Merges a collection of `GRanges` objects into a single `GRanges` object.
     ///
     /// This function iterates through a slice of `GRanges`, collects start and end points for each range,
-    /// and merges overlapping or contiguous ranges based on sequence names. The resulting merged ranges are returned.
+    /// and merges overlapping or contiguous ranges. The resulting merged ranges are returned.
     ///
     /// # Arguments
     /// - `granges`: A slice of `GRanges` objects to be merged.
@@ -103,9 +103,9 @@ impl GRanges {
     /// let strand = vec![];
     ///
     /// let granges = GRanges::new(seqnames, from, to, strand);
-    /// let merged = GRanges::merge(&[granges]);
+    /// let merged = GRanges::merge(&[&granges]);
     /// ```
-    pub fn merge(granges: &[GRanges]) -> GRanges {
+    pub fn merge(granges: &[&GRanges]) -> GRanges {
 
         let mut r = GRanges::default();
         let mut rmap: HashMap<String, EndPointList> = HashMap::new();
@@ -155,7 +155,7 @@ mod tests {
 
         let granges  = GRanges::new(seqnames, from, to, strand);
 
-        let r = GRanges::merge(&[granges]);
+        let r = GRanges::merge(&[&granges]);
 
         assert!(r.num_rows() == 2);
 
