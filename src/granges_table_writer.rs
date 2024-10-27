@@ -18,14 +18,19 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
- use std::io;
- use std::io::{BufRead, Write};
+use std::io;
+use std::io::{BufRead, Write};
 
- use crate::granges::GRanges;
+use crate::granges::GRanges;
  
- /* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
  
- pub struct GRangesTableWriter<'a> {
+
+/// A writer for formatting and outputting a `GRanges` instance as a table.
+///
+/// This struct holds a reference to a `GRanges` instance and is responsible for determining the width of 
+/// columns based on the content of the `GRanges` and for writing the formatted output to a specified writer.
+pub struct GRangesTableWriter<'a> {
     granges       : &'a GRanges,
     widths        : Vec<usize>,
     use_scientific: bool,
@@ -36,6 +41,15 @@
  
 impl<'a> GRangesTableWriter<'a> {
 
+    /// Creates a new instance of `GRangesTableWriter`.
+    ///
+    /// # Arguments
+    /// - `granges`: A reference to a `GRanges` instance that this writer will format and output.
+    /// - `use_scientific`: A boolean indicating whether to use scientific notation for numeric output.
+    /// - `use_strand`: A boolean indicating whether to include strand information in the output.
+    ///
+    /// # Returns
+    /// A new instance of `GRangesTableWriter`.
     pub fn new(granges: &'a GRanges, use_scientific: bool, use_strand: bool) -> Self {
         GRangesTableWriter{
             granges       : granges,
@@ -45,6 +59,14 @@ impl<'a> GRangesTableWriter<'a> {
         }
     }
 
+    /// Determines the maximum widths of columns based on the data in the `GRanges` instance.
+    ///
+    /// This method updates the `widths` field by calculating the lengths of each column's contents 
+    /// for all rows. It is called to ensure proper alignment when writing the table.
+    ///
+    /// # Returns
+    /// An `io::Result<()>`, which will be `Ok(())` if the operation succeeds, or an error if width 
+    /// calculation fails.
     pub fn determine_widths(&mut self) -> io::Result<()> {
         for i in 0..self.granges.num_rows() {
             update_max_widths(self.granges, i, &mut self.widths, self.use_scientific)?;
@@ -52,12 +74,33 @@ impl<'a> GRangesTableWriter<'a> {
         Ok(())
     }
 
+    /// Writes the header row of the table to the specified writer.
+    ///
+    /// This method writes the column names (headers) to the output, including strand information if requested.
+    ///
+    /// # Arguments
+    /// - `writer`: A mutable reference to a writer that implements the `Write` trait, where the header will be written.
+    /// - `meta_reader`: A mutable reference to a buffer reader for reading metadata associated with the `GRanges`.
+    ///
+    /// # Returns
+    /// An `io::Result<()>`, which will be `Ok(())` if the operation succeeds, or an error if writing fails.
     pub fn write_header<R: BufRead, W: Write>(&self, writer: &mut W, meta_reader: &mut R) -> io::Result<()> {
         write_header(writer, &self.widths, self.use_strand)?;
         write_row_meta(self.granges, writer, meta_reader)?;
         writeln!(writer)    
     }
 
+    /// Writes a single row of `GRanges` data to the specified writer.
+    ///
+    /// This method formats and writes the data for a specific row, including metadata if present.
+    ///
+    /// # Arguments
+    /// - `writer`: A mutable reference to a writer that implements the `Write` trait, where the row will be written.
+    /// - `meta_reader`: A mutable reference to a buffer reader for reading metadata associated with the `GRanges`.
+    /// - `i`: The index of the row to write.
+    ///
+    /// # Returns
+    /// An `io::Result<()>`, which will be `Ok(())` if the operation succeeds, or an error if writing fails.
     pub fn write_row<R: BufRead, W: Write>(&self, writer: &mut W, meta_reader: &mut R, i: usize) -> io::Result<()> {
         write_row     (self.granges, writer, i, &self.widths, self.use_strand)?;
         write_row_meta(self.granges, writer, meta_reader)?;
