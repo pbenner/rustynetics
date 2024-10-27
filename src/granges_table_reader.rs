@@ -18,14 +18,19 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
- use std::io;
- use std::str::FromStr;
+use std::io;
+use std::str::FromStr;
  
- use crate::range::Range;
- use crate::granges::GRanges;
+use crate::range::Range;
+use crate::granges::GRanges;
  
- /* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
  
+/// A reader for processing `GRanges` data from a tabular format.
+///
+/// This struct reads data from a table format, interpreting it as genomic ranges. It
+/// identifies the relevant columns in the header and reads subsequent lines to populate
+/// the associated `GRanges` structure.
 pub struct GRangesTableReader {
     col_seqname: i32,
     col_from   : i32,
@@ -38,6 +43,13 @@ pub struct GRangesTableReader {
 
 impl GRangesTableReader {
 
+    /// Creates a new instance of `GRangesTableReader`.
+    ///
+    /// This constructor initializes the column indices to -1, indicating that they have not yet been assigned,
+    /// and creates a default `GRanges` instance to store the read data.
+    ///
+    /// # Returns
+    /// A new instance of `GRangesTableReader`.
     pub fn new() -> Self {
         GRangesTableReader{
             col_seqname: -1,
@@ -48,6 +60,17 @@ impl GRangesTableReader {
         }
     }
 
+    /// Reads the header line of the input data to determine column positions.
+    ///
+    /// This method analyzes the given line to set the indices of the columns corresponding
+    /// to the sequence names, start, end, and strand. It raises an error if any of the required
+    /// columns are missing.
+    ///
+    /// # Arguments
+    /// - `line`: A reference to a string containing the header line.
+    ///
+    /// # Returns
+    /// An `io::Result<()>`, which will be `Ok(())` if the operation succeeds, or an error if a required column is missing.
     pub fn read_header(&mut self, line: &String) -> io::Result<()> {
 
         let fields: Vec<&str> = line.trim().split_whitespace().collect();
@@ -75,6 +98,18 @@ impl GRangesTableReader {
         Ok(())
     }
 
+    /// Reads a line of data and populates the `GRanges` instance.
+    ///
+    /// This method processes the given line, extracts the relevant fields based on the previously
+    /// determined column indices, and adds the data to the `GRanges` instance. It raises an error if the
+    /// data is invalid or if parsing fails.
+    ///
+    /// # Arguments
+    /// - `line`: A reference to a string containing the line to read.
+    /// - `i`: The index of the line being processed (used for error reporting).
+    ///
+    /// # Returns
+    /// An `io::Result<()>`, which will be `Ok(())` if the operation succeeds, or an error if parsing fails.
     pub fn read_line(&mut self, line: &String, i: i32) -> io::Result<()> {
 
         let fields: Vec<&str> = line.trim().split_whitespace().collect();
@@ -101,6 +136,13 @@ impl GRangesTableReader {
         Ok(())
     }
 
+    /// Copies the data from the internal `GRanges` instance to another `GRanges` instance.
+    ///
+    /// This method takes a mutable reference to a `GRanges` instance and populates it with the
+    /// sequence names, ranges, and strand information from the reader's internal `GRanges`.
+    ///
+    /// # Arguments
+    /// - `granges`: A mutable reference to a `GRanges` instance to which the data will be copied.
     pub fn push(&mut self, granges: &mut GRanges) {
         granges.seqnames = self.granges.seqnames.clone();
         granges.ranges   = self.granges.ranges  .clone();

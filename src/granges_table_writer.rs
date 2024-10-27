@@ -28,7 +28,7 @@ use crate::granges::GRanges;
 
 /// A writer for formatting and outputting a `GRanges` instance as a table.
 ///
-/// This struct holds a reference to a `GRanges` instance and is responsible for determining the width of 
+/// This struct holds a reference to a `GRanges` instance and is responsible for determining the width of
 /// columns based on the content of the `GRanges` and for writing the formatted output to a specified writer.
 pub struct GRangesTableWriter<'a> {
     granges       : &'a GRanges,
@@ -61,7 +61,7 @@ impl<'a> GRangesTableWriter<'a> {
 
     /// Determines the maximum widths of columns based on the data in the `GRanges` instance.
     ///
-    /// This method updates the `widths` field by calculating the lengths of each column's contents 
+    /// This method updates the `widths` field by calculating the lengths of each column's contents
     /// for all rows. It is called to ensure proper alignment when writing the table.
     ///
     /// # Returns
