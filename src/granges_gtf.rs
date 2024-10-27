@@ -1,4 +1,3 @@
-
 // Copyright (C) 2024 Philipp Benner
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
