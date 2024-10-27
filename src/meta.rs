@@ -169,6 +169,40 @@ impl PartialEq for MetaData {
 
 /* -------------------------------------------------------------------------- */
 
+/// A structure for storing metadata associated with genomic ranges in a
+/// flexible, column-based format. The `Meta` struct allows storing columns of
+/// various data types (integers, floats, strings, and ranges), facilitating
+/// metadata storage and manipulation for genomic datasets.
+///
+/// Each `Meta` instance comprises named metadata columns, where each column can
+/// have a different type (handled by `MetaData`). Columns are organized by name
+/// in `meta_name` and data in `meta_data`, with rows representing entries.
+///
+/// # Fields
+/// - `meta_name`: A vector of column names, each corresponding to an entry in `meta_data`.
+/// - `meta_data`: A vector of `MetaData`, each holding values for a column.
+/// - `rows`: The number of rows (entries) in each column.
+///
+/// # Examples
+/// ```
+/// use rustynetics::meta::{Meta, MetaData};
+///
+/// // Creating a new Meta instance with column names and data
+/// let meta = Meta::new(
+///     vec!["Gene", "Expression"],
+///     vec![MetaData::StringArray(vec!["GeneA".to_string(), "GeneB".to_string()]),
+///          MetaData::FloatArray(vec![0.85, 1.23])]
+/// ).unwrap();
+/// ```
+///
+/// # Usage
+/// The `Meta` struct provides methods for adding, appending, retrieving, and
+/// managing metadata columns. Metadata can be accessed and modified by column name,
+/// and transformations such as subsetting, sorting, or slicing rows are also supported.
+///
+/// # Note
+/// This struct is commonly used in bioinformatics to attach structured annotations
+/// to genomic ranges, enabling efficient storage and retrieval of associated metadata.
 #[derive(Clone, Debug)]
 pub struct Meta {
     pub meta_name: Vec<String>,
@@ -191,6 +225,15 @@ impl Default for Meta {
 /* -------------------------------------------------------------------------- */
 
 impl Meta {
+
+    /// Creates a new `Meta` instance with the given column names and data.
+    ///
+    /// # Arguments
+    /// - `names`: A vector of names for each column.
+    /// - `data`: A vector of `MetaData`, one for each column.
+    ///
+    /// # Errors
+    /// Returns an error if `names` and `data` have mismatched lengths.
     pub fn new(names: Vec<&str>, data: Vec<MetaData>) -> Result<Self, Box<dyn Error>> {
         if names.len() != data.len() {
             return Err(format!("Invalid parameters!").into());
@@ -206,14 +249,51 @@ impl Meta {
         Ok(meta)
     }
 
+    /// Returns the number of rows in the `Meta` instance.
     pub fn num_rows(&self) -> usize {
         self.rows
     }
 
+    /// Returns the number of columns in the `Meta` instance.
     pub fn num_cols(&self) -> usize {
         self.meta_name.len()
     }
 
+    /// Appends rows from another `Meta` instance to the current instance, matching columns by name.
+    ///
+    /// This function combines two `Meta` instances by appending rows from `meta` to the existing
+    /// rows in `self`. The column names in both `Meta` instances must match exactly.
+    ///
+    /// # Arguments
+    /// - `meta`: A reference to the `Meta` instance to append to `self`.
+    ///
+    /// # Returns
+    /// A new `Meta` instance containing rows from both `self` and `meta`.
+    ///
+    /// # Errors
+    /// Returns an error if:
+    /// - The number of rows in `meta` columns does not match the columns in `self`.
+    /// - A column name in `meta` is not found in `self`.
+    ///
+    /// # Example
+    /// ```
+    /// use rustynetics::meta::{Meta, MetaData};
+    ///
+    /// let meta1 = Meta::new(
+    ///     vec!["Gene", "Expression"],
+    ///     vec![MetaData::StringArray(vec!["GeneA".to_string()]),
+    ///          MetaData::FloatArray(vec![0.85])]
+    /// ).unwrap();
+    ///
+    /// let meta2 = Meta::new(
+    ///     vec!["Gene", "Expression"],
+    ///     vec![MetaData::StringArray(vec!["GeneB".to_string()]),
+    ///          MetaData::FloatArray(vec![1.23])]
+    /// ).unwrap();
+    ///
+    /// let combined = meta1.append(&meta2).unwrap();
+    /// assert_eq!(combined.num_rows(), 2);
+    /// ```
     pub fn append(&self, meta : &Meta) -> Result<Self, Box<dyn Error>> {
         let n1 = self.num_rows();
         let n2 = meta.num_rows();
@@ -241,6 +321,14 @@ impl Meta {
         Ok(meta)
     }
 
+    /// Adds a new column to the `Meta` instance.
+    ///
+    /// # Arguments
+    /// - `name`: The name of the new column.
+    /// - `data`: The `MetaData` for the new column.
+    ///
+    /// # Errors
+    /// Returns an error if the length of `data` does not match the existing row count.
     pub fn add(&mut self, name: &str, data: MetaData) -> Result<(), Box<dyn Error>> {
         let n = data.len();
         if self.meta_name.len() > 0 {
@@ -256,6 +344,10 @@ impl Meta {
         Ok(())
     }
 
+    /// Deletes a column by name, if it exists.
+    ///
+    /// # Arguments
+    /// - `name`: The name of the column to delete.
     pub fn delete_meta(&mut self, name: &str) {
         if let Some(index) = self.meta_name.iter().position(|x| x == name) {
             self.meta_name.remove(index);
@@ -263,6 +355,11 @@ impl Meta {
         }
     }
 
+    /// Renames a column in `Meta` by name.
+    ///
+    /// # Arguments
+    /// - `name_old`: The existing name of the column.
+    /// - `name_new`: The new name for the column.
     pub fn rename_meta(&mut self, name_old: &str, name_new: &str) {
         if name_old == name_new {
             return;
@@ -272,54 +369,219 @@ impl Meta {
         }
     }
 
+    /// Retrieves a reference to a column in the `Meta` instance by its name.
+    ///
+    /// This function searches for a column with the specified name and returns a reference to the
+    /// `MetaData` object associated with that column if it exists.
+    ///
+    /// # Arguments
+    /// - `name`: The name of the column to retrieve.
+    ///
+    /// # Returns
+    /// An `Option` containing a reference to the `MetaData` of the specified column. 
+    /// Returns `None` if no column with the given name is found.
+    ///
+    /// # Example
+    /// ```
+    /// use rustynetics::meta::{Meta, MetaData};
+    ///
+    /// let meta = Meta::new(
+    ///     vec!["Gene", "Expression"],
+    ///     vec![MetaData::StringArray(vec!["GeneA".to_string(), "GeneB".to_string()]),
+    ///          MetaData::FloatArray(vec![1.0, 2.0])]
+    /// ).unwrap();
+    ///
+    /// if let Some(column) = meta.get_column("Expression") {
+    ///     // Process column data here
+    /// }
+    /// ```
+    ///
+    /// # Errors
+    /// This function does not return an error but rather returns `None` if the specified
+    /// column name is not found.
     pub fn get_column(&self, name: &str) -> Option<&MetaData> {
         self.meta_name.iter().position(|x| x == name).map(|index| &self.meta_data[index])
     }
 
+    /// Retrieves a reference to a column containing integer data by its name.
+    ///
+    /// This function returns a reference to the `Vec<i64>` of integers for the specified column
+    /// if the column contains integer data. If the column exists but does not contain integers,
+    /// or if the column name is not found, it returns `None`.
+    ///
+    /// # Arguments
+    /// - `name`: The name of the column to retrieve.
+    ///
+    /// # Returns
+    /// An `Option` containing a reference to the integer `Vec<i64>`. Returns `None` if
+    /// the column is not found or if it contains non-integer data.
     pub fn get_column_int(&self, name: &str) -> Option<&Vec<i64>> {
         let r = self.get_column(name)?;
         r.get_int()
     }
 
+    /// Retrieves a reference to a column containing floating-point data by its name.
+    ///
+    /// This function returns a reference to the `Vec<f64>` of floats for the specified column
+    /// if the column contains float data. If the column exists but does not contain floats,
+    /// or if the column name is not found, it returns `None`.
+    ///
+    /// # Arguments
+    /// - `name`: The name of the column to retrieve.
+    ///
+    /// # Returns
+    /// An `Option` containing a reference to the float `Vec<f64>`. Returns `None` if
+    /// the column is not found or if it contains non-float data.
     pub fn get_column_float(&self, name: &str) -> Option<&Vec<f64>> {
         let r = self.get_column(name)?;
         r.get_float()
     }
 
+    /// Retrieves a reference to a column containing string data by its name.
+    ///
+    /// This function returns a reference to the `Vec<String>` of strings for the specified column
+    /// if the column contains string data. If the column exists but does not contain strings,
+    /// or if the column name is not found, it returns `None`.
+    ///
+    /// # Arguments
+    /// - `name`: The name of the column to retrieve.
+    ///
+    /// # Returns
+    /// An `Option` containing a reference to the string `Vec<String>`. Returns `None` if
+    /// the column is not found or if it contains non-string data.
     pub fn get_column_str(&self, name: &str) -> Option<&Vec<String>> {
         let r = self.get_column(name)?;
         r.get_str()
     }
 
+    /// Retrieves a reference to a column containing range data by its name.
+    ///
+    /// This function returns a reference to the `Vec<Range>` of ranges for the specified column
+    /// if the column contains range data. If the column exists but does not contain ranges,
+    /// or if the column name is not found, it returns `None`.
+    ///
+    /// # Arguments
+    /// - `name`: The name of the column to retrieve.
+    ///
+    /// # Returns
+    /// An `Option` containing a reference to the range `Vec<Range>`. Returns `None` if
+    /// the column is not found or if it contains non-range data.
     pub fn get_column_range(&self, name: &str) -> Option<&Vec<Range>> {
         let r = self.get_column(name)?;
         r.get_range()
     }
 
+    /// Retrieves a mutable reference to a column in the `Meta` instance by its name.
+    ///
+    /// This function returns a mutable reference to the `MetaData` object of the specified column,
+    /// allowing modifications to the column data if it exists. If the column name is not found,
+    /// it returns `None`.
+    ///
+    /// # Arguments
+    /// - `name`: The name of the column to retrieve.
+    ///
+    /// # Returns
+    /// An `Option` containing a mutable reference to the `MetaData` of the specified column.
+    /// Returns `None` if no column with the given name is found.
+    ///
+    /// # Example
+    /// ```
+    /// use rustynetics::meta::{Meta, MetaData};
+    ///
+    /// let mut meta = Meta::new(
+    ///     vec!["Count"],
+    ///     vec![MetaData::IntArray(vec![10, 20, 30])],
+    /// ).unwrap();
+    ///
+    /// if let Some(column) = meta.get_column_mut("Count") {
+    ///     if let Some(r) = column.get_int_mut() {
+    ///         r[1] = 40;
+    ///     }
+    /// }
+    /// ```
     pub fn get_column_mut(&mut self, name: &str) -> Option<&mut MetaData> {
         self.meta_name.iter().position(|x| x == name).map(move |index| &mut self.meta_data[index])
     }
 
+    /// Retrieves a mutable reference to a column containing integer data by its name.
+    ///
+    /// This function returns a mutable reference to the `Vec<i64>` of integers for the specified column
+    /// if the column exists and contains integer data. If the column exists but does not contain integers,
+    /// or if the column name is not found, it returns `None`.
+    ///
+    /// # Arguments
+    /// - `name`: The name of the column to retrieve.
+    ///
+    /// # Returns
+    /// An `Option` containing a mutable reference to the integer `Vec<i64>`. Returns `None` if
+    /// the column is not found or if it contains non-integer data.
     pub fn get_column_int_mut(&mut self, name: &str) -> Option<&mut Vec<i64>> {
         let r = self.get_column_mut(name)?;
         r.get_int_mut()
     }
 
+    /// Retrieves a mutable reference to a column containing floating-point data by its name.
+    ///
+    /// This function returns a mutable reference to the `Vec<f64>` of floats for the specified column
+    /// if the column exists and contains float data. If the column exists but does not contain floats,
+    /// or if the column name is not found, it returns `None`.
+    ///
+    /// # Arguments
+    /// - `name`: The name of the column to retrieve.
+    ///
+    /// # Returns
+    /// An `Option` containing a mutable reference to the float `Vec<f64>`. Returns `None` if
+    /// the column is not found or if it contains non-float data.
     pub fn get_column_float_mut(&mut self, name: &str) -> Option<&mut Vec<f64>> {
         let r = self.get_column_mut(name)?;
         r.get_float_mut()
     }
 
+    /// Retrieves a mutable reference to a column containing string data by its name.
+    ///
+    /// This function returns a mutable reference to the `Vec<String>` of strings for the specified column
+    /// if the column exists and contains string data. If the column exists but does not contain strings,
+    /// or if the column name is not found, it returns `None`.
+    ///
+    /// # Arguments
+    /// - `name`: The name of the column to retrieve.
+    ///
+    /// # Returns
+    /// An `Option` containing a mutable reference to the string `Vec<String>`. Returns `None` if
+    /// the column is not found or if it contains non-string data.
     pub fn get_column_str_mut(&mut self, name: &str) -> Option<&mut Vec<String>> {
         let r = self.get_column_mut(name)?;
         r.get_str_mut()
     }
 
+    /// Retrieves a mutable reference to a column containing range data by its name.
+    ///
+    /// This function returns a mutable reference to the `Vec<Range>` of ranges for the specified column
+    /// if the column exists and contains range data. If the column exists but does not contain ranges,
+    /// or if the column name is not found, it returns `None`.
+    ///
+    /// # Arguments
+    /// - `name`: The name of the column to retrieve.
+    ///
+    /// # Returns
+    /// An `Option` containing a mutable reference to the range `Vec<Range>`. Returns `None` if
+    /// the column is not found or if it contains non-range data.
     pub fn get_column_range_mut(&mut self, name: &str) -> Option<&mut Vec<Range>> {
         let r = self.get_column_mut(name)?;
         r.get_range_mut()
     }
 
+    /// Creates a subset of the `Meta` struct by slicing rows between specified indices.
+    ///
+    /// This function creates a new `Meta` instance containing only the rows from `ifrom` to `ito`.
+    /// It clones the specified range of rows for each column without modifying the original `Meta` instance.
+    ///
+    /// # Arguments
+    /// - `ifrom`: The starting row index (inclusive).
+    /// - `ito`: The ending row index (exclusive).
+    ///
+    /// # Returns
+    /// A new `Meta` instance containing only the specified slice of rows for each column.
     pub fn slice(&self, ifrom : usize, ito : usize) -> Meta {
 
         let n = ito-ifrom;
@@ -337,6 +599,17 @@ impl Meta {
         }
     }
 
+    /// Creates a subset of the `Meta` struct based on a list of row indices.
+    ///
+    /// This function returns a new `Meta` instance containing only the rows specified by `indices`.
+    /// Each index in `indices` is cloned into the new `Meta` instance. This method allows for non-sequential
+    /// row selections, providing more flexibility for data manipulation.
+    ///
+    /// # Arguments
+    /// - `indices`: A slice of row indices to include in the new `Meta` instance.
+    ///
+    /// # Returns
+    /// A new `Meta` instance containing only the rows specified by `indices`.
     pub fn subset(&self, indices: &[usize]) -> Meta {
         let n = indices.len();
         let m = self.meta_name.len();
@@ -353,6 +626,19 @@ impl Meta {
         }
     }
 
+    /// Sorts the `Meta` struct by a specified column, either in ascending or descending order.
+    ///
+    /// This function sorts the rows of `Meta` based on the values in the specified column.
+    /// The column data type must support ordering (e.g., `MetaData::IntArray`, `MetaData::FloatArray`, `MetaData::StringArray`).
+    /// If the `reverse` flag is `true`, the sort is performed in descending order; otherwise, it’s ascending.
+    ///
+    /// # Arguments
+    /// - `name`: The name of the column by which to sort the `Meta` rows.
+    /// - `reverse`: A boolean flag indicating whether to sort in descending order (`true`) or ascending (`false`).
+    ///
+    /// # Returns
+    /// A `Result` containing a sorted `Meta` instance if successful, or an error if the specified column name
+    /// is not found or has an unsupported data type.
     pub fn sort(&self, name: &str, reverse: bool) -> Result<Self, Box<dyn Error>> {
         let mut indices: Vec<usize> = (0..self.rows).collect();
 
@@ -375,6 +661,14 @@ impl Meta {
         Ok(self.subset(&indices))
     }
 
+    /// Returns an iterator over the columns in the `Meta` struct.
+    ///
+    /// This iterator yields pairs of column names and their associated `MetaData` values,
+    /// allowing for iteration over each column in the `Meta` instance.
+    ///
+    /// # Returns
+    /// An iterator yielding tuples of (`&String`, `&MetaData`), representing each column's name
+    /// and its data, respectively.
     pub fn iter(&self) -> impl Iterator<Item = (&String, &MetaData)> {
         self.meta_name.iter().zip(self.meta_data.iter())
     }
