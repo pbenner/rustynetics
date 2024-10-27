@@ -60,6 +60,17 @@ impl Default for GRanges {
 /* -------------------------------------------------------------------------- */
 
 impl GRanges {
+
+    /// Creates a new `GRanges` instance with specified sequence names, start and end positions, and strand information.
+    ///
+    /// # Arguments
+    /// - `seqnames`: Vector of chromosome names.
+    /// - `from`: Vector of start positions.
+    /// - `to`: Vector of end positions.
+    /// - `strand`: Vector of strand orientations (`+`, `-`, or `*`). If empty, defaults to `'*'`.
+    ///
+    /// # Panics
+    /// Panics if the lengths of `seqnames`, `from`, and `to` do not match.
     pub fn new(seqnames: Vec<String>, from: Vec<usize>, to: Vec<usize>, strand: Vec<char>) -> Self {
         let n = seqnames.len();
         if from.len() != n || to.len() != n || (strand.len() != 0 && strand.len() != n) {
@@ -83,14 +94,32 @@ impl GRanges {
         }
     }
 
+    /// Returns the number of rows in the `GRanges` instance.
     pub fn num_rows(&self) -> usize {
         self.ranges.len()
     }
 
+    /// Returns a row of data as a `GRangesRow` at the specified index.
+    ///
+    /// # Arguments
+    /// - `i`: The index of the row.
+    ///
+    /// # Panics
+    /// Panics if the index is out of bounds.
     pub fn row(&self, i: usize) -> GRangesRow {
         GRangesRow::new(self, i)
     }
 
+    /// Appends another `GRanges` instance to the current one, merging their data.
+    ///
+    /// # Arguments
+    /// - `other`: The `GRanges` instance to append.
+    ///
+    /// # Returns
+    /// A new `GRanges` instance containing data from both instances.
+    ///
+    /// # Errors
+    /// Returns an error if metadata cannot be merged.
     pub fn append(&self, other: &GRanges) -> Result<Self, Box<dyn Error>> {
         let mut seqnames = self.seqnames.clone();
         seqnames.extend(other.seqnames.iter().cloned());
@@ -107,6 +136,13 @@ impl GRanges {
         })
     }
 
+    /// Removes rows at the specified indices.
+    ///
+    /// # Arguments
+    /// - `indices`: Vector of row indices to remove.
+    ///
+    /// # Returns
+    /// A new `GRanges` instance with specified rows removed.
     pub fn remove(&self, indices: &[usize]) -> Self {
         if indices.is_empty() {
             return self.clone();
@@ -136,11 +172,25 @@ impl GRanges {
         }
     }
 
+    /// Removes rows that overlap with any row in the given `GRanges` instance.
+    ///
+    /// # Arguments
+    /// - `subject`: `GRanges` instance to check for overlaps.
+    ///
+    /// # Returns
+    /// A new `GRanges` instance with overlapping rows removed.
     pub fn remove_overlaps_with(&self, subject: &GRanges) -> Self {
         let (query_hits, _) = find_overlaps(self, subject);
         self.remove(&query_hits)
     }
 
+    /// Keeps only rows that overlap with any row in the given `GRanges` instance.
+    ///
+    /// # Arguments
+    /// - `subject`: `GRanges` instance to check for overlaps.
+    ///
+    /// # Returns
+    /// A new `GRanges` instance with only overlapping rows.
     pub fn keep_overlaps_with(&self, subject: &GRanges) -> Self {
         let (query_hits, _) = find_overlaps(self, subject);
         let query_hits = remove_duplicates_int(&query_hits);
@@ -149,6 +199,13 @@ impl GRanges {
         self.subset(&query_hits)
     }
 
+    /// Subsets the `GRanges` instance based on the specified row indices.
+    ///
+    /// # Arguments
+    /// - `indices`: Vector of row indices to include in the subset.
+    ///
+    /// # Returns
+    /// A new `GRanges` instance containing only the specified rows.
     pub fn subset(&self, indices: &[usize]) -> Self {
         let seqnames = indices.iter().map(|&i| self.seqnames[i].clone()).collect();
         let from     = indices.iter().map(|&i| self.ranges  [i].from   ).collect();
@@ -164,6 +221,14 @@ impl GRanges {
         }
     }
 
+    /// Slices the `GRanges` instance between the specified row indices.
+    ///
+    /// # Arguments
+    /// - `ifrom`: Start index (inclusive).
+    /// - `ito`: End index (exclusive).
+    ///
+    /// # Returns
+    /// A new `GRanges` instance containing rows within the specified range.
     pub fn slice(&self, ifrom: usize, ito: usize) -> Self {
         let ifrom = ifrom.min(self.num_rows());
         let ito   = ito  .min(self.num_rows());
@@ -181,6 +246,13 @@ impl GRanges {
         }
     }
 
+    /// Computes the intersection between two `GRanges` instances.
+    ///
+    /// # Arguments
+    /// - `s`: The other `GRanges` instance to intersect with.
+    ///
+    /// # Returns
+    /// A new `GRanges` instance containing rows that intersect between `self` and `s`.
     pub fn intersection(&self, s: &GRanges) -> Self {
         let (query_hits, subject_hits) = find_overlaps(self, s);
         let n = query_hits.len();
@@ -206,6 +278,13 @@ impl GRanges {
         granges
     }
 
+    /// Filters rows based on their inclusion in a specified genome.
+    ///
+    /// # Arguments
+    /// - `genome`: The genome to filter by.
+    ///
+    /// # Returns
+    /// A new `GRanges` instance containing rows included in the genome.
     pub fn filter_genome(&self, genome: &Genome) -> Self {
         let mut idx = Vec::new();
         let mut seqnames = HashMap::new();
@@ -224,6 +303,13 @@ impl GRanges {
         self.remove(&idx)
     }
 
+    /// Filters rows based on a specific strand.
+    ///
+    /// # Arguments
+    /// - `s`: The strand to filter by (`+`, `-`, or `*`).
+    ///
+    /// # Returns
+    /// A new `GRanges` instance containing rows matching the specified strand.
     pub fn filter_strand(&self, s: char) -> Self {
         let mut idx = Vec::new();
         for i in 0..self.num_rows() {
@@ -234,16 +320,45 @@ impl GRanges {
         self.remove(&idx)
     }
 
-    pub fn set_num_rowss(&self, n: usize) -> Self {
+    /// Adjusts the lengths of ranges in the `GRanges` instance based on strand orientation.
+    ///
+    /// For each row:
+    /// - If the strand is `'+'`, the end position (`to`) is set to the start position (`from`) plus `n`.
+    /// - If the strand is `'-'`, the start position (`from`) is set to the end position (`to`) minus `n`.
+    /// - If the strand is `'*'`, no change is made to the range.
+    ///
+    /// # Arguments
+    /// - `n`: The new length for each range.
+    ///
+    /// # Returns
+    /// A new `GRanges` instance with modified range lengths based on strand orientation.
+    ///
+    /// # Example
+    /// ```
+    /// use rustynetics::granges::GRanges;
+    ///
+    /// let granges = GRanges::new(
+    ///     vec!["chr1".to_string(), "chr2".to_string()],
+    ///     vec![100, 200],
+    ///     vec![150, 250],
+    ///     vec!['+', '-']
+    /// );
+    /// let modified_granges = granges.set_lengths(50);
+    /// ```
+    /// In this example, the range on `'+'` strand becomes `[100, 150)` and on `'-'` strand becomes `[200, 250)`.
+    pub fn set_lengths(&self, n: usize) -> Self {
         let mut s = self.clone();
 
         for i in 0..s.num_rows() {
+            // forward strand
             if s.strand[i] == '+' {
                 s.ranges[i].to = s.ranges[i].from + n;
             }
+            // reverse strand
             if s.strand[i] == '-' {
                 s.ranges[i].from = s.ranges[i].to - n;
             }
+            // if strand is '*' do nothing
         }
         s
     }
