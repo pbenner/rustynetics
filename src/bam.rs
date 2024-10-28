@@ -396,6 +396,17 @@ pub struct BamReaderType2 {
 
 /* -------------------------------------------------------------------------- */
 
+/// Options to configure BAM file reading behavior.
+///
+/// This struct allows users to specify which fields to read from the BAM file,
+/// enabling optimized data access based on specific requirements.
+///
+/// # Fields
+/// - `read_name`: If `true`, reads the name of each read.
+/// - `read_cigar`: If `true`, reads the CIGAR string for each read.
+/// - `read_sequence`: If `true`, reads the sequence of each read.
+/// - `read_auxiliary`: If `true`, reads auxiliary fields in the BAM file.
+/// - `read_qual`: If `true`, reads the quality scores of each read.
 #[derive(Copy, Clone, Debug, Default)]
 pub struct BamReaderOptions {
     pub read_name     : bool,
@@ -407,6 +418,19 @@ pub struct BamReaderOptions {
 
 /* -------------------------------------------------------------------------- */
 
+/// A reader for BAM files, supporting various options for reading specific data fields.
+///
+/// The `BamReader` struct allows for efficient reading and handling of BAM files,
+/// providing flexibility in the amount of data loaded based on `BamReaderOptions`.
+///
+/// # Type Parameters
+/// - `R`: A `Read` type that provides access to the BAM file data.
+///
+/// # Fields
+/// - `options`: The `BamReaderOptions` specifying which fields to read.
+/// - `header`: The header information from the BAM file, stored as a `BamHeader`.
+/// - `genome`: The genomic reference information associated with the BAM file.
+/// - `reader`: The underlying `BgzfReader` for reading compressed BAM data.
 #[derive(Debug)]
 pub struct BamReader<R: Read> {
     options : BamReaderOptions,

@@ -34,6 +34,18 @@ const BUFSIZE : usize = 10000;
 
 impl GRanges {
 
+    /// Reads a single-end BAM file and constructs a `GRanges` object.
+    ///
+    /// This function uses a `BamReader` to read single-end data and constructs genomic ranges
+    /// based on the BAM file contents. Optional fields such as CIGAR strings, sequences, and
+    /// quality scores are included based on the `BamReaderOptions`.
+    ///
+    /// # Parameters
+    /// - `reader`: A reader for the BAM file.
+    /// - `options_arg`: An optional `BamReaderOptions` to specify what data to read.
+    ///
+    /// # Returns
+    /// A `Result` containing a `GRanges` object or an error if reading fails.
     pub fn read_bam_single_end<R: Read>(reader: R, options_arg: Option<BamReaderOptions>) -> Result<Self, Box<dyn Error>> {
 
         let options = options_arg.unwrap_or_default();
@@ -119,6 +131,18 @@ impl GRanges {
         Ok(granges)
     }
 
+    /// Reads a paired-end BAM file and constructs a `GRanges` object.
+    ///
+    /// This function uses a `BamReader` to read paired-end data and constructs genomic ranges
+    /// with pairs of reads. Optional fields such as CIGAR strings, sequences, and quality scores
+    /// are included based on the `BamReaderOptions`.
+    ///
+    /// # Parameters
+    /// - `reader`: A reader for the BAM file.
+    /// - `options_arg`: An optional `BamReaderOptions` to specify what data to read.
+    ///
+    /// # Returns
+    /// A `Result` containing a `GRanges` object or an error if reading fails.
     pub fn read_bam_paired_end<R: Read>(reader: R, options_arg: Option<BamReaderOptions>) -> Result<Self, Box<dyn Error>> {
 
         let mut options = options_arg.unwrap_or_default();
@@ -267,7 +291,6 @@ impl GRanges {
         Self::read_bam_paired_end(file, options)
     }
 }
-
 
 /* -------------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------- */
