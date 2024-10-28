@@ -492,7 +492,7 @@ mod tests {
         let granges = GRanges::import_gtf("src/granges_gtf.gtf",
             vec!["gene_id", "gene_num"], // Names of optional fields
             vec!["str"    , "int"     ], // Types of optional fields
-            vec![]
+            vec![None     , Some("0") ], // Default values, can be an empty vector if omitted
         ).unwrap();
 
         assert_eq!(granges.num_rows(), 2);
