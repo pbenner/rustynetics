@@ -38,13 +38,16 @@ mod tests {
 
         // Import given granges
         assert!(
-            granges1.import_bed("tests/test_granges.bed", 3, false).is_ok());
+            granges1.import_bed("tests/test_granges_1.bed", 3, false).is_ok());
+
+        assert_eq!(
+            granges1.num_rows(), 20);
 
         // Export to new file and import again
         assert!(
-            granges1.export_bed3("tests/test_granges.bed.tmp", false).is_ok());
+            granges1.export_bed3("tests/test_granges_1.bed.tmp", false).is_ok());
         assert!(
-            granges2.import_bed3("tests/test_granges.bed.tmp", false).is_ok());
+            granges2.import_bed3("tests/test_granges_1.bed.tmp", false).is_ok());
         assert!(
             granges1 == granges2);
 
@@ -54,7 +57,38 @@ mod tests {
             granges1 != granges2);
 
         assert!(
-            remove_file("tests/test_granges.bed.tmp").is_ok());
+            remove_file("tests/test_granges_1.bed.tmp").is_ok());
+
+    }
+
+    #[test]
+    fn test_granges_bed9() {
+
+        let mut granges1 = GRanges::default();
+        let mut granges2 = GRanges::default();
+
+        // Import given granges
+        assert!(
+            granges1.import_bed("tests/test_granges_2.bed", 9, false).is_ok());
+
+        assert_eq!(
+            granges1.num_rows(), 9);
+
+        // Export to new file and import again
+        assert!(
+            granges1.export_bed9("tests/test_granges_2.bed.tmp", false).is_ok());
+        assert!(
+            granges2.import_bed9("tests/test_granges_2.bed.tmp", false).is_ok());
+        assert!(
+            granges1 == granges2);
+
+        // Modify granges and test for inequality
+        granges2.seqnames[2] = String::from("test");
+        assert!(
+            granges1 != granges2);
+
+        assert!(
+            remove_file("tests/test_granges_2.bed.tmp").is_ok());
 
     }
 
@@ -66,10 +100,10 @@ mod tests {
 
         // Import given granges
         assert!(
-            granges1.import_bed("tests/test_granges.bed", 3, false).is_ok()
+            granges1.import_bed("tests/test_granges_1.bed", 3, false).is_ok()
         );
         assert!(
-            granges2.import_bed("tests/test_granges.bed", 3, false).is_ok()
+            granges2.import_bed("tests/test_granges_1.bed", 3, false).is_ok()
         );
         granges1 = granges1.subset(&[0,1]);
         granges2 = granges1.subset(&[0,1]);

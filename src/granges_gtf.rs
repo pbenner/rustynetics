@@ -513,8 +513,6 @@ mod tests {
         assert!(frame.is_none());
         assert!(gene_id.is_some());
 
-        println!("{:?}", gene_id.unwrap());
-
         assert_eq!(source.unwrap()[0], "transcribed_unprocessed_pseudogene");
         assert_eq!(source.unwrap()[1], "processed_transcript");
 

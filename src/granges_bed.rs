@@ -73,7 +73,7 @@ impl GRanges {
             Some(v) => v.clone(),
             None    => comp![ self.ranges[i].from as i64 for i in 0..self.num_rows() ]
         };
-        let thick_end   = match self.meta.get_column_int("thickStart") {
+        let thick_end   = match self.meta.get_column_int("thickEnd") {
             Some(v) => v.clone(),
             None    => comp![ self.ranges[i].to   as i64 for i in 0..self.num_rows() ]
         };
@@ -157,7 +157,7 @@ impl GRanges {
     pub fn bufread_bed3<R: Read + BufRead>(&mut self, reader: &mut R) -> Result<(), Box<dyn Error>> {
         let mut line = String::new();
         while reader.read_line(&mut line)? > 0 {
-            let fields: Vec<&str> = line.trim().split('\t').collect();
+            let fields: Vec<&str> = line.split_whitespace().collect();
             if fields.len() < 3 {
                 return Err(Box::new(io::Error::new(io::ErrorKind::InvalidInput, "Bed file must have at least 3 columns".to_string())));
             }
@@ -177,7 +177,7 @@ impl GRanges {
         let mut name  = Vec::new();
         let mut score = Vec::new();
         while reader.read_line(&mut line)? > 0 {
-            let fields: Vec<&str> = line.trim().split('\t').collect();
+            let fields: Vec<&str> = line.split_whitespace().collect();
             if fields.len() < 6 {
                 return Err(Box::new(io::Error::new(io::ErrorKind::InvalidInput, "Bed file must have at least 6 columns".to_string())));
             }
@@ -205,7 +205,11 @@ impl GRanges {
         let mut thick_end   = Vec::new();
         let mut item_rgb    = Vec::new();
         while reader.read_line(&mut line)? > 0 {
-            let fields: Vec<&str> = line.trim().split('\t').collect();
+            let fields: Vec<&str> = line.split_whitespace().collect();
+            if fields.len() > 0 && (fields[0] == "track" || fields[0] == "browser") {
+                line.clear();
+                continue;
+            }
             if fields.len() < 9 {
                 return Err(Box::new(io::Error::new(io::ErrorKind::InvalidInput, "Bed file must have at least 9 columns".to_string())));
             }
@@ -226,7 +230,7 @@ impl GRanges {
         self.meta.add("score"     , MetaData::IntArray   (score))?;
         self.meta.add("thickStart", MetaData::IntArray   (thick_start))?;
         self.meta.add("thickEnd"  , MetaData::IntArray   (thick_end  ))?;
-        self.meta.add("item_rgb"  , MetaData::StringArray(item_rgb   ))?;
+        self.meta.add("itemRgb"   , MetaData::StringArray(item_rgb   ))?;
         Ok(())
     }
 
