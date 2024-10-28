@@ -75,7 +75,7 @@ impl GRanges {
         fields  : &[String],
         type_map: &HashMap<String, String>,
         gtf_opt : &mut HashMap<String, MetaData>,
-        gtf_def : &HashMap<String, Option<String>>,
+        gtf_def : &HashMap<String, String>,
         length  : usize,
     ) -> io::Result<()> {
 
@@ -123,17 +123,46 @@ impl GRanges {
             match entry {
                 MetaData::IntArray(r) => {
                     if r.len() != length {
-                        return Err(io::Error::new(io::ErrorKind::InvalidData, format!("Optional entry `{}` is missing at line `{}`", name, length)));
+                        match gtf_def.get(name) {
+                            Some(value_str) => {
+                                let value = value_str.parse::<i64>().map_err(|_| {
+                                    io::Error::new(io::ErrorKind::InvalidData, format!("Expected integer for default value `{}`, found `{}`", name, value_str))
+                                })?;     
+                                
+                                r.push(value);
+                            }
+                            None    => {
+                                return Err(io::Error::new(io::ErrorKind::InvalidData, format!("Optional entry `{}` is missing at line `{}` with no default", name, length)));
+                            }
+                        }
                     }
                 },
                 MetaData::FloatArray(r) => {
                     if r.len() != length {
-                        return Err(io::Error::new(io::ErrorKind::InvalidData, format!("Optional entry `{}` is missing at line `{}`", name, length)));
+                        match gtf_def.get(name) {
+                            Some(value_str) => {
+                                let value = value_str.parse::<f64>().map_err(|_| {
+                                    io::Error::new(io::ErrorKind::InvalidData, format!("Expected integer for default value `{}`, found `{}`", name, value_str))
+                                })?;     
+                                
+                                r.push(value);
+                            }
+                            None    => {
+                                return Err(io::Error::new(io::ErrorKind::InvalidData, format!("Optional entry `{}` is missing at line `{}` with no default", name, length)));
+                            }
+                        }
                     }
                 },
                 MetaData::StringArray(r) => {
                     if r.len() != length {
-                        return Err(io::Error::new(io::ErrorKind::InvalidData, format!("Optional entry `{}` is missing at line `{}`", name, length)));
+                        match gtf_def.get(name) {
+                            Some(value_str) => {
+                                r.push(value_str.clone());
+                            }
+                            None    => {
+                                return Err(io::Error::new(io::ErrorKind::InvalidData, format!("Optional entry `{}` is missing at line `{}` with no default", name, length)));
+                            }
+                        }
                     }
                 },
                 _ => (),
@@ -170,7 +199,7 @@ impl GRanges {
         reader   : R,
         opt_names: Vec<&str>,
         opt_types: Vec<&str>,
-        defaults : Vec<Option<String>>,
+        defaults : Vec<Option<&str>>,
     ) -> Result<Self, Box<dyn Error>> {
 
         let mut granges  = GRanges::default();
@@ -189,8 +218,8 @@ impl GRanges {
 
         for (i, name) in opt_names.iter().enumerate() {
             type_map.insert(String::from(*name), String::from(opt_types[i]));
-            if let Some(def) = defaults.get(i) {
-                gtf_def.insert(String::from(*name), def.clone());
+            if let Some(value) = defaults[i] {
+                gtf_def.insert(String::from(*name), String::from(value));
             }
         }
 
@@ -399,7 +428,7 @@ impl GRanges {
         filename : &str,
         opt_names: Vec<&str>,
         opt_types: Vec<&str>,
-        opt_def  : Vec<Option<String>>,
+        opt_def  : Vec<Option<&str>>,
     ) -> Result<Self, Box<dyn Error>> {
 
         let file = File::open(filename)?;
