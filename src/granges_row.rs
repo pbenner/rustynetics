@@ -27,6 +27,15 @@ use crate::granges::GRanges;
 
 /* -------------------------------------------------------------------------- */
 
+/// Represents a single genomic range with associated sequence name, range, and strand.
+///
+/// `GRange` encapsulates a genomic interval defined by a chromosome or sequence name (`seqname`),
+/// a `Range` struct for start and end coordinates, and a `strand` character to denote direction.
+///
+/// # Fields
+/// - `seqname`: Name of the chromosome or sequence.
+/// - `range`: Interval of the range, as a `Range` object with `from` and `to` positions.
+/// - `strand`: Character representing the strand ('+', '-', or '.' for no strand).
 pub struct GRange {
     pub seqname : String,
     pub range   : Range,
@@ -36,6 +45,16 @@ pub struct GRange {
 /* -------------------------------------------------------------------------- */
 
 impl GRange {
+    /// Creates a new `GRange` object with specified sequence name, range, and strand.
+    ///
+    /// # Arguments
+    /// - `seqname`: The chromosome or sequence name for the range.
+    /// - `from`: The starting coordinate of the range.
+    /// - `to`: The ending coordinate of the range.
+    /// - `strand`: Character representing the strand, which can be `+`, `-`, or `.`.
+    ///
+    /// # Returns
+    /// A new `GRange` instance.
     pub fn new(seqname : String, from : usize, to : usize, strand : char) -> Self {
         GRange {
             seqname,
@@ -47,6 +66,14 @@ impl GRange {
 
 /* -------------------------------------------------------------------------- */
 
+/// A row within a `GRanges` structure, providing access to a specific indexed row in `GRanges`.
+///
+/// `GRangesRow` allows read-only access to a particular row within the `GRanges` container, which
+/// contains sequence name, range, and strand information for genomic ranges.
+///
+/// # Fields
+/// - `granges`: Reference to the `GRanges` structure containing the data.
+/// - `row`: Index of the row within the `GRanges` structure to access.
 pub struct GRangesRow<'a> {
     granges: &'a GRanges,
     row    : usize,
@@ -55,18 +82,29 @@ pub struct GRangesRow<'a> {
 /* -------------------------------------------------------------------------- */
 
 impl<'a> GRangesRow<'a> {
+    /// Creates a new `GRangesRow` referencing a specific row in a `GRanges` object.
+    ///
+    /// # Arguments
+    /// - `granges`: Reference to the `GRanges` object to access.
+    /// - `row`: Row index within the `GRanges` structure.
+    ///
+    /// # Returns
+    /// A `GRangesRow` referencing the specified row in `GRanges`.
     pub fn new(granges: &'a GRanges, row: usize) -> Self {
         GRangesRow { granges, row }
     }
 
+    /// Returns the sequence name (`seqname`) of the genomic range in this row.
     pub fn seqname(&self) -> &String {
         &self.granges.seqnames[self.row]
     }
 
+    /// Returns the range coordinates (`range`) of the genomic range in this row.
     pub fn range(&self) -> &Range {
         &self.granges.ranges[self.row]
     }
 
+    /// Returns the strand of the genomic range in this row.
     pub fn strand(&self) -> char {
         self.granges.strand[self.row]
     }
