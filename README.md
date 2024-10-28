@@ -70,17 +70,17 @@ The result is:
 use crate::granges::GRanges;
 
 let granges = GRanges::import_gtf("src/granges_gtf.gtf",
-    vec!["gene_id"], // Names of optional fields
-    vec!["str"    ], // Types of optional fields
+    vec!["gene_id", "gene_num"], // Names of optional fields
+    vec!["str"    , "int"     ], // Types of optional fields
     vec![]
 ).unwrap();
 
 ```
 The result is:
 ```bash
-  seqnames ranges         strand |                             source    feature           gene_id
-1 1        [11869, 14409) +      | transcribed_unprocessed_pseudogene       gene "ENSG00000223972"
-2 1        [11870, 14410) +      |               processed_transcript transcript "ENSG00000223972"
+  seqnames ranges         strand |                             source    feature gene_num         gene_id
+1 1        [11869, 14409) +      | transcribed_unprocessed_pseudogene       gene        1 ENSG00000223972
+2 1        [11870, 14410) +      |               processed_transcript transcript        2 ENSG00000223972
 ```
 
 ### Read a BAM file into a GRanges object
