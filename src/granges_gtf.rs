@@ -26,6 +26,7 @@ use std::error::Error;
 use flate2::read::GzDecoder;
 use regex::Regex;
 
+use crate::error::ArgumentError;
 use crate::granges::GRanges;
 use crate::meta::MetaData;
 use crate::range::Range;
@@ -207,6 +208,15 @@ impl GRanges {
         } else {
             defaults
         };
+
+        let n = opt_names.len();
+
+        if opt_types.len() != n {
+            return Err(Box::new(ArgumentError("Invalid length of `opt_types` argument".to_string())));
+        }
+        if defaults.len() != n {
+            return Err(Box::new(ArgumentError("Invalid length of `defaults` argument".to_string())));
+        }
 
         let mut granges  = GRanges::default();
 
