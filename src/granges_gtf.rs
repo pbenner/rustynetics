@@ -30,7 +30,7 @@ use crate::error::ArgumentError;
 use crate::granges::GRanges;
 use crate::meta::MetaData;
 use crate::range::Range;
-use crate::utility::is_gzip;
+use crate::utility::{is_gzip, trim_and_unquote};
 
 /* -------------------------------------------------------------------------- */
 
@@ -82,7 +82,7 @@ impl GRanges {
 
         for i in (0..fields.len()).step_by(2) {
             let name      = &fields[i];
-            let value_str = &fields[i + 1];
+            let value_str = trim_and_unquote(&fields[i + 1]);
 
             // Retrieve expected type from the type_map
             if let Some(expected_type) = type_map.get(name) {
