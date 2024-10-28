@@ -442,6 +442,18 @@ pub struct BamReader<R: Read> {
 /* -------------------------------------------------------------------------- */
 
 impl<R: Read> BamReader<R> {
+    /// Creates a new `BamReader` with optional `BamReaderOptions`.
+    ///
+    /// # Arguments
+    /// * `reader` - A reader that implements `Read` for reading BAM files.
+    /// * `options_arg` - Optional `BamReaderOptions` to specify read preferences.
+    ///
+    /// If no options are provided, defaults are used to read all sections
+    /// (name, CIGAR, sequence, auxiliary, and quality).
+    ///
+    /// # Errors
+    /// Returns an `io::Error` if the file does not start with the "BAM\x01" magic
+    /// bytes or if header data cannot be read.
     pub fn new(reader: R, options_arg: Option<BamReaderOptions>) -> io::Result<Self> {
 
         let mut bam_reader = BamReader {
@@ -487,6 +499,10 @@ impl<R: Read> BamReader<R> {
         Ok(bam_reader)
     }
 
+    /// Returns a reference to the parsed genome data.
+    ///
+    /// # Returns
+    /// A reference to the `Genome` structure populated from BAM header information.
     pub fn get_genome(&self) -> &Genome {
         &self.genome
     }
@@ -496,6 +512,13 @@ impl<R: Read> BamReader<R> {
 
 impl<R: Read> BamReader<R> {
 
+    /// Reads single-end reads from the BAM file as a stream.
+    ///
+    /// # Returns
+    /// An asynchronous stream of `io::Result<BamReaderType1>` where each item
+    /// represents a single read.
+    ///
+    /// Yields `io::Error` if any data reading/parsing fails.
     pub fn read_single_end_stream<'a>(
         &'a mut self
     ) -> impl Stream<Item = io::Result<BamReaderType1>> + 'a {
@@ -643,6 +666,13 @@ impl<R: Read> BamReader<R> {
         }
     }
 
+    /// Reads paired-end reads from the BAM file as a stream.
+    ///
+    /// # Returns
+    /// An asynchronous stream of `io::Result<BamReaderType2>` where each item
+    /// represents a pair of reads.
+    ///
+    /// Yields `io::Error` if any data reading/parsing fails.
     pub fn read_paired_end_stream<'a>(
         &'a mut self
     ) -> impl Stream<Item = io::Result<BamReaderType2>> + 'a {
@@ -693,6 +723,16 @@ impl<R: Read> BamReader<R> {
         }
     }
 
+    /// Reads simplified read data as a stream, with options to join pairs and
+    /// use strand-specific behavior.
+    ///
+    /// # Arguments
+    /// * `join_pairs` - If true, pairs reads from paired-end sequencing.
+    /// * `paired_end_strand_specific` - If true, applies strand-specific behavior
+    ///   for paired-end reads.
+    ///
+    /// # Returns
+    /// An asynchronous stream of `io::Result<read::Read>` for each read.
     pub fn read_simple_stream<'a>(
         &'a mut self,
         join_pairs: bool,
@@ -780,6 +820,11 @@ impl<R: Read> BamReader<R> {
 
 impl<R: Read> BamReader<R> {
 
+    /// Reads single-end reads synchronously.
+    ///
+    /// # Returns
+    /// An iterator over `io::Result<BamReaderType1>`, where each item
+    /// represents a single read.
     pub fn read_single_end<'a>(&'a mut self) -> impl Iterator<Item = io::Result<BamReaderType1>> + 'a {
 
         let s = Box::pin(self.read_single_end_stream());
@@ -788,6 +833,11 @@ impl<R: Read> BamReader<R> {
 
     }
 
+    /// Reads paired-end reads synchronously.
+    ///
+    /// # Returns
+    /// An iterator over `io::Result<BamReaderType2>`, where each item
+    /// represents a pair of reads.
     pub fn read_paired_end<'a>(&'a mut self) -> impl Iterator<Item = io::Result<BamReaderType2>> + 'a {
 
         let s = Box::pin(self.read_paired_end_stream());
@@ -796,6 +846,16 @@ impl<R: Read> BamReader<R> {
 
     }
 
+    /// Reads simple read data synchronously, with options to join pairs and
+    /// use strand-specific behavior.
+    ///
+    /// # Arguments
+    /// * `join_pairs` - If true, pairs reads from paired-end sequencing.
+    /// * `paired_end_strand_specific` - If true, applies strand-specific behavior
+    ///   for paired-end reads.
+    ///
+    /// # Returns
+    /// An iterator over `io::Result<read::Read>`.
     pub fn read_simple<'a>(
         &'a mut self,
         join_pairs: bool,
@@ -811,6 +871,8 @@ impl<R: Read> BamReader<R> {
 
 /* -------------------------------------------------------------------------- */
 
+/// `BamFile` is a wrapper around `BamReader`, designed to read BAM files from
+/// either local files or HTTP sources.
 #[derive(Debug)]
 pub struct BamFile {
     pub reader: BamReader<NetFile>,
@@ -819,6 +881,14 @@ pub struct BamFile {
 /* -------------------------------------------------------------------------- */
 
 impl BamFile {
+    /// Opens a BAM file by filename with optional `BamReaderOptions`.
+    ///
+    /// # Arguments
+    /// * `filename` - The file path to the BAM file.
+    /// * `options` - Optional `BamReaderOptions` to specify read preferences.
+    ///
+    /// # Errors
+    /// Returns an error if the file cannot be opened or if the reader setup fails.
     pub fn open(filename: &str, options: Option<BamReaderOptions>) -> Result<Self, Box<dyn Error>> {
         let file   = NetFile::open(filename)?;
         let reader = BamReader::new(file, options)?;
@@ -831,6 +901,19 @@ impl BamFile {
 
 /* -------------------------------------------------------------------------- */
 
+/// Reads the genome information from a BAM file.
+///
+/// # Arguments
+///
+/// * `reader` - A data source implementing `Read`, potentially from a local or remote BAM file.
+///
+/// # Returns
+///
+/// Returns a `Genome` with chromosome names and lengths parsed from the BAM header.
+///
+/// # Errors
+///
+/// Will return an error if the BAM file header cannot be parsed correctly.
 pub fn bam_read_genome<R: Read>(reader: R) -> Result<Genome, Box<dyn Error>> {
     let bam_reader = BamReader::<R>::new(reader, Some(BamReaderOptions::default()))?;
     Ok(bam_reader.genome)
@@ -838,6 +921,15 @@ pub fn bam_read_genome<R: Read>(reader: R) -> Result<Genome, Box<dyn Error>> {
 
 /* -------------------------------------------------------------------------- */
 
+/// Imports genome information from a BAM file located at a given path or URL.
+///
+/// # Arguments
+///
+/// * `filename` - Path to a local BAM file or a URL of a remote BAM file.
+///
+/// # Returns
+///
+/// A `Result` containing the `Genome` if successful, or an error if the file could not be opened or parsed.
 pub fn bam_import_genome(filename: &str) -> Result<Genome, Box<dyn Error>> {
     let file = NetFile::open(filename)?;
     Ok(bam_read_genome(file)?)
