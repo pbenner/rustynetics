@@ -23,6 +23,23 @@ use std::fmt;
 /* Generic error types
 * -------------------------------------------------------------------------- */
 
+/// A custom error type representing a missing column in the `GRanges` or `Meta` object.
+///
+/// `MissingColumn` is used to indicate when a required column is not found within a `GRanges`
+/// or `Meta` object, allowing for more informative error handling and debugging.
+///
+/// # Fields
+///
+/// - `0`: A `String` that holds the name of the missing column.
+///
+/// # Example
+///
+/// ```rust
+/// use rustynetics::granges_error::MissingColumn;
+///
+/// let missing_column = MissingColumn(String::from("gene_id"));
+/// println!("{}", missing_column); // Outputs: "GRanges/Meta object is missing a column named `gene_id`"
+/// ```
 #[derive(Debug)]
 pub struct MissingColumn(pub String);
 
