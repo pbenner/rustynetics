@@ -202,6 +202,12 @@ impl GRanges {
         defaults : Vec<Option<&str>>,
     ) -> Result<Self, Box<dyn Error>> {
 
+        let defaults = if defaults.len() == 0 {
+            vec![None; opt_names.len()]
+        } else {
+            defaults
+        };
+
         let mut granges  = GRanges::default();
 
         let mut type_map = HashMap::new();
