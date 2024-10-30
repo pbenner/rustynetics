@@ -283,8 +283,8 @@ impl GRanges {
 
     /// Imports single-end BAM alignment data from a local file or an HTTP URL into a `GRanges` object.
     ///
-    /// This function reads a BAM file, either from a local path or an HTTP source, and parses the 
-    /// single-end alignment records into a `GRanges` object. The resulting `GRanges` stores the 
+    /// This function reads a BAM file, either from a local path or an HTTP source, and parses the
+    /// single-end alignment records into a `GRanges` object. The resulting `GRanges` stores the
     /// genomic ranges and metadata of the alignments, allowing downstream analysis.
     ///
     /// # Arguments
@@ -313,8 +313,8 @@ impl GRanges {
 
     /// Imports paired-end BAM alignment data from a local file or an HTTP URL into a `GRanges` object.
     ///
-    /// This function reads a BAM file, either from a local path or an HTTP source, and parses paired-end 
-    /// alignment records into a `GRanges` object. The `GRanges` instance will store the genomic ranges 
+    /// This function reads a BAM file, either from a local path or an HTTP source, and parses paired-end
+    /// alignment records into a `GRanges` object. The `GRanges` instance will store the genomic ranges
     /// and metadata for paired alignments, facilitating subsequent data processing or analysis.
     ///
     /// # Arguments
@@ -324,7 +324,7 @@ impl GRanges {
     ///
     /// # Returns
     ///
-    /// A `Result` containing a `GRanges` instance if the import is successful, or an error if the file 
+    /// A `Result` containing a `GRanges` instance if the import is successful, or an error if the file
     /// could not be opened or parsed.
     ///
     /// # Errors
