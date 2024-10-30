@@ -303,7 +303,9 @@ impl GRanges {
     ///
     /// # Example
     ///
-    /// ```rust
+    /// ```rust,ignore
+    /// use rustynetics::granges::GRanges;
+    ///
     /// let granges = GRanges::import_bam_single_end("http://example.com/file.bam", None)?;
     /// ```
     pub fn import_bam_single_end(filename: &str, options: Option<BamReaderOptions>) -> Result<Self, Box<dyn Error>> {
@@ -333,7 +335,9 @@ impl GRanges {
     ///
     /// # Example
     ///
-    /// ```rust
+    /// ```rust,ignore
+    /// use rustynetics::granges::GRanges;
+    ///
     /// let granges = GRanges::import_bam_paired_end("http://example.com/file.bam", None)?;
     /// ```
     pub fn import_bam_paired_end(filename: &str, options: Option<BamReaderOptions>) -> Result<Self, Box<dyn Error>> {
