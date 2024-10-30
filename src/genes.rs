@@ -29,10 +29,35 @@ use crate::meta::MetaData;
 
 /* -------------------------------------------------------------------------- */
 
+/// The `Genes` struct represents a collection of genes with associated genomic ranges.
+/// Each gene is characterized by its name, sequence name, transcript start and end positions,
+/// coding sequence (CDS) start and end positions, and strand orientation. Additionally,
+/// each gene is indexed for efficient retrieval by name.
+///
+/// # Fields
+///
+/// - `granges`: A `GRanges` object that stores the genomic ranges and associated metadata.
+/// - `index`: A `HashMap` that maps gene names to their indices in `granges` for fast lookup.
+///
+/// # Examples
+///
+/// ```
+/// use rustynetics::genes::Genes;
+///
+/// let names = vec!["gene1".to_string(), "gene2".to_string()];
+/// let seqnames = vec!["chr1".to_string(), "chr2".to_string()];
+/// let tx_from = vec![100, 200];
+/// let tx_to = vec![150, 250];
+/// let cds_from = vec![120, 220];
+/// let cds_to = vec![140, 240];
+/// let strand = vec!['+', '-'];
+///
+/// let genes = Genes::new(names, seqnames, tx_from, tx_to, cds_from, cds_to, strand);
+/// ```
 #[derive(Clone, Debug)]
 pub struct Genes {
     pub granges: GRanges,
-    index  : HashMap<String, usize>,
+    index      : HashMap<String, usize>,
 }
 
 /* -------------------------------------------------------------------------- */
