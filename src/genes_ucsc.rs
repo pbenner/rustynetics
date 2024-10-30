@@ -33,6 +33,34 @@ use crate::utility::is_gzip;
 
 impl Genes {
 
+    /// Imports gene information from a file.
+    ///
+    /// # Parameters
+    ///
+    /// - `filename`: The path to the file containing gene data. The file must contain
+    ///   seven whitespace-separated columns: `name`, `seqname`, `tx_from`, `tx_to`,
+    ///   `cds_from`, `cds_to`, and `strand`. The file can be plain text or gzip-compressed.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` with a `Genes` object on success, or an error if the file format
+    /// is incorrect or any field parsing fails.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The file cannot be opened.
+    /// - The file contains rows with fewer than seven columns.
+    /// - Any numeric field fails to parse.
+    /// - Strand column contains an invalid character.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// use rustynetics::genes::Genes;
+    ///
+    /// let genes = Genes::import_genes("path/to/genes.txt")?;
+    /// ```
     pub fn import_genes(filename: &str) -> Result<Genes, Box<dyn std::error::Error>> {
         let mut names    = vec![];
         let mut seqnames = vec![];
@@ -69,6 +97,38 @@ impl Genes {
         Ok(Genes::new(names, seqnames, tx_from, tx_to, cds_from, cds_to, strand))
     }
 
+    /// Imports gene data from the UCSC genome database.
+    ///
+    /// # Parameters
+    ///
+    /// - `genome`: The UCSC genome assembly name (e.g., `hg19` or `hg38`).
+    /// - `table`: The UCSC database table name (e.g., `refGene` or `knownGene`).
+    ///
+    /// # Returns
+    ///
+    /// A `Result` with a `Genes` object on success, or an error if the connection or query fails.
+    ///
+    /// # Details
+    ///
+    /// This function connects to the UCSC MySQL database for the specified genome and retrieves
+    /// gene information from the specified table. It queries for `name`, `chrom`, `strand`,
+    /// `txStart`, `txEnd`, `cdsStart`, and `cdsEnd`, converting these fields into the required
+    /// format to create a `Genes` object.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The MySQL connection fails.
+    /// - The table is not accessible.
+    /// - There are issues in parsing or processing the retrieved rows.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// use rustynetics::genes::Genes;
+    ///
+    /// let genes = Genes::import_genes_from_ucsc("hg38", "refGene")?;
+    /// ```
     pub fn import_genes_from_ucsc(genome: &str, table: &str) -> Result<Genes, Box<dyn std::error::Error>> {
         let mut names    = vec![];
         let mut seqnames = vec![];
