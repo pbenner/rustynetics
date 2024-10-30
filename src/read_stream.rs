@@ -39,6 +39,21 @@ pub enum ReadStream {}
 
 impl ReadStream {
 
+    /// Converts a stream of paired reads into a stream of single-end reads.
+    ///
+    /// If the `switch` parameter is set to `true`, the function will modify the input stream to
+    /// indicate that all reads are single-end. If `switch` is `false`, the input stream is returned
+    /// unchanged.
+    ///
+    /// # Parameters
+    ///
+    /// - `stream_in`: The input stream of reads.
+    /// - `logger`: An optional logger for logging messages.
+    /// - `switch`: A boolean flag to indicate whether to perform the conversion.
+    ///
+    /// # Returns
+    ///
+    /// A new stream where all reads are marked as single-end if `switch` is `true`.
     pub fn paired_as_single_end<'a>(
         mut stream_in: ReadStreamType<'a>,
         _logger      : Option<&'a Logger>,
@@ -68,7 +83,20 @@ impl ReadStream {
 
 /* -------------------------------------------------------------------------- */
 
-    // Function to filter paired reads
+    /// Filters the input stream to include only paired-end reads.
+    ///
+    /// If the `switch` parameter is set to `true`, the function will filter out unpaired reads
+    /// from the input stream. If `switch` is `false`, the input stream is returned unchanged.
+    ///
+    /// # Parameters
+    ///
+    /// - `stream_in`: The input stream of reads.
+    /// - `logger`: An optional logger for logging the number of filtered reads.
+    /// - `switch`: A boolean flag to indicate whether to filter paired-end reads.
+    ///
+    /// # Returns
+    ///
+    /// A new stream that only includes paired-end reads if `switch` is `true`.
     pub fn filter_paired_end<'a>(
         mut stream_in: ReadStreamType<'a>,
         logger       : Option<&'a Logger>,
@@ -106,7 +134,20 @@ impl ReadStream {
 
 /* -------------------------------------------------------------------------- */
 
-    // Function to filter single-end reads
+    /// Filters the input stream to include only single-end reads.
+    ///
+    /// If the `switch` parameter is set to `true`, the function will filter out paired reads
+    /// from the input stream. If `switch` is `false`, the input stream is returned unchanged.
+    ///
+    /// # Parameters
+    ///
+    /// - `stream_in`: The input stream of reads.
+    /// - `logger`: An optional logger for logging the number of filtered reads.
+    /// - `switch`: A boolean flag to indicate whether to filter single-end reads.
+    ///
+    /// # Returns
+    ///
+    /// A new stream that only includes single-end reads if `switch` is `true`.
     pub fn filter_single_end<'a>(
         mut stream_in: ReadStreamType<'a>,
         logger       : Option<&'a Logger>,
@@ -144,7 +185,20 @@ impl ReadStream {
 
 /* -------------------------------------------------------------------------- */
 
-    // Function to filter duplicates
+    /// Filters the input stream to exclude duplicate reads.
+    ///
+    /// If the `switch` parameter is set to `true`, the function will filter out duplicates
+    /// from the input stream. If `switch` is `false`, the input stream is returned unchanged.
+    ///
+    /// # Parameters
+    ///
+    /// - `stream_in`: The input stream of reads.
+    /// - `logger`: An optional logger for logging the number of filtered duplicates.
+    /// - `switch`: A boolean flag to indicate whether to filter duplicates.
+    ///
+    /// # Returns
+    ///
+    /// A new stream that only includes non-duplicate reads if `switch` is `true`.
     pub fn filter_duplicates<'a>(
         mut stream_in: ReadStreamType<'a>,
         logger       : Option<&'a Logger>,
@@ -182,7 +236,20 @@ impl ReadStream {
 
 /* -------------------------------------------------------------------------- */
 
-    // Function to filter based on strand
+    /// Filters the input stream based on strand information.
+    ///
+    /// If the `strand` parameter is '*', the function returns the input stream unchanged.
+    /// Otherwise, it filters out reads that do not match the specified strand.
+    ///
+    /// # Parameters
+    ///
+    /// - `stream_in`: The input stream of reads.
+    /// - `logger`: An optional logger for logging the number of filtered reads.
+    /// - `strand`: The strand character ('+' or '-') to filter reads by.
+    ///
+    /// # Returns
+    ///
+    /// A new stream that only includes reads matching the specified strand.
     pub fn filter_strand<'a>(
         mut stream_in: ReadStreamType<'a>,
         logger       : Option<&'a Logger>,
@@ -220,7 +287,20 @@ impl ReadStream {
 
 /* -------------------------------------------------------------------------- */
 
-    // Function to filter based on mapping quality
+    /// Filters the input stream based on mapping quality.
+    ///
+    /// The function filters out reads with a mapping quality lower than the specified `mapq` value.
+    /// If `mapq` is less than or equal to zero, the input stream is returned unchanged.
+    ///
+    /// # Parameters
+    ///
+    /// - `stream_in`: The input stream of reads.
+    /// - `logger`: An optional logger for logging the number of filtered reads.
+    /// - `mapq`: The minimum mapping quality to include reads.
+    ///
+    /// # Returns
+    ///
+    /// A new stream that only includes reads with mapping quality above the specified threshold.
     pub fn filter_mapq<'a>(
         mut stream_in: ReadStreamType<'a>,
         logger       : Option<&'a Logger>,
@@ -258,7 +338,20 @@ impl ReadStream {
 
 /* -------------------------------------------------------------------------- */
 
-    // Function to filter based on read length
+    /// Filters the input stream based on read length.
+    ///
+    /// The function filters out reads whose lengths do not fall within the specified range.
+    /// If both bounds are zero, the input stream is returned unchanged.
+    ///
+    /// # Parameters
+    ///
+    /// - `stream_in`: The input stream of reads.
+    /// - `logger`: An optional logger for logging the number of filtered reads.
+    /// - `read_lengths`: A slice containing the minimum and maximum read lengths.
+    ///
+    /// # Returns
+    ///
+    /// A new stream that only includes reads within the specified length range.
     pub fn filter_read_length<'a>(
         mut stream_in: ReadStreamType<'a>,
         logger       : Option<&'a Logger>,
@@ -298,7 +391,20 @@ impl ReadStream {
 
 /* -------------------------------------------------------------------------- */
 
-    // Function to shift reads based on strand
+    /// Shifts the reads based on their strand.
+    ///
+    /// This function modifies the read positions based on the specified shift values for forward and
+    /// reverse strands. If both shift values are zero, the input stream is returned unchanged.
+    ///
+    /// # Parameters
+    ///
+    /// - `stream_in`: The input stream of reads.
+    /// - `logger`: An optional logger for logging the shift operation.
+    /// - `shift`: An array containing the shift values for forward and reverse strands.
+    ///
+    /// # Returns
+    ///
+    /// A new stream with shifted reads based on the specified strand shifts.
     pub fn shift_reads<'a>(
         mut stream_in: ReadStreamType<'a>,
         logger       : Option<&'a Logger>,
