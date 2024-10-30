@@ -24,7 +24,14 @@ use byteorder::{LittleEndian, ReadBytesExt};
 
 /* -------------------------------------------------------------------------- */
 
-// Structure to hold the BGZF extra fields
+/// Structure to hold the BGZF extra fields.
+///
+/// This struct represents additional metadata fields that are
+/// specific to the BGZF format. These fields include:
+/// - `si1`: Subfield identifier 1.
+/// - `si2`: Subfield identifier 2.
+/// - `slen`: Length of the subfield data.
+/// - `bsize`: Block size of the BGZF compressed block.
 #[derive(Clone, Debug, PartialEq)]
 pub struct BgzfExtra {
     pub si1  : u8,
@@ -35,7 +42,11 @@ pub struct BgzfExtra {
 
 /* -------------------------------------------------------------------------- */
 
-// BGZF reader structure that wraps GzDecoder
+/// BGZF reader structure that wraps around a GzDecoder.
+///
+/// `BgzfReader` is a wrapper around `MultiGzDecoder` that provides
+/// additional functionality for reading BGZF compressed files, specifically
+/// the ability to extract BGZF-specific extra fields and metadata.
 #[derive(Debug)]
 pub struct BgzfReader<R: Read> {
     decoder: MultiGzDecoder<R>,
@@ -44,13 +55,31 @@ pub struct BgzfReader<R: Read> {
 /* -------------------------------------------------------------------------- */
 
 impl<R: Read> BgzfReader<R> {
-    // Function to create a new BgzfReader
+    /// Creates a new `BgzfReader` from a given reader.
+    ///
+    /// # Parameters
+    ///
+    /// - `reader`: The reader from which BGZF-compressed data is read.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing a new `BgzfReader` instance if successful,
+    /// or an `io::Error` if initialization fails.
     pub fn new(reader: R) -> io::Result<BgzfReader<R>> {
         let decoder = MultiGzDecoder::new(reader);
         Ok(BgzfReader { decoder })
     }
 
-    // Function to extract the BGZF extra fields
+    /// Extracts the BGZF-specific extra fields from the compressed data.
+    ///
+    /// This function reads the gzip header of the BGZF-compressed data and
+    /// retrieves the extra fields if they are present. These fields contain
+    /// metadata specific to the BGZF format.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing a `BgzfExtra` struct with BGZF metadata,
+    /// or an `io::Error` if the header or extra fields cannot be read.
     pub fn get_extra(&mut self) -> io::Result<BgzfExtra> {
         let header = self.decoder.header().ok_or_else(|| {
             io::Error::new(io::ErrorKind::Other, "Failed to read gzip header")
@@ -78,6 +107,19 @@ impl<R: Read> BgzfReader<R> {
 
 impl<R: Read> Read for BgzfReader<R> {
 
+    /// Reads data from the BGZF compressed stream into the provided buffer.
+    ///
+    /// This implementation of the `Read` trait allows reading decompressed
+    /// data from the BGZF stream directly, making it compatible with standard
+    /// Rust I/O operations.
+    ///
+    /// # Parameters
+    ///
+    /// - `buf`: A mutable buffer where the decompressed data will be stored.
+    ///
+    /// # Returns
+    ///
+    /// The number of bytes read into `buf`, or an `io::Error` if reading fails.
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         self.decoder.read(buf)
     }
