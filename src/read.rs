@@ -26,6 +26,38 @@ use crate::granges_row::GRange;
 
 /* -------------------------------------------------------------------------- */
 
+/// Represents a genomic read with associated metadata.
+///
+/// The `Read` struct holds information about a single genomic read, including
+/// its chromosome (`seqname`), position range, strand orientation, mapping quality (MAPQ),
+/// duplication status, and whether it is paired-end.
+///
+/// # Fields
+///
+/// - `seqname`: The name of the chromosome or sequence where the read is located.
+/// - `range`: A `Range` object indicating the start and end positions of the read.
+/// - `strand`: A character representing the read's strand ('+' for forward, '-' for reverse).
+/// - `mapq`: Mapping quality (MAPQ) score, typically an integer value indicating the
+///   confidence of the read's alignment.
+/// - `duplicate`: A boolean flag indicating if the read is marked as a duplicate.
+/// - `paired_end`: A boolean flag indicating if the read is part of a paired-end read.
+///
+/// # Examples
+///
+/// ```
+/// use rustynetics::read::Read;
+/// use rustynetics::range::Range;
+///
+/// let read = Read {
+///     seqname: "chr1".to_string(),
+///     range: Range::new(100, 150),
+///     strand: '+',
+///     mapq: 60,
+///     duplicate: false,
+///     paired_end: true,
+/// };
+/// println!("{}", read);
+/// ```
 #[derive(Clone, Debug)]
 pub struct Read {
     pub seqname   : String,
@@ -40,6 +72,10 @@ pub struct Read {
 
 impl Read {
 
+    /// Converts the `Read` to a `GRange` object.
+    ///
+    /// The `GRange` object contains only the sequence name, range, and strand,
+    /// omitting other fields specific to reads.
     pub fn get_grange(&self) -> GRange {
         GRange{
             seqname: self.seqname.clone(),
@@ -48,6 +84,19 @@ impl Read {
         }
     }
 
+    /// Extends the read's range in the 3' direction if the read is not paired-end.
+    ///
+    /// Depending on the strand orientation, this method extends the `to` position
+    /// if the strand is '+', or the `from` position if the strand is '-'. For negative strand
+    /// reads, the start (`from`) is adjusted to avoid going negative.
+    ///
+    /// # Parameters
+    ///
+    /// - `d`: The extension distance in base pairs.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `StrandMissingError` if the strand is not valid ('+' or '-').
     pub fn extend(&self, d: usize) -> Result<Range, Box<dyn Error>> {
         let mut from = self.range.from;
         let mut to   = self.range.to;
