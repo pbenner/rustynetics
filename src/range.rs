@@ -25,6 +25,24 @@ use std::fmt;
 
 /* -------------------------------------------------------------------------- */
 
+/// A struct representing a closed-open interval with a start (`from`) and end (`to`) position.
+///
+/// `Range` represents a genomic or numeric range with an inclusive `from` bound and an exclusive `to` bound.
+/// This interval can be used for calculating intersections or checking overlaps with other ranges.
+///
+/// # Fields
+///
+/// - `from`: The start position of the range (inclusive).
+/// - `to`: The end position of the range (exclusive).
+///
+/// # Examples
+///
+/// ```
+/// use rustynetics::range::Range;
+///
+/// let range = Range::new(100, 200);
+/// println!("{}", range); // Output: [100, 200)
+/// ```
 #[derive(Clone, Copy, Debug)]
 pub struct Range {
     pub from: usize,
@@ -34,6 +52,24 @@ pub struct Range {
 /* -------------------------------------------------------------------------- */
 
 impl Range {
+    /// Creates a new `Range` with specified `from` and `to` bounds.
+    ///
+    /// # Parameters
+    ///
+    /// - `from`: The inclusive start position of the range.
+    /// - `to`: The exclusive end position of the range.
+    ///
+    /// # Panics
+    ///
+    /// This function panics if `from` is greater than `to`, as it would result in an invalid range.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rustynetics::range::Range;
+    ///
+    /// let range = Range::new(5, 10);
+    /// ```
     pub fn new(from: usize, to: usize) -> Range {
         if from > to {
             panic!("NewRange(): invalid range, i.e. from > to (from={}, to={})", from, to);
@@ -41,6 +77,30 @@ impl Range {
         Range { from, to }
     }
 
+    /// Computes the intersection of this range with another range.
+    ///
+    /// The intersection of two ranges is the overlapping interval where both ranges meet.
+    /// If there is no overlap, the intersection is a zero-length range at the maximum `from` position.
+    ///
+    /// # Parameters
+    ///
+    /// - `other`: A reference to another `Range` with which to calculate the intersection.
+    ///
+    /// # Returns
+    ///
+    /// A `Range` representing the intersection of the two ranges. If the ranges do not overlap,
+    /// a zero-length range is returned with `from == to`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rustynetics::range::Range;
+    ///
+    /// let range1 = Range::new(10, 20);
+    /// let range2 = Range::new(15, 25);
+    /// let intersection = range1.intersection(&range2);
+    /// println!("{}", intersection); // Output: [15, 20)
+    /// ```
     pub fn intersection(&self, other: &Range) -> Range {
         let from = max(self.from, other.from);
         let to = min(self.to, other.to);
@@ -56,6 +116,19 @@ impl Range {
 /* -------------------------------------------------------------------------- */
 
 impl PartialEq for Range {
+    /// Compares two `Range` objects for equality.
+    ///
+    /// Two `Range` instances are considered equal if they have the same `from` and `to` values.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rustynetics::range::Range;
+    ///
+    /// let range1 = Range::new(5, 10);
+    /// let range2 = Range::new(5, 10);
+    /// assert_eq!(range1, range2);
+    /// ```
     fn eq(&self, other: &Self) -> bool {
         self.from == other.from &&
         self.to   == other.to
