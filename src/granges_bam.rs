@@ -281,11 +281,61 @@ impl GRanges {
 
 impl GRanges {
 
+    /// Imports single-end BAM alignment data from a local file or an HTTP URL into a `GRanges` object.
+    ///
+    /// This function reads a BAM file, either from a local path or an HTTP source, and parses the 
+    /// single-end alignment records into a `GRanges` object. The resulting `GRanges` stores the 
+    /// genomic ranges and metadata of the alignments, allowing downstream analysis.
+    ///
+    /// # Arguments
+    ///
+    /// * `filename` - A string slice containing the path to the BAM file, either locally or as a URL.
+    /// * `options` - Optional configurations for the `BamReader` to customize parsing behavior.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing a `GRanges` instance if the import is successful, or an error if the file
+    /// could not be opened or parsed.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the BAM file cannot be accessed or if the file format is invalid.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// let granges = GRanges::import_bam_single_end("http://example.com/file.bam", None)?;
+    /// ```
     pub fn import_bam_single_end(filename: &str, options: Option<BamReaderOptions>) -> Result<Self, Box<dyn Error>> {
         let file = NetFile::open(filename)?;
         Self::read_bam_single_end(file, options)
     }
 
+    /// Imports paired-end BAM alignment data from a local file or an HTTP URL into a `GRanges` object.
+    ///
+    /// This function reads a BAM file, either from a local path or an HTTP source, and parses paired-end 
+    /// alignment records into a `GRanges` object. The `GRanges` instance will store the genomic ranges 
+    /// and metadata for paired alignments, facilitating subsequent data processing or analysis.
+    ///
+    /// # Arguments
+    ///
+    /// * `filename` - A string slice containing the path to the BAM file, either locally or as a URL.
+    /// * `options` - Optional configurations for the `BamReader` to tailor parsing behavior.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing a `GRanges` instance if the import is successful, or an error if the file 
+    /// could not be opened or parsed.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the BAM file cannot be accessed or if the file format is invalid.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// let granges = GRanges::import_bam_paired_end("http://example.com/file.bam", None)?;
+    /// ```
     pub fn import_bam_paired_end(filename: &str, options: Option<BamReaderOptions>) -> Result<Self, Box<dyn Error>> {
         let file = NetFile::open(filename)?;
         Self::read_bam_paired_end(file, options)
