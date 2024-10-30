@@ -80,6 +80,21 @@ impl Genes {
         genes
     }
 
+    /// Constructs a new `Genes` object.
+    ///
+    /// # Parameters
+    ///
+    /// - `names`: Names of the genes.
+    /// - `seqnames`: Chromosome or sequence names for each gene.
+    /// - `tx_from`: Transcript start positions for each gene.
+    /// - `tx_to`: Transcript end positions for each gene.
+    /// - `cds_from`: Coding sequence (CDS) start positions for each gene.
+    /// - `cds_to`: CDS end positions for each gene.
+    /// - `strand`: Strand orientation ('+' or '-') for each gene.
+    ///
+    /// # Panics
+    ///
+    /// Panics if any strand value is not '+' or '-', or if the input vectors have mismatched lengths.
     pub fn new(
         names   : Vec<String>,
         seqnames: Vec<String>,
@@ -111,54 +126,147 @@ impl Genes {
         Genes::new_impl(granges)
     }
 
+    /// Retrieves the names of all genes.
+    ///
+    /// # Returns
+    ///
+    /// A reference to a vector of gene names.
     pub fn names(&self) -> &Vec<String> {
         self.granges.meta.get_column_str("names").unwrap()
     }
 
+    /// Retrieves the coding sequences (CDS) ranges for each gene.
+    ///
+    /// # Returns
+    ///
+    /// A reference to a vector of `Range` objects representing the CDS.
     pub fn cds(&self) -> &Vec<Range> {
         self.granges.meta.get_column_range("cds").unwrap()
     }
 
+    /// Removes genes by their indices.
+    ///
+    /// # Parameters
+    ///
+    /// - `indices`: The indices of genes to remove.
+    ///
+    /// # Returns
+    ///
+    /// A new `Genes` object with the specified genes removed.
     pub fn remove(&self, indices: &[usize]) -> Genes {
         let r = self.granges.remove(indices);
         Genes::new_impl(r)
     }
 
+    /// Removes genes that overlap with any gene in the specified `subject`.
+    ///
+    /// # Parameters
+    ///
+    /// - `subject`: A `Genes` object containing genes to check for overlaps.
+    ///
+    /// # Returns
+    ///
+    /// A new `Genes` object without overlaps with `subject`.
     pub fn remove_overlaps_with(&self, subject: &Genes) -> Genes {
         let r = self.granges.remove_overlaps_with(&subject.granges);
         Genes::new_impl(r)
     }
 
+    /// Retains only genes that overlap with any gene in the specified `subject`.
+    ///
+    /// # Parameters
+    ///
+    /// - `subject`: A `Genes` object containing genes to check for overlaps.
+    ///
+    /// # Returns
+    ///
+    /// A new `Genes` object with only the overlapping genes.
     pub fn keep_overlaps_with(&self, subject: &Genes) -> Genes {
         let r = self.granges.keep_overlaps_with(&subject.granges);
         Genes::new_impl(r)
     }
 
+    /// Creates a subset of genes by the specified indices.
+    ///
+    /// # Parameters
+    ///
+    /// - `indices`: Indices of genes to include in the subset.
+    ///
+    /// # Returns
+    ///
+    /// A new `Genes` object containing only the specified genes.
     pub fn subset(&self, indices: &[usize]) -> Genes {
         let r = self.granges.subset(indices);
         Genes::new_impl(r)
     }
 
+    /// Slices a range of genes between specified indices.
+    ///
+    /// # Parameters
+    ///
+    /// - `ifrom`: The starting index of the slice.
+    /// - `ito`: The ending index of the slice (exclusive).
+    ///
+    /// # Returns
+    ///
+    /// A new `Genes` object containing the genes within the specified range.
     pub fn slice(&self, ifrom: usize, ito: usize) -> Genes {
         let r = self.granges.slice(ifrom, ito);
         Genes::new_impl(r)
     }
 
+    /// Finds the intersection of genes with another `Genes` object.
+    ///
+    /// # Parameters
+    ///
+    /// - `subject`: The `Genes` object to intersect with.
+    ///
+    /// # Returns
+    ///
+    /// A new `Genes` object containing the intersection.
     pub fn intersection(&self, subject: &Genes) -> Genes {
         let r = self.granges.intersection(&subject.granges);
         Genes::new_impl(r)
     }
 
+    /// Sorts genes based on the specified metadata column name.
+    ///
+    /// # Parameters
+    ///
+    /// - `name`: The name of the metadata column to sort by.
+    /// - `reverse`: A boolean indicating whether to sort in descending order.
+    ///
+    /// # Returns
+    ///
+    /// A sorted `Genes` object or an error if sorting fails.
     pub fn sort(&self, name: &str, reverse: bool) -> Result<Genes, Box<dyn Error>> {
         let r = self.granges.sort(name, reverse)?;
         Ok(Genes::new_impl(r))
     }
 
+    /// Filters genes based on a specified `Genome`.
+    ///
+    /// # Parameters
+    ///
+    /// - `genome`: The `Genome` object used to filter genes.
+    ///
+    /// # Returns
+    ///
+    /// A new `Genes` object filtered by the genome.
     pub fn filter_genome(&self, genome: &Genome) -> Genes {
         let r = self.granges.filter_genome(genome);
         Genes::new_impl(r)
     }
 
+    /// Finds the index of a gene by name.
+    ///
+    /// # Parameters
+    ///
+    /// - `name`: The name of the gene to find.
+    ///
+    /// # Returns
+    ///
+    /// An `Option` containing the gene index, or `None` if the gene is not found.
     pub fn find_gene(&self, name: &str) -> Option<usize> {
         self.index.get(name).cloned()
     }
