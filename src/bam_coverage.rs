@@ -34,6 +34,39 @@ use crate::track_statistics::estimate_fragment_length;
 
 /* -------------------------------------------------------------------------- */
 
+/// Estimates the mean fragment length from BAM data.
+///
+/// This function processes a BAM file to read, filter, and analyze genomic reads according to
+/// parameters defined in `CoverageConfig`. It returns an estimate of the mean fragment length,
+/// using various filters specified in the configuration, such as mapping quality, read length,
+/// and duplicate read removal.
+///
+/// # Parameters
+///
+/// - `config`: Reference to `CoverageConfig`, defining filtering, logging, and configuration
+///             for fragment length estimation. Key fields used include:
+///   - `logger`: A `Logger` for logging progress and details during processing.
+///   - `fraglen_range`: A `(i32, i32)` tuple specifying the range of fragment lengths to consider.
+///   - `fraglen_bin_size`: Size of bins for fragment length estimation.
+///   - `filter_mapq`: Minimum mapping quality threshold for filtering reads.
+///   - `filter_read_lengths`: `[usize; 2]` array specifying minimum and maximum read lengths.
+///   - `filter_duplicates`: Boolean flag to exclude duplicate reads.
+///
+/// - `filename`: Path to the BAM file containing reads for fragment length estimation.
+/// - `genome`: A `Genome` reference.
+///
+/// # Returns
+///
+/// - `Ok(FraglenEstimate)`: Contains estimated mean fragment length and associated data if
+///   successful.
+/// - `Err`: Returns an error if there is an issue reading the BAM file or estimating the
+///          fragment length.
+///
+/// # Errors
+///
+/// Returns an error in case of:
+/// - BAM file reading issues.
+/// - Any filtering or read stream errors encountered during processing.
 pub fn estimate_fraglen(config: &CoverageConfig, filename: &str, genome: &Genome) -> Result<FraglenEstimate, Box<dyn Error>> {
 
     log!(config.logger, "Reading tags from `{}`", filename);
@@ -85,6 +118,38 @@ pub fn estimate_fraglen(config: &CoverageConfig, filename: &str, genome: &Genome
 
 /* -------------------------------------------------------------------------- */
 
+/// Calculates coverage tracks from treatment and control BAM files, with optional fragment length estimation.
+///
+/// This function reads and processes BAM files for both treatment and control groups to calculate
+/// coverage tracks, optionally estimating fragment lengths if none are provided. It supports
+/// configurable filtering and normalization through `CoverageConfig` options, including settings
+/// for bin size, read shifting, and duplicate filtering.
+///
+/// # Parameters
+///
+/// - `filenames_treatment`: Vector of file paths to treatment BAM files.
+/// - `filenames_control`: Vector of file paths to control BAM files.
+/// - `fraglen_treatment`: Vector of optional fragment length estimates for each treatment BAM file.
+/// - `fraglen_control`: Vector of optional fragment length estimates for each control BAM file.
+/// - `options`: A vector of `OptionCoverage` enums specifying configuration options such as:
+///   - `BinningMethod`, `BinSize`, `BinOverlap`: Define binning parameters for coverage.
+///   - `NormalizeTrack`: Specifies normalization strategy for the output track.
+///   - `ShiftReads`: Allows for shifting reads, e.g., for strand-specific analysis.
+///   - `EstimateFraglen`: Boolean flag to control whether fragment lengths should be estimated.
+///
+/// # Returns
+///
+/// - `Ok((SimpleTrack, Vec<FraglenEstimate>, Vec<FraglenEstimate>))`: Tuple containing the coverage
+///   track, treatment fragment length estimates, and control fragment length estimates.
+/// - `Err(CoverageError)`: Indicates an error due to input inconsistency, genome mismatch, or
+///   calculation issues.
+///
+/// # Errors
+///
+/// - Returns `CoverageError` if:
+///   - Provided fragment length vectors do not match the number of input files.
+///   - Treatment and control BAM files have differing genome references.
+///   - An error occurs during coverage calculation or file processing.
 pub fn bam_coverage(
     filenames_treatment: &Vec<&str>,
     filenames_control  : &Vec<&str>,
