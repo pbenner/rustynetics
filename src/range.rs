@@ -138,6 +138,18 @@ impl PartialEq for Range {
 /* -------------------------------------------------------------------------- */
 
 impl fmt::Display for Range {
+    /// Formats the `Range` as a string for display.
+    ///
+    /// The format used is `[from, to)`, where `from` is inclusive and `to` is exclusive.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rustynetics::range::Range;
+    ///
+    /// let range = Range::new(5, 10);
+    /// println!("{}", range); // Output: [5, 10)
+    /// ```
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.pad(&format!("[{}, {})", self.from, self.to))
     }
