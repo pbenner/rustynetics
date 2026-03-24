@@ -28,20 +28,28 @@ use crate::track_simple::SimpleTrack;
 /* -------------------------------------------------------------------------- */
 
 impl SimpleTrack {
-
     pub fn coverage_from_bam(
-        config             : CoverageConfig,
+        config: CoverageConfig,
         filenames_treatment: &Vec<&str>,
-        filenames_control  : &Vec<&str>,
-        fraglen_treatment  : &Vec<usize>,
-        fraglen_control    : &Vec<usize>,
-        genome             : Genome,
+        filenames_control: &Vec<&str>,
+        fraglen_treatment: &Vec<usize>,
+        fraglen_control: &Vec<usize>,
+        genome: Genome,
     ) -> Result<SimpleTrack, Box<dyn Error>> {
-
-        let mut track1 = SimpleTrack::alloc("treatment".to_string(), genome.clone(), config.initial_value, config.bin_size);
+        let mut track1 = SimpleTrack::alloc(
+            "treatment".to_string(),
+            genome.clone(),
+            config.initial_value,
+            config.bin_size,
+        );
         if !filenames_control.is_empty() {
             // Control data
-            let mut track2 = SimpleTrack::alloc("control".to_string(), genome.clone(), config.initial_value, config.bin_size);
+            let mut track2 = SimpleTrack::alloc(
+                "control".to_string(),
+                genome.clone(),
+                config.initial_value,
+                config.bin_size,
+            );
 
             GenericMutableTrack::coverage_from_bam(
                 config,
@@ -50,10 +58,9 @@ impl SimpleTrack {
                 filenames_treatment,
                 filenames_control,
                 fraglen_treatment,
-                fraglen_control)?;
-
+                fraglen_control,
+            )?;
         } else {
-
             GenericMutableTrack::coverage_from_bam(
                 config,
                 GenericMutableTrack::wrap(&mut track1),
@@ -61,12 +68,10 @@ impl SimpleTrack {
                 filenames_treatment,
                 filenames_control,
                 fraglen_treatment,
-                fraglen_control)?;
-
+                fraglen_control,
+            )?;
         };
 
         Ok(track1)
-
     }
-
 }

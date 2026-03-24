@@ -23,20 +23,22 @@
 // Gardiner-Garden and Frommer, J. Mol. Biol. (1987) 196 (2), 261-282:
 //   observed * length / (number of C * number of G)
 pub fn observed_over_expected_cpg(sequence: &[u8]) -> f64 {
-    let mut n_c   = 0;
-    let mut n_g   = 0;
+    let mut n_c = 0;
+    let mut n_g = 0;
     let mut n_cpg = 0;
 
     for &base in sequence.iter() {
         match base {
             b'c' | b'C' => n_c += 1,
             b'g' | b'G' => n_g += 1,
-            _ => {},
+            _ => {}
         }
     }
 
     for j in 0..sequence.len() - 1 {
-        if (sequence[j] == b'c' || sequence[j] == b'C') && (sequence[j + 1] == b'g' || sequence[j + 1] == b'G') {
+        if (sequence[j] == b'c' || sequence[j] == b'C')
+            && (sequence[j + 1] == b'g' || sequence[j + 1] == b'G')
+        {
             n_cpg += 1;
         }
     }

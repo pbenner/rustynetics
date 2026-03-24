@@ -144,7 +144,10 @@ pub struct ProgressHandle(Rc<RefCell<ProgressState>>);
 
 impl ProgressHandle {
     fn new(label: String, total_bytes: u64) -> Self {
-        Self(Rc::new(RefCell::new(ProgressState::new(label, total_bytes))))
+        Self(Rc::new(RefCell::new(ProgressState::new(
+            label,
+            total_bytes,
+        ))))
     }
 
     /// Increments the tracked byte count.

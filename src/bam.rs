@@ -18,15 +18,15 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+use std::error::Error;
 use std::fmt;
 use std::io::{self, Read};
-use std::error::Error;
 
 use async_stream::stream;
 use byteorder::{LittleEndian, ReadBytesExt};
 use futures::executor::block_on_stream;
-use futures_core::stream::Stream;
 use futures::StreamExt;
+use futures_core::stream::Stream;
 
 use crate::bgzf::BgzfReader;
 use crate::genome::Genome;
@@ -80,7 +80,7 @@ impl fmt::Display for BamQual {
 // Represents a BAM auxiliary data field
 #[derive(Clone, Debug, Default)]
 pub struct BamAuxiliary {
-    pub tag  : [u8; 2],
+    pub tag: [u8; 2],
     pub value: BamAuxValue,
 }
 
@@ -88,25 +88,25 @@ pub struct BamAuxiliary {
 
 #[derive(Clone, Debug)]
 pub enum BamAuxValue {
-    A         (u8),
-    C         (i8),
-    CUnsigned (u8),
-    S         (i16),
-    SUnsigned (u16),
-    I         (i32),
-    IUnsigned (u32),
-    F         (f32),
-    D         (f64),
-    Z         (String),
-    H         (String),
-    BInt8     (Vec<i8>),
-    BUint8    (Vec<u8>),
-    BInt16    (Vec<i16>),
-    BUint16   (Vec<u16>),
-    BInt32    (Vec<i32>),
-    BUint32   (Vec<u32>),
-    BFloat32  (Vec<f32>),
-    None      (),
+    A(u8),
+    C(i8),
+    CUnsigned(u8),
+    S(i16),
+    SUnsigned(u16),
+    I(i32),
+    IUnsigned(u32),
+    F(f32),
+    D(f64),
+    Z(String),
+    H(String),
+    BInt8(Vec<i8>),
+    BUint8(Vec<u8>),
+    BInt16(Vec<i16>),
+    BUint16(Vec<u16>),
+    BInt32(Vec<i32>),
+    BUint32(Vec<u32>),
+    BFloat32(Vec<f32>),
+    None(),
 }
 
 /* -------------------------------------------------------------------------- */
@@ -123,25 +123,25 @@ impl fmt::Display for BamAuxiliary {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}{}:", self.tag[0] as char, self.tag[1] as char)?;
         match &self.value {
-            BamAuxValue::A(v)         => write!(f, "{}", *v as char),
-            BamAuxValue::C(v)         => write!(f, "{}", v),
+            BamAuxValue::A(v) => write!(f, "{}", *v as char),
+            BamAuxValue::C(v) => write!(f, "{}", v),
             BamAuxValue::CUnsigned(v) => write!(f, "{}", v),
-            BamAuxValue::S(v)         => write!(f, "{}", v),
+            BamAuxValue::S(v) => write!(f, "{}", v),
             BamAuxValue::SUnsigned(v) => write!(f, "{}", v),
-            BamAuxValue::I(v)         => write!(f, "{}", v),
+            BamAuxValue::I(v) => write!(f, "{}", v),
             BamAuxValue::IUnsigned(v) => write!(f, "{}", v),
-            BamAuxValue::F(v)         => write!(f, "{}", v),
-            BamAuxValue::D(v)         => write!(f, "{}", v),
-            BamAuxValue::Z(v)         => write!(f, "{}", v),
-            BamAuxValue::H(v)         => write!(f, "{}", v),
-            BamAuxValue::BInt8(v)     => write!(f, "{:?}", v),
-            BamAuxValue::BUint8(v)    => write!(f, "{:?}", v),
-            BamAuxValue::BInt16(v)    => write!(f, "{:?}", v),
-            BamAuxValue::BUint16(v)   => write!(f, "{:?}", v),
-            BamAuxValue::BInt32(v)    => write!(f, "{:?}", v),
-            BamAuxValue::BUint32(v)   => write!(f, "{:?}", v),
-            BamAuxValue::BFloat32(v)  => write!(f, "{:?}", v),
-            BamAuxValue::None()       => panic!("internal error"),
+            BamAuxValue::F(v) => write!(f, "{}", v),
+            BamAuxValue::D(v) => write!(f, "{}", v),
+            BamAuxValue::Z(v) => write!(f, "{}", v),
+            BamAuxValue::H(v) => write!(f, "{}", v),
+            BamAuxValue::BInt8(v) => write!(f, "{:?}", v),
+            BamAuxValue::BUint8(v) => write!(f, "{:?}", v),
+            BamAuxValue::BInt16(v) => write!(f, "{:?}", v),
+            BamAuxValue::BUint16(v) => write!(f, "{:?}", v),
+            BamAuxValue::BInt32(v) => write!(f, "{:?}", v),
+            BamAuxValue::BUint32(v) => write!(f, "{:?}", v),
+            BamAuxValue::BFloat32(v) => write!(f, "{:?}", v),
+            BamAuxValue::None() => panic!("internal error"),
         }
     }
 }
@@ -150,89 +150,143 @@ impl fmt::Display for BamAuxiliary {
 
 impl BamAuxiliary {
     fn read<R: Read>(reader: &mut R) -> io::Result<(u64, Self)> {
-
         let mut tag = [0; 2];
-        let mut n   = 0 as u64;
+        let mut n = 0 as u64;
 
-        reader.read_exact(&mut tag)?; n += 2;
+        reader.read_exact(&mut tag)?;
+        n += 2;
 
-        let value_type = reader.read_u8()?; n += 1;
+        let value_type = reader.read_u8()?;
+        n += 1;
 
         let value = match value_type {
-            b'A' => {n += 1; BamAuxValue::A(reader.read_u8()?)},
-            b'c' => {n += 1; BamAuxValue::C(reader.read_i8()?)},
-            b'C' => {n += 1; BamAuxValue::CUnsigned(reader.read_u8()?)},
-            b's' => {n += 2; BamAuxValue::S(reader.read_i16::<LittleEndian>()?)},
-            b'S' => {n += 2; BamAuxValue::SUnsigned(reader.read_u16::<LittleEndian>()?)},
-            b'i' => {n += 4; BamAuxValue::I(reader.read_i32::<LittleEndian>()?)},
-            b'I' => {n += 4; BamAuxValue::IUnsigned(reader.read_u32::<LittleEndian>()?)},
-            b'f' => {n += 4; BamAuxValue::F(reader.read_f32::<LittleEndian>()?)},
-            b'd' => {n += 8; BamAuxValue::D(reader.read_f64::<LittleEndian>()?)},
+            b'A' => {
+                n += 1;
+                BamAuxValue::A(reader.read_u8()?)
+            }
+            b'c' => {
+                n += 1;
+                BamAuxValue::C(reader.read_i8()?)
+            }
+            b'C' => {
+                n += 1;
+                BamAuxValue::CUnsigned(reader.read_u8()?)
+            }
+            b's' => {
+                n += 2;
+                BamAuxValue::S(reader.read_i16::<LittleEndian>()?)
+            }
+            b'S' => {
+                n += 2;
+                BamAuxValue::SUnsigned(reader.read_u16::<LittleEndian>()?)
+            }
+            b'i' => {
+                n += 4;
+                BamAuxValue::I(reader.read_i32::<LittleEndian>()?)
+            }
+            b'I' => {
+                n += 4;
+                BamAuxValue::IUnsigned(reader.read_u32::<LittleEndian>()?)
+            }
+            b'f' => {
+                n += 4;
+                BamAuxValue::F(reader.read_f32::<LittleEndian>()?)
+            }
+            b'd' => {
+                n += 8;
+                BamAuxValue::D(reader.read_f64::<LittleEndian>()?)
+            }
             b'Z' => {
-                let buffer : Vec<u8> = read_until_null(reader)?; n += (buffer.len() + 1) as u64;
+                let buffer: Vec<u8> = read_until_null(reader)?;
+                n += (buffer.len() + 1) as u64;
                 BamAuxValue::Z(String::from_utf8_lossy(&buffer).to_string())
             }
             b'H' => {
-                let buffer : Vec<u8> = read_until_null(reader)?; n += (buffer.len() + 1) as u64;
-                BamAuxValue::H(buffer.iter().map(|b| format!("{:X}", b)).collect::<String>())
+                let buffer: Vec<u8> = read_until_null(reader)?;
+                n += (buffer.len() + 1) as u64;
+                BamAuxValue::H(
+                    buffer
+                        .iter()
+                        .map(|b| format!("{:X}", b))
+                        .collect::<String>(),
+                )
             }
             b'B' => {
-                let array_type = reader.read_u8()?; n += 1;
-                let array_len  = reader.read_i32::<LittleEndian>()?; n += 4;
+                let array_type = reader.read_u8()?;
+                n += 1;
+                let array_len = reader.read_i32::<LittleEndian>()?;
+                n += 4;
                 match array_type {
                     b'c' => {
                         let mut vec = Vec::with_capacity(array_len as usize);
                         for _ in 0..array_len {
-                            vec.push(reader.read_i8()?); n += 1;
+                            vec.push(reader.read_i8()?);
+                            n += 1;
                         }
                         BamAuxValue::BInt8(vec)
                     }
                     b'C' => {
                         let mut vec = Vec::with_capacity(array_len as usize);
                         for _ in 0..array_len {
-                            vec.push(reader.read_u8()?); n += 1;
+                            vec.push(reader.read_u8()?);
+                            n += 1;
                         }
                         BamAuxValue::BUint8(vec)
                     }
                     b's' => {
                         let mut vec = Vec::with_capacity(array_len as usize);
                         for _ in 0..array_len {
-                            vec.push(reader.read_i16::<LittleEndian>()?); n += 2;
+                            vec.push(reader.read_i16::<LittleEndian>()?);
+                            n += 2;
                         }
                         BamAuxValue::BInt16(vec)
                     }
                     b'S' => {
                         let mut vec = Vec::with_capacity(array_len as usize);
                         for _ in 0..array_len {
-                            vec.push(reader.read_u16::<LittleEndian>()?); n += 2;
+                            vec.push(reader.read_u16::<LittleEndian>()?);
+                            n += 2;
                         }
                         BamAuxValue::BUint16(vec)
                     }
                     b'i' => {
                         let mut vec = Vec::with_capacity(array_len as usize);
                         for _ in 0..array_len {
-                            vec.push(reader.read_i32::<LittleEndian>()?); n += 4;
+                            vec.push(reader.read_i32::<LittleEndian>()?);
+                            n += 4;
                         }
                         BamAuxValue::BInt32(vec)
                     }
                     b'I' => {
                         let mut vec = Vec::with_capacity(array_len as usize);
                         for _ in 0..array_len {
-                            vec.push(reader.read_u32::<LittleEndian>()?); n += 4;
+                            vec.push(reader.read_u32::<LittleEndian>()?);
+                            n += 4;
                         }
                         BamAuxValue::BUint32(vec)
                     }
                     b'f' => {
                         let mut vec = Vec::with_capacity(array_len as usize);
                         for _ in 0..array_len {
-                            vec.push(reader.read_f32::<LittleEndian>()?); n += 4;
+                            vec.push(reader.read_f32::<LittleEndian>()?);
+                            n += 4;
                         }
                         BamAuxValue::BFloat32(vec)
                     }
-                    _ => return Err(io::Error::new(io::ErrorKind::InvalidData, "Invalid array type")),
+                    _ => {
+                        return Err(io::Error::new(
+                            io::ErrorKind::InvalidData,
+                            "Invalid array type",
+                        ))
+                    }
                 }
             }
-            _ => return Err(io::Error::new(io::ErrorKind::InvalidData, "Invalid auxiliary type")),
+            _ => {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "Invalid auxiliary type",
+                ))
+            }
         };
 
         Ok((n, BamAuxiliary { tag, value }))
@@ -288,6 +342,10 @@ impl BamFlag {
         self.bit(8)
     }
 
+    pub fn supplementary_alignment(&self) -> bool {
+        self.bit(11)
+    }
+
     pub fn not_passing_filters(&self) -> bool {
         self.bit(9)
     }
@@ -333,7 +391,10 @@ impl BamCigar {
         self.0.iter().map(move |&c| {
             let n = c >> 4;
             let t = types[(c & 0xf) as usize] as char;
-            CigarBlock { n: n as i32, type_: t }
+            CigarBlock {
+                n: n as i32,
+                type_: t,
+            }
         })
     }
 }
@@ -342,7 +403,7 @@ impl BamCigar {
 
 #[derive(Debug, Default)]
 pub struct CigarBlock {
-    pub n    : i32,
+    pub n: i32,
     pub type_: char,
 }
 
@@ -352,8 +413,8 @@ pub struct CigarBlock {
 #[derive(Clone, Debug, Default)]
 pub struct BamHeader {
     pub text_length: i32,
-    pub text       : String,
-    pub n_ref      : i32,
+    pub text: String,
+    pub n_ref: i32,
 }
 
 /* -------------------------------------------------------------------------- */
@@ -361,22 +422,22 @@ pub struct BamHeader {
 // Represents a BAM block
 #[derive(Clone, Debug, Default)]
 pub struct BamBlock {
-    pub ref_id       : i32,
-    pub position     : i32,
-    pub bin          : u16,
-    pub mapq         : u8,
-    pub rname_len    : u8,
-    pub flag         : BamFlag,
-    pub n_cigar_op   : u16,
-    pub l_seq        : i32,
-    pub next_ref_id  : i32,
+    pub ref_id: i32,
+    pub position: i32,
+    pub bin: u16,
+    pub mapq: u8,
+    pub rname_len: u8,
+    pub flag: BamFlag,
+    pub n_cigar_op: u16,
+    pub l_seq: i32,
+    pub next_ref_id: i32,
     pub next_position: i32,
-    pub tlen         : i32,
-    pub read_name    : String,
-    pub cigar        : BamCigar,
-    pub seq          : BamSeq,
-    pub qual         : BamQual,
-    pub auxiliary    : Vec<BamAuxiliary>,
+    pub tlen: i32,
+    pub read_name: String,
+    pub cigar: BamCigar,
+    pub seq: BamSeq,
+    pub qual: BamQual,
+    pub auxiliary: Vec<BamAuxiliary>,
 }
 
 /* -------------------------------------------------------------------------- */
@@ -409,11 +470,11 @@ pub struct BamReaderType2 {
 /// - `read_qual`: If `true`, reads the quality scores of each read.
 #[derive(Copy, Clone, Debug, Default)]
 pub struct BamReaderOptions {
-    pub read_name     : bool,
-    pub read_cigar    : bool,
-    pub read_sequence : bool,
+    pub read_name: bool,
+    pub read_cigar: bool,
+    pub read_sequence: bool,
     pub read_auxiliary: bool,
-    pub read_qual     : bool,
+    pub read_qual: bool,
 }
 
 /* -------------------------------------------------------------------------- */
@@ -433,10 +494,10 @@ pub struct BamReaderOptions {
 /// - `reader`: The underlying `BgzfReader` for reading compressed BAM data.
 #[derive(Debug)]
 pub struct BamReader<R: Read> {
-    options : BamReaderOptions,
-    header  : BamHeader,
-    genome  : Genome,
-    reader  : BgzfReader<R>,
+    options: BamReaderOptions,
+    header: BamHeader,
+    genome: Genome,
+    reader: BgzfReader<R>,
 }
 
 /* -------------------------------------------------------------------------- */
@@ -455,21 +516,20 @@ impl<R: Read> BamReader<R> {
     /// Returns an `io::Error` if the file does not start with the "BAM\x01" magic
     /// bytes or if header data cannot be read.
     pub fn new(reader: R, options_arg: Option<BamReaderOptions>) -> io::Result<Self> {
-
         let mut bam_reader = BamReader {
-            options : options_arg.unwrap_or_default(),
-            genome  : Genome::default(),
-            header  : BamHeader::default(),
-            reader  : BgzfReader::new(reader)?,
+            options: options_arg.unwrap_or_default(),
+            genome: Genome::default(),
+            header: BamHeader::default(),
+            reader: BgzfReader::new(reader)?,
         };
 
         if options_arg.is_none() {
             // Default options
-            bam_reader.options.read_name      = true;
-            bam_reader.options.read_cigar     = true;
-            bam_reader.options.read_sequence  = true;
+            bam_reader.options.read_name = true;
+            bam_reader.options.read_cigar = true;
+            bam_reader.options.read_sequence = true;
             bam_reader.options.read_auxiliary = true;
-            bam_reader.options.read_qual      = true;
+            bam_reader.options.read_qual = true;
         }
 
         let mut magic = [0; 4];
@@ -490,10 +550,16 @@ impl<R: Read> BamReader<R> {
             let mut name_bytes = vec![0; length_name as usize];
             bam_reader.reader.read_exact(&mut name_bytes)?;
             let length_seq = bam_reader.reader.read_i32::<LittleEndian>()?;
-            bam_reader.genome.add_sequence(
-                String::from_utf8(name_bytes).unwrap().trim_matches('\0').to_string(),
-                length_seq as usize,
-            ).map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
+            bam_reader
+                .genome
+                .add_sequence(
+                    String::from_utf8(name_bytes)
+                        .unwrap()
+                        .trim_matches('\0')
+                        .to_string(),
+                    length_seq as usize,
+                )
+                .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
         }
 
         Ok(bam_reader)
@@ -511,7 +577,6 @@ impl<R: Read> BamReader<R> {
 /* -------------------------------------------------------------------------- */
 
 impl<R: Read> BamReader<R> {
-
     /// Reads single-end reads from the BAM file as a stream.
     ///
     /// # Returns
@@ -520,9 +585,8 @@ impl<R: Read> BamReader<R> {
     ///
     /// Yields `io::Error` if any data reading/parsing fails.
     pub fn read_single_end_stream<'a>(
-        &'a mut self
+        &'a mut self,
     ) -> impl Stream<Item = io::Result<BamReaderType1>> + 'a {
-
         stream! {
 
             let mut block_size: i32;
@@ -555,7 +619,7 @@ impl<R: Read> BamReader<R> {
                 bin_mq_nl = match self.reader.read_u32::<LittleEndian>() {
                     Ok (v) => v,
                     Err(e) => { yield Err(e); return; }
-                };    
+                };
                 block.bin       = ((bin_mq_nl >>   16) & 0xffff) as u16;
                 block.mapq      = ((bin_mq_nl >>    8) & 0xff  ) as u8;
                 block.rname_len =  (bin_mq_nl  & 0xff) as u8;
@@ -566,7 +630,7 @@ impl<R: Read> BamReader<R> {
                 };
                 block.flag       = BamFlag((flag_nc >> 16) as u16);
                 block.n_cigar_op = (flag_nc & 0xffff) as u16;
-    
+
                 block.l_seq = match self.reader.read_i32::<LittleEndian>() {
                     Ok (v) => v,
                     Err(e) => { yield Err(e); return; }
@@ -583,7 +647,7 @@ impl<R: Read> BamReader<R> {
                     Ok (v) => v,
                     Err(e) => { yield Err(e); return; }
                 };
-    
+
                 // Parse the read name
                 loop {
                     match self.reader.read_u8() {
@@ -595,7 +659,7 @@ impl<R: Read> BamReader<R> {
                         Err(e) => { yield Err(e); return; }
                     }
                 }
-    
+
                 // Parse CIGAR block
                 if self.options.read_cigar {
                     block.cigar = BamCigar(Vec::with_capacity(block.n_cigar_op as usize));
@@ -609,7 +673,7 @@ impl<R: Read> BamReader<R> {
                         yield Err(e); return;
                     }
                 }
-    
+
                 // Parse sequence
                 if self.options.read_sequence {
                     let seq_len = (block.l_seq + 1) / 2;
@@ -625,7 +689,7 @@ impl<R: Read> BamReader<R> {
                         yield Err(e); return;
                     }
                 }
-    
+
                 // Parse qual block
                 if self.options.read_qual {
                     block.qual = BamQual(vec![0; block.l_seq as usize]);
@@ -637,11 +701,11 @@ impl<R: Read> BamReader<R> {
                         yield Err(e); return;
                     }
                 }
-    
+
                 // Read auxiliary data
                 let mut position = (8 * 4 + block.rname_len as usize + 4 * block.n_cigar_op as usize
                     + (block.l_seq as usize + 1) / 2 + block.l_seq as usize) as i32;
-    
+
                 if self.options.read_auxiliary {
                     while position < block_size {
                         match BamAuxiliary::read(&mut self.reader) {
@@ -674,9 +738,8 @@ impl<R: Read> BamReader<R> {
     ///
     /// Yields `io::Error` if any data reading/parsing fails.
     pub fn read_paired_end_stream<'a>(
-        &'a mut self
+        &'a mut self,
     ) -> impl Stream<Item = io::Result<BamReaderType2>> + 'a {
-
         self.options.read_name = true;
 
         stream! {
@@ -736,12 +799,11 @@ impl<R: Read> BamReader<R> {
     pub fn read_simple_stream<'a>(
         &'a mut self,
         join_pairs: bool,
-        paired_end_strand_specific: bool
+        paired_end_strand_specific: bool,
     ) -> impl Stream<Item = io::Result<read::Read>> + 'a {
-
         let genome = self.genome.clone();
 
-        stream!{
+        stream! {
 
             self.options.read_cigar = true;
 
@@ -819,18 +881,17 @@ impl<R: Read> BamReader<R> {
 /* -------------------------------------------------------------------------- */
 
 impl<R: Read> BamReader<R> {
-
     /// Reads single-end reads synchronously.
     ///
     /// # Returns
     /// An iterator over `io::Result<BamReaderType1>`, where each item
     /// represents a single read.
-    pub fn read_single_end<'a>(&'a mut self) -> impl Iterator<Item = io::Result<BamReaderType1>> + 'a {
-
+    pub fn read_single_end<'a>(
+        &'a mut self,
+    ) -> impl Iterator<Item = io::Result<BamReaderType1>> + 'a {
         let s = Box::pin(self.read_single_end_stream());
 
         block_on_stream(s)
-
     }
 
     /// Reads paired-end reads synchronously.
@@ -838,12 +899,12 @@ impl<R: Read> BamReader<R> {
     /// # Returns
     /// An iterator over `io::Result<BamReaderType2>`, where each item
     /// represents a pair of reads.
-    pub fn read_paired_end<'a>(&'a mut self) -> impl Iterator<Item = io::Result<BamReaderType2>> + 'a {
-
+    pub fn read_paired_end<'a>(
+        &'a mut self,
+    ) -> impl Iterator<Item = io::Result<BamReaderType2>> + 'a {
         let s = Box::pin(self.read_paired_end_stream());
 
         block_on_stream(s)
-
     }
 
     /// Reads simple read data synchronously, with options to join pairs and
@@ -859,13 +920,11 @@ impl<R: Read> BamReader<R> {
     pub fn read_simple<'a>(
         &'a mut self,
         join_pairs: bool,
-        paired_end_strand_specific: bool
+        paired_end_strand_specific: bool,
     ) -> impl Iterator<Item = io::Result<read::Read>> + 'a {
-
         let s = Box::pin(self.read_simple_stream(join_pairs, paired_end_strand_specific));
 
         block_on_stream(s)
-
     }
 }
 
@@ -890,12 +949,10 @@ impl BamFile {
     /// # Errors
     /// Returns an error if the file cannot be opened or if the reader setup fails.
     pub fn open(filename: &str, options: Option<BamReaderOptions>) -> Result<Self, Box<dyn Error>> {
-        let file   = NetFile::open(filename)?;
+        let file = NetFile::open(filename)?;
         let reader = BamReader::new(file, options)?;
 
-        Ok(BamFile {
-            reader : reader,
-        })
+        Ok(BamFile { reader: reader })
     }
 }
 
@@ -952,14 +1009,13 @@ mod tests {
             assert_eq!(genome.len(), 2);
             assert_eq!(genome.seqnames[0], "ref");
             assert_eq!(genome.seqnames[1], "ref2");
-            assert_eq!(genome.lengths [0], 45);
-            assert_eq!(genome.lengths [1], 40);
+            assert_eq!(genome.lengths[0], 45);
+            assert_eq!(genome.lengths[1], 40);
         }
     }
 
     #[test]
     fn test_bam_read_simple() {
-
         let result = BamFile::open("tests/test_bam_2.bam", None);
 
         assert!(result.is_ok());
@@ -976,6 +1032,4 @@ mod tests {
 
         assert_eq!(cnt, 2335);
     }
-
-
 }

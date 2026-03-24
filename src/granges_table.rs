@@ -19,12 +19,12 @@
 // SOFTWARE.
 
 use std::any::Any;
-use std::io::{self, BufRead, BufReader, Read, Write};
 use std::fs::File;
+use std::io::{self, BufRead, BufReader, Read, Write};
 
-use flate2::Compression;
 use flate2::read::GzDecoder;
 use flate2::write::GzEncoder;
+use flate2::Compression;
 
 use crate::granges::GRanges;
 use crate::granges_table_reader::GRangesTableReader;
@@ -42,7 +42,6 @@ pub struct OptionPrintStrand(pub bool);
 /* -------------------------------------------------------------------------- */
 
 impl GRanges {
-
     /// Reads a table from a buffered reader and populates the `GRanges` structure.
     ///
     /// This method reads from the provided `BufRead` instance, interpreting the first line
@@ -56,8 +55,13 @@ impl GRanges {
     ///
     /// # Returns
     /// An `io::Result<()>`, which will be `Ok(())` if the operation succeeds, or an error if any issues arise during reading.
-    pub fn bufread_table<R: BufRead>(&mut self, mut buf_reader: R, names: &[&str], types: &[&str]) -> io::Result<()> {
-        let mut mreader = MetaTableReader   ::new(names, types);
+    pub fn bufread_table<R: BufRead>(
+        &mut self,
+        mut buf_reader: R,
+        names: &[&str],
+        types: &[&str],
+    ) -> io::Result<()> {
+        let mut mreader = MetaTableReader::new(names, types);
         let mut greader = GRangesTableReader::new();
 
         let mut line = String::new();
@@ -72,7 +76,6 @@ impl GRanges {
         let mut line_counter = 0;
 
         while buf_reader.read_line(&mut line)? > 0 {
-
             if line.is_empty() {
                 continue;
             }
@@ -101,9 +104,8 @@ impl GRanges {
     /// # Returns
     /// An `io::Result<()>`, which will be `Ok(())` if the operation succeeds, or an error if writing fails.
     pub fn write_table<W: Write>(&self, writer: &mut W, args: &[&dyn Any]) -> io::Result<()> {
-
         let mut use_scientific = false;
-        let mut use_strand     = false;
+        let mut use_strand = false;
 
         for arg in args {
             if let Some(option) = arg.downcast_ref::<OptionPrintScientific>() {
@@ -127,13 +129,11 @@ impl GRanges {
         }
         Ok(())
     }
-
 }
 
 /* -------------------------------------------------------------------------- */
 
 impl GRanges {
-
     /// Reads a table from a reader and populates the `GRanges` structure.
     ///
     /// This method wraps the buffered reading functionality, creating a `BufReader` and
@@ -146,20 +146,21 @@ impl GRanges {
     ///
     /// # Returns
     /// An `io::Result<()>`, which will be `Ok(())` if the operation succeeds, or an error if reading fails.
-    pub fn read_table<R: Read>(&mut self, reader: R, names: &[&str], types: &[&str]) -> io::Result<()> {
-
+    pub fn read_table<R: Read>(
+        &mut self,
+        reader: R,
+        names: &[&str],
+        types: &[&str],
+    ) -> io::Result<()> {
         let buf_reader = BufReader::new(reader);
 
         self.bufread_table(buf_reader, names, types)
-
     }
-
 }
 
 /* -------------------------------------------------------------------------- */
 
 impl GRanges {
-
     /// Imports a table from a file and populates the `GRanges` structure.
     ///
     /// This method opens the specified file, optionally decompressing it if required,
@@ -173,7 +174,13 @@ impl GRanges {
     ///
     /// # Returns
     /// An `io::Result<()>`, which will be `Ok(())` if the operation succeeds, or an error if reading fails.
-    pub fn import_table(&mut self, filename: &str, names: &[&str], types: &[&str], compress: bool) -> io::Result<()> {
+    pub fn import_table(
+        &mut self,
+        filename: &str,
+        names: &[&str],
+        types: &[&str],
+        compress: bool,
+    ) -> io::Result<()> {
         let file = File::open(filename)?;
         let mut reader: Box<dyn BufRead> = if compress {
             Box::new(BufReader::new(GzDecoder::new(file)))
@@ -198,7 +205,12 @@ impl GRanges {
     ///
     /// # Returns
     /// An `io::Result<()>`, which will be `Ok(())` if the operation succeeds, or an error if writing fails.
-    pub fn export_table(&self, filename: &str, compress: bool, args: &[&dyn Any]) -> io::Result<()> {
+    pub fn export_table(
+        &self,
+        filename: &str,
+        compress: bool,
+        args: &[&dyn Any],
+    ) -> io::Result<()> {
         let file = File::create(filename)?;
         let mut writer: Box<dyn Write> = if compress {
             Box::new(GzEncoder::new(file, Compression::default()))
@@ -210,5 +222,4 @@ impl GRanges {
 
         Ok(())
     }
-
 }

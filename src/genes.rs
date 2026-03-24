@@ -18,14 +18,14 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-use std::fmt;
 use std::collections::HashMap;
 use std::error::Error;
+use std::fmt;
 
-use crate::range::Range;
 use crate::genome::Genome;
 use crate::granges::GRanges;
 use crate::meta::MetaData;
+use crate::range::Range;
 
 /* -------------------------------------------------------------------------- */
 
@@ -57,14 +57,14 @@ use crate::meta::MetaData;
 #[derive(Clone, Debug)]
 pub struct Genes {
     pub granges: GRanges,
-    index      : HashMap<String, usize>,
+    index: HashMap<String, usize>,
 }
 
 /* -------------------------------------------------------------------------- */
 
 impl Genes {
     fn new_impl(granges: GRanges) -> Genes {
-        let names = granges.meta.get_column_str  ("names").unwrap();
+        let names = granges.meta.get_column_str("names").unwrap();
         let mut index = HashMap::new();
         for i in 0..granges.num_rows() {
             // check if strand is valid
@@ -73,10 +73,7 @@ impl Genes {
             }
             index.insert(names[i].clone(), i);
         }
-        let genes = Genes {
-            granges,
-            index,
-        };
+        let genes = Genes { granges, index };
         genes
     }
 
@@ -96,33 +93,31 @@ impl Genes {
     ///
     /// Panics if any strand value is not '+' or '-', or if the input vectors have mismatched lengths.
     pub fn new(
-        names   : Vec<String>,
+        names: Vec<String>,
         seqnames: Vec<String>,
-        tx_from : Vec<usize>,
-        tx_to   : Vec<usize>,
+        tx_from: Vec<usize>,
+        tx_to: Vec<usize>,
         cds_from: Vec<usize>,
-        cds_to  : Vec<usize>,
-        strand  : Vec<char>,
+        cds_to: Vec<usize>,
+        strand: Vec<char>,
     ) -> Genes {
         assert!(names.len() == seqnames.len());
-        assert!(names.len() == tx_from .len());
-        assert!(names.len() == tx_to   .len());
+        assert!(names.len() == tx_from.len());
+        assert!(names.len() == tx_to.len());
         assert!(names.len() == cds_from.len());
-        assert!(names.len() == cds_to  .len());
-        assert!(names.len() == strand  .len());
+        assert!(names.len() == cds_to.len());
+        assert!(names.len() == strand.len());
         // construct cds ranges
         let mut cds = vec![];
         for i in 0..cds_from.len() {
             cds.push(Range::new(cds_from[i], cds_to[i]));
         }
-        let mut granges = GRanges::new(
-            seqnames,
-            tx_from,
-            tx_to,
-            strand,
-        );
-        granges.meta.add("names", MetaData::StringArray(names)).unwrap();
-        granges.meta.add("cds"  , MetaData::RangeArray(cds   )).unwrap();
+        let mut granges = GRanges::new(seqnames, tx_from, tx_to, strand);
+        granges
+            .meta
+            .add("names", MetaData::StringArray(names))
+            .unwrap();
+        granges.meta.add("cds", MetaData::RangeArray(cds)).unwrap();
         Genes::new_impl(granges)
     }
 
@@ -270,7 +265,6 @@ impl Genes {
     pub fn find_gene(&self, name: &str) -> Option<usize> {
         self.index.get(name).cloned()
     }
-
 }
 
 /* -------------------------------------------------------------------------- */

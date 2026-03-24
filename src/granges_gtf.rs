@@ -18,10 +18,10 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-use std::fs::{File};
-use std::io::{self, BufRead, BufReader, Write};
 use std::collections::HashMap;
 use std::error::Error;
+use std::fs::File;
+use std::io::{self, BufRead, BufReader, Write};
 
 use flate2::read::GzDecoder;
 use regex::Regex;
@@ -35,7 +35,6 @@ use crate::utility::{is_gzip, trim_and_unquote};
 /* -------------------------------------------------------------------------- */
 
 impl GRanges {
-
     /// Parses a single GTF file line, extracting each field value.
     ///
     /// This method uses a regular expression to match quoted and unquoted fields, splitting the line
@@ -73,114 +72,145 @@ impl GRanges {
     /// Returns an `io::Error` if a required field is missing and has no default value.
     fn parse_optional_fields(
         &self,
-        fields  : &[String],
+        fields: &[String],
         type_map: &HashMap<String, String>,
-        gtf_opt : &mut HashMap<String, MetaData>,
-        gtf_def : &HashMap<String, String>,
-        length  : usize,
+        gtf_opt: &mut HashMap<String, MetaData>,
+        gtf_def: &HashMap<String, String>,
+        length: usize,
     ) -> io::Result<()> {
-
         for i in (0..fields.len()).step_by(2) {
-            let name      = &fields[i];
+            let name = &fields[i];
             let value_str = trim_and_unquote(&fields[i + 1]);
 
             // Retrieve expected type from the type_map
             if let Some(expected_type) = type_map.get(name) {
-
-                let entry = gtf_opt.entry(name.clone()).or_insert(
-                    match expected_type.as_str() {
-                        "int"   => MetaData::IntArray(vec![]),
+                let entry = gtf_opt
+                    .entry(name.clone())
+                    .or_insert(match expected_type.as_str() {
+                        "int" => MetaData::IntArray(vec![]),
                         "float" => MetaData::FloatArray(vec![]),
-                        "str"   => MetaData::StringArray(vec![]),
-                        _       => return Err(io::Error::new(io::ErrorKind::InvalidData, format!("Expected integer for field `{}`, found `{}`", name, value_str))),
-                    }
-                );
+                        "str" => MetaData::StringArray(vec![]),
+                        _ => {
+                            return Err(io::Error::new(
+                                io::ErrorKind::InvalidData,
+                                format!(
+                                    "Expected integer for field `{}`, found `{}`",
+                                    name, value_str
+                                ),
+                            ))
+                        }
+                    });
 
                 // Parse value based on type and push into entry
                 match entry {
                     MetaData::IntArray(r) => {
                         let value = value_str.parse::<i64>().map_err(|_| {
-                            io::Error::new(io::ErrorKind::InvalidData, format!("Expected integer for field `{}`, found `{}`", name, value_str))
+                            io::Error::new(
+                                io::ErrorKind::InvalidData,
+                                format!(
+                                    "Expected integer for field `{}`, found `{}`",
+                                    name, value_str
+                                ),
+                            )
                         })?;
                         r.push(value);
-                    },
+                    }
                     MetaData::FloatArray(r) => {
                         let value = value_str.parse::<f64>().map_err(|_| {
-                            io::Error::new(io::ErrorKind::InvalidData, format!("Expected float for field `{}`, found `{}`", name, value_str))
+                            io::Error::new(
+                                io::ErrorKind::InvalidData,
+                                format!(
+                                    "Expected float for field `{}`, found `{}`",
+                                    name, value_str
+                                ),
+                            )
                         })?;
                         r.push(value);
-                    },
+                    }
                     MetaData::StringArray(r) => {
                         r.push(value_str.clone());
-                    },
-                    _ => return Err(io::Error::new(io::ErrorKind::InvalidData, format!("Unknown type `{}` for field `{}`", expected_type, name))),
+                    }
+                    _ => {
+                        return Err(io::Error::new(
+                            io::ErrorKind::InvalidData,
+                            format!("Unknown type `{}` for field `{}`", expected_type, name),
+                        ))
+                    }
                 }
             }
         }
 
         // Fill default values for missing optional fields
         for (name, entry) in gtf_opt.iter_mut() {
-
             match entry {
                 MetaData::IntArray(r) => {
                     if r.len() != length {
                         match gtf_def.get(name) {
                             Some(value_str) => {
                                 let value = value_str.parse::<i64>().map_err(|_| {
-                                    io::Error::new(io::ErrorKind::InvalidData, format!("Expected integer for default value `{}`, found `{}`", name, value_str))
-                                })?;     
-                                
+                                    io::Error::new(
+                                        io::ErrorKind::InvalidData,
+                                        format!(
+                                            "Expected integer for default value `{}`, found `{}`",
+                                            name, value_str
+                                        ),
+                                    )
+                                })?;
+
                                 r.push(value);
                             }
-                            None    => {
+                            None => {
                                 return Err(io::Error::new(io::ErrorKind::InvalidData, format!("Optional entry `{}` is missing at line `{}` with no default", name, length)));
                             }
                         }
                     }
-                },
+                }
                 MetaData::FloatArray(r) => {
                     if r.len() != length {
                         match gtf_def.get(name) {
                             Some(value_str) => {
                                 let value = value_str.parse::<f64>().map_err(|_| {
-                                    io::Error::new(io::ErrorKind::InvalidData, format!("Expected integer for default value `{}`, found `{}`", name, value_str))
-                                })?;     
-                                
+                                    io::Error::new(
+                                        io::ErrorKind::InvalidData,
+                                        format!(
+                                            "Expected integer for default value `{}`, found `{}`",
+                                            name, value_str
+                                        ),
+                                    )
+                                })?;
+
                                 r.push(value);
                             }
-                            None    => {
+                            None => {
                                 return Err(io::Error::new(io::ErrorKind::InvalidData, format!("Optional entry `{}` is missing at line `{}` with no default", name, length)));
                             }
                         }
                     }
-                },
+                }
                 MetaData::StringArray(r) => {
                     if r.len() != length {
                         match gtf_def.get(name) {
                             Some(value_str) => {
                                 r.push(value_str.clone());
                             }
-                            None    => {
+                            None => {
                                 return Err(io::Error::new(io::ErrorKind::InvalidData, format!("Optional entry `{}` is missing at line `{}` with no default", name, length)));
                             }
                         }
                     }
-                },
+                }
                 _ => (),
             }
-
         }
 
         Ok(())
     }
-
 }
 
 /* Read/write
  * -------------------------------------------------------------------------- */
- 
-impl GRanges {
 
+impl GRanges {
     /// Reads GTF-formatted data and constructs a `GRanges` object, with support for optional fields.
     ///
     /// Parses each line of the GTF data to extract the main fields and optional fields based on
@@ -197,12 +227,11 @@ impl GRanges {
     ///
     /// Returns a `GRanges` object populated with parsed GTF data or an error if parsing fails.
     pub fn read_gtf<R: BufRead>(
-        reader   : R,
+        reader: R,
         opt_names: Vec<&str>,
         opt_types: Vec<&str>,
-        defaults : Vec<Option<&str>>,
+        defaults: Vec<Option<&str>>,
     ) -> Result<Self, Box<dyn Error>> {
-
         let defaults = if defaults.len() == 0 {
             vec![None; opt_names.len()]
         } else {
@@ -212,22 +241,26 @@ impl GRanges {
         let n = opt_names.len();
 
         if opt_types.len() != n {
-            return Err(Box::new(ArgumentError("Invalid length of `opt_types` argument".to_string())));
+            return Err(Box::new(ArgumentError(
+                "Invalid length of `opt_types` argument".to_string(),
+            )));
         }
         if defaults.len() != n {
-            return Err(Box::new(ArgumentError("Invalid length of `defaults` argument".to_string())));
+            return Err(Box::new(ArgumentError(
+                "Invalid length of `defaults` argument".to_string(),
+            )));
         }
 
-        let mut granges  = GRanges::default();
+        let mut granges = GRanges::default();
 
         let mut type_map = HashMap::new();
-        let mut gtf_opt  = HashMap::new();
-        let mut gtf_def  = HashMap::new();
+        let mut gtf_opt = HashMap::new();
+        let mut gtf_def = HashMap::new();
 
-        let mut source  = vec![];
+        let mut source = vec![];
         let mut feature = vec![];
-        let mut score   = vec![];
-        let mut frame   = vec![];
+        let mut score = vec![];
+        let mut frame = vec![];
 
         let mut has_score = false;
         let mut has_frame = false;
@@ -240,22 +273,24 @@ impl GRanges {
         }
 
         for line in reader.lines() {
-
             let line = line?;
             let fields: Vec<String> = Self::parse_gtf_line(&line);
 
             if fields.len() < 8 {
-                return Err(Box::new(io::Error::new(io::ErrorKind::InvalidData, "file must have at least eight columns")));
+                return Err(Box::new(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "file must have at least eight columns",
+                )));
             }
 
             let from = fields[3].parse::<usize>()?;
-            let to   = fields[4].parse::<usize>()?;
+            let to = fields[4].parse::<usize>()?;
 
             granges.seqnames.push(fields[0].clone());
-            granges.ranges  .push(Range::new(from, to));
-            granges.strand  .push(fields[6].chars().next().unwrap_or('*'));
+            granges.ranges.push(Range::new(from, to));
+            granges.strand.push(fields[6].chars().next().unwrap_or('*'));
 
-            source .push(fields[1].clone());
+            source.push(fields[1].clone());
             feature.push(fields[2].clone());
 
             if fields[5] == "." {
@@ -273,12 +308,20 @@ impl GRanges {
             }
 
             let optional_fields = &fields[8..];
-            granges.parse_optional_fields(optional_fields, &type_map, &mut gtf_opt, &gtf_def, granges.num_rows())?;
+            granges.parse_optional_fields(
+                optional_fields,
+                &type_map,
+                &mut gtf_opt,
+                &gtf_def,
+                granges.num_rows(),
+            )?;
         }
 
         // Add meta data to GRanges
-        granges.meta.add("source" , MetaData::StringArray(source))?;
-        granges.meta.add("feature", MetaData::StringArray(feature))?;
+        granges.meta.add("source", MetaData::StringArray(source))?;
+        granges
+            .meta
+            .add("feature", MetaData::StringArray(feature))?;
 
         if has_score {
             granges.meta.add("score", MetaData::FloatArray(score))?;
@@ -312,21 +355,24 @@ impl GRanges {
         let v1 = vec![];
         let v2 = vec![];
 
-        let source = self.meta.get_column_str("source").ok_or(
-            Box::new(io::Error::new(io::ErrorKind::InvalidData, "no source column available"))
-        )?;
-        let feature = self.meta.get_column_str("feature").ok_or(
-            Box::new(io::Error::new(io::ErrorKind::InvalidData, "no feature column available"))
-        )?;
-        let score = self.meta.get_column_float("score").unwrap_or(
-            &v1
-        );
-        let frame = self.meta.get_column_int("frame").unwrap_or(
-            &v2
-        );
+        let source = self
+            .meta
+            .get_column_str("source")
+            .ok_or(Box::new(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "no source column available",
+            )))?;
+        let feature = self
+            .meta
+            .get_column_str("feature")
+            .ok_or(Box::new(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "no feature column available",
+            )))?;
+        let score = self.meta.get_column_float("score").unwrap_or(&v1);
+        let frame = self.meta.get_column_int("frame").unwrap_or(&v2);
 
         for i in 0..self.num_rows() {
-
             let mut printed_tab = false;
 
             let s = if score.len() == 0 {
@@ -341,14 +387,16 @@ impl GRanges {
                 frame[i].to_string()
             };
 
-            write!(w, "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
+            write!(
+                w,
+                "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
                 self.seqnames[i],
-                source       [i],
-                feature      [i],
-                self.ranges  [i].from,
-                self.ranges  [i].to,
+                source[i],
+                feature[i],
+                self.ranges[i].from,
+                self.ranges[i].to,
                 s,
-                self.strand  [i],
+                self.strand[i],
                 f,
             )?;
 
@@ -368,13 +416,13 @@ impl GRanges {
                 match item {
                     MetaData::FloatArray(values) => {
                         write!(w, "\"{}\"", values[i])?;
-                    },
+                    }
                     MetaData::IntArray(values) => {
                         write!(w, "\"{}\"", values[i])?;
-                    },
+                    }
                     MetaData::StringArray(values) => {
                         write!(w, "\"{}\"", values[i])?;
-                    },
+                    }
                     MetaData::FloatMatrix(values) => {
                         write!(w, "\"")?;
                         for (j, v) in values[i].iter().enumerate() {
@@ -384,7 +432,7 @@ impl GRanges {
                             write!(w, "{}", v)?;
                         }
                         write!(w, "\"")?;
-                    },
+                    }
                     MetaData::IntMatrix(values) => {
                         write!(w, "\"")?;
                         for (j, v) in values[i].iter().enumerate() {
@@ -394,7 +442,7 @@ impl GRanges {
                             write!(w, "{}", v)?;
                         }
                         write!(w, "\"")?;
-                    },
+                    }
                     MetaData::StringMatrix(values) => {
                         write!(w, "\"")?;
                         for (j, v) in values[i].iter().enumerate() {
@@ -404,10 +452,10 @@ impl GRanges {
                             write!(w, "{}", v)?;
                         }
                         write!(w, "\"")?;
-                    },
+                    }
                     MetaData::RangeArray(_) => {
                         todo!()
-                    },
+                    }
                 }
                 write!(w, ";")?;
             }
@@ -416,15 +464,12 @@ impl GRanges {
 
         Ok(())
     }
-
 }
-
 
 /* Import/export
  * -------------------------------------------------------------------------- */
- 
-impl GRanges {
 
+impl GRanges {
     /// Imports GTF data from a file, with optional gzip support.
     ///
     /// This method reads from a file path and determines if the file is gzipped.
@@ -441,12 +486,11 @@ impl GRanges {
     ///
     /// A `GRanges` object populated with data from the GTF file, or an error if import fails.
     pub fn import_gtf(
-        filename : &str,
+        filename: &str,
         opt_names: Vec<&str>,
         opt_types: Vec<&str>,
-        opt_def  : Vec<Option<&str>>,
+        opt_def: Vec<Option<&str>>,
     ) -> Result<Self, Box<dyn Error>> {
-
         let file = File::open(filename)?;
         let reader: Box<dyn BufRead> = if is_gzip(filename) {
             let decoder = GzDecoder::new(file);
@@ -456,7 +500,6 @@ impl GRanges {
         };
 
         GRanges::read_gtf(reader, opt_names, opt_types, opt_def)
-
     }
 
     /// Exports `GRanges` data to a GTF file.
@@ -474,7 +517,6 @@ impl GRanges {
         let file = File::create(filename)?;
         self.write_gtf(file)
     }
-
 }
 
 /* -------------------------------------------------------------------------- */
@@ -488,23 +530,24 @@ mod tests {
 
     #[test]
     fn test_granges_gtf() {
-
-        let granges = GRanges::import_gtf("src/granges_gtf.gtf",
+        let granges = GRanges::import_gtf(
+            "src/granges_gtf.gtf",
             vec!["gene_id", "gene_num"], // Names of optional fields
-            vec!["str"    , "int"     ], // Types of optional fields
-            vec![None     , Some("0") ], // Default values, can be an empty vector if omitted
-        ).unwrap();
+            vec!["str", "int"],          // Types of optional fields
+            vec![None, Some("0")],       // Default values, can be an empty vector if omitted
+        )
+        .unwrap();
 
         assert_eq!(granges.num_rows(), 2);
         assert_eq!(granges.ranges[0].from, 11869);
-        assert_eq!(granges.ranges[0].to  , 14409);
+        assert_eq!(granges.ranges[0].to, 14409);
         assert_eq!(granges.ranges[1].from, 11870);
-        assert_eq!(granges.ranges[1].to  , 14410);
+        assert_eq!(granges.ranges[1].to, 14410);
 
-        let source  = granges.meta.get_column_str("source");
+        let source = granges.meta.get_column_str("source");
         let feature = granges.meta.get_column_str("feature");
-        let score   = granges.meta.get_column_float("score");
-        let frame   = granges.meta.get_column_int("frame");
+        let score = granges.meta.get_column_float("score");
+        let frame = granges.meta.get_column_int("frame");
         let gene_id = granges.meta.get_column_str("gene_id");
 
         assert!(source.is_some());
@@ -522,7 +565,5 @@ mod tests {
         assert!(granges.export_gtf("src/granges_gtf.gtf.tmp").is_ok());
 
         assert!(fs::remove_file("src/granges_gtf.gtf.tmp").is_ok());
-
     }
-
 }

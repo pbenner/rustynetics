@@ -18,8 +18,8 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-use std::fmt;
 use std::error::Error;
+use std::fmt;
 use std::{cell::RefCell, rc::Rc};
 
 use crate::genome::Genome;
@@ -36,7 +36,6 @@ pub struct TrackSequence {
 /* -------------------------------------------------------------------------- */
 
 impl TrackSequence {
-
     pub fn new(sequence: Rc<RefCell<Vec<f64>>>, bin_size: usize) -> Self {
         Self {
             sequence: sequence,
@@ -63,7 +62,6 @@ impl TrackSequence {
     pub fn get_bin_size(&self) -> usize {
         self.bin_size
     }
-
 }
 
 /* -------------------------------------------------------------------------- */
@@ -77,7 +75,6 @@ pub struct TrackMutableSequence {
 /* -------------------------------------------------------------------------- */
 
 impl TrackMutableSequence {
-
     pub fn new(sequence: Rc<RefCell<Vec<f64>>>, bin_size: usize) -> Self {
         Self {
             sequence: sequence,
@@ -127,7 +124,7 @@ pub trait Track {
 
 /* -------------------------------------------------------------------------- */
 
-pub trait MutableTrack : Track {
+pub trait MutableTrack: Track {
     fn as_track(&self) -> &dyn Track;
     fn filter_genome(&mut self, f: &dyn Fn(&str, usize) -> bool);
     fn get_sequence_mut(&mut self, seqname: &str) -> Result<TrackMutableSequence, Box<dyn Error>>;

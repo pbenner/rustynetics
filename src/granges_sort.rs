@@ -18,16 +18,15 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-use std::fmt;
 use std::cmp::Ordering;
+use std::fmt;
 
-use crate::granges::GRanges;
 use crate::error::ArgumentError;
+use crate::granges::GRanges;
 
 /* -------------------------------------------------------------------------- */
 
 impl GRanges {
-
     pub fn sorted_indices(&self, name: &str, reverse: bool) -> Result<Vec<usize>, ArgumentError> {
         let mut indices: Vec<usize> = (0..self.num_rows()).collect();
         match name {
@@ -85,7 +84,6 @@ impl GRanges {
             Ok(self.subset(&j))
         }
     }
-
 }
 
 /* -------------------------------------------------------------------------- */
@@ -126,7 +124,8 @@ impl<'a> Ord for GRangesSort<'a> {
     fn cmp(&self, other: &Self) -> Ordering {
         let n = self.granges.num_rows();
         for i in 0..n {
-            let cmp = self.granges.seqnames[self.indices[i]].cmp(&self.granges.seqnames[other.indices[i]]);
+            let cmp = self.granges.seqnames[self.indices[i]]
+                .cmp(&self.granges.seqnames[other.indices[i]]);
             if cmp != Ordering::Equal {
                 return cmp;
             }

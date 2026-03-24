@@ -101,8 +101,8 @@ pub fn read_until_null<R: Read>(reader: &mut R) -> io::Result<Vec<u8>> {
 /// A `Result` indicating the success or failure of the skip operation.
 /// The function returns `Ok(())` if successful, or an `io::Error` if an error occurs.
 pub fn skip_n_bytes<R: Read>(reader: &mut R, n: usize) -> io::Result<()> {
-    const BUFFER_SIZE: usize = 8;  // A small fixed-size buffer
-    let mut buffer = [0u8; BUFFER_SIZE];  // No dynamic allocation
+    const BUFFER_SIZE: usize = 8; // A small fixed-size buffer
+    let mut buffer = [0u8; BUFFER_SIZE]; // No dynamic allocation
     let mut bytes_to_skip = n;
 
     while bytes_to_skip > 0 {

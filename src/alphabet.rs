@@ -50,7 +50,10 @@ impl Alphabet for NucleotideAlphabet {
             b'C' | b'c' => Ok(vec![b'c']),
             b'G' | b'g' => Ok(vec![b'g']),
             b'T' | b't' => Ok(vec![b't']),
-            _ => Err(format!("Bases(): `{}` is not part of the alphabet", i as char)),
+            _ => Err(format!(
+                "Bases(): `{}` is not part of the alphabet",
+                i as char
+            )),
         }
     }
 
@@ -73,7 +76,10 @@ impl Alphabet for NucleotideAlphabet {
             b'C' | b'c' => Ok(1),
             b'G' | b'g' => Ok(2),
             b'T' | b't' => Ok(3),
-            _ => Err(format!("Code(): `{}` is not part of the alphabet", i as char)),
+            _ => Err(format!(
+                "Code(): `{}` is not part of the alphabet",
+                i as char
+            )),
         }
     }
 
@@ -93,7 +99,10 @@ impl Alphabet for NucleotideAlphabet {
             b'C' | b'c' => Ok(false),
             b'G' | b'g' => Ok(false),
             b'T' | b't' => Ok(false),
-            _ => Err(format!("IsAmbiguous(): `{}` is not part of the alphabet", i as char)),
+            _ => Err(format!(
+                "IsAmbiguous(): `{}` is not part of the alphabet",
+                i as char
+            )),
         }
     }
 
@@ -103,7 +112,10 @@ impl Alphabet for NucleotideAlphabet {
             b'C' | b'c' => Ok(false),
             b'G' | b'g' => Ok(false),
             b'T' | b't' => Ok(false),
-            _ => Err(format!("IsWildcard(): `{}` is not part of the alphabet", i as char)),
+            _ => Err(format!(
+                "IsWildcard(): `{}` is not part of the alphabet",
+                i as char
+            )),
         }
     }
 
@@ -142,7 +154,10 @@ impl ComplementableAlphabet for NucleotideAlphabet {
             b'C' | b'c' => Ok(b'g'),
             b'G' | b'g' => Ok(b'c'),
             b'T' | b't' => Ok(b'a'),
-            _ => Err(format!("Complement(): `{}` is not part of the alphabet", i as char)),
+            _ => Err(format!(
+                "Complement(): `{}` is not part of the alphabet",
+                i as char
+            )),
         }
     }
 }
@@ -161,7 +176,10 @@ impl Alphabet for GappedNucleotideAlphabet {
             b'G' | b'g' => Ok(vec![b'g']),
             b'T' | b't' => Ok(vec![b't']),
             b'N' | b'n' => Ok(vec![b'a', b'c', b'g', b't']),
-            _ => Err(format!("Bases(): `{}` is not part of the alphabet", i as char)),
+            _ => Err(format!(
+                "Bases(): `{}` is not part of the alphabet",
+                i as char
+            )),
         }
     }
 
@@ -185,7 +203,10 @@ impl Alphabet for GappedNucleotideAlphabet {
             b'G' | b'g' => Ok(2),
             b'T' | b't' => Ok(3),
             b'N' | b'n' => Ok(4),
-            _ => Err(format!("Code(): `{}` is not part of the alphabet", i as char)),
+            _ => Err(format!(
+                "Code(): `{}` is not part of the alphabet",
+                i as char
+            )),
         }
     }
 
@@ -207,7 +228,10 @@ impl Alphabet for GappedNucleotideAlphabet {
             b'G' | b'g' => Ok(false),
             b'T' | b't' => Ok(false),
             b'N' | b'n' => Ok(true),
-            _ => Err(format!("is_ambiguous(): `{}` is not part of the alphabet", i as char)),
+            _ => Err(format!(
+                "is_ambiguous(): `{}` is not part of the alphabet",
+                i as char
+            )),
         }
     }
 
@@ -218,7 +242,10 @@ impl Alphabet for GappedNucleotideAlphabet {
             b'G' | b'g' => Ok(false),
             b'T' | b't' => Ok(false),
             b'N' | b'n' => Ok(true),
-            _ => Err(format!("is_wildcard(): `{}` is not part of the alphabet", i as char)),
+            _ => Err(format!(
+                "is_wildcard(): `{}` is not part of the alphabet",
+                i as char
+            )),
         }
     }
 
@@ -259,7 +286,10 @@ impl ComplementableAlphabet for GappedNucleotideAlphabet {
             b'G' | b'g' => Ok(b'c'),
             b'T' | b't' => Ok(b'a'),
             b'N' | b'n' => Ok(b'n'),
-            _ => Err(format!("Complement(): `{}` is not part of the alphabet", i as char)),
+            _ => Err(format!(
+                "Complement(): `{}` is not part of the alphabet",
+                i as char
+            )),
         }
     }
 }
@@ -288,24 +318,19 @@ impl Alphabet for AmbiguousNucleotideAlphabet {
             b'H' | b'h' => Ok(vec![b'a', b'c', b't']),
             b'V' | b'v' => Ok(vec![b'a', b'c', b'g']),
             b'N' | b'n' => Ok(vec![b'a', b'c', b'g', b't']),
-            _ => Err(format!("Bases(): `{}` is not part of the alphabet", i as char)),
+            _ => Err(format!(
+                "Bases(): `{}` is not part of the alphabet",
+                i as char
+            )),
         }
     }
 
     fn matching(&self, i: u8) -> Result<Vec<u8>, String> {
         match i {
-            b'A' | b'a' => Ok(vec![
-                b'a', b'w', b'm', b'r', b'd', b'h', b'v', b'n',
-            ]),
-            b'C' | b'c' => Ok(vec![
-                b'c', b's', b'm', b'y', b'b', b'h', b'v', b'n',
-            ]),
-            b'G' | b'g' => Ok(vec![
-                b'g', b's', b'k', b'r', b'b', b'd', b'v', b'n',
-            ]),
-            b'T' | b't' => Ok(vec![
-                b't', b'w', b'k', b'y', b'b', b'd', b'h', b'n',
-            ]),
+            b'A' | b'a' => Ok(vec![b'a', b'w', b'm', b'r', b'd', b'h', b'v', b'n']),
+            b'C' | b'c' => Ok(vec![b'c', b's', b'm', b'y', b'b', b'h', b'v', b'n']),
+            b'G' | b'g' => Ok(vec![b'g', b's', b'k', b'r', b'b', b'd', b'v', b'n']),
+            b'T' | b't' => Ok(vec![b't', b'w', b'k', b'y', b'b', b'd', b'h', b'n']),
             _ => Err(format!(
                 "Matching(): `{}` is not a non-ambiguous letter of the alphabet",
                 i as char
@@ -330,7 +355,10 @@ impl Alphabet for AmbiguousNucleotideAlphabet {
             b'H' | b'h' => Ok(12),
             b'V' | b'v' => Ok(13),
             b'N' | b'n' => Ok(14),
-            _ => Err(format!("Code(): `{}` is not part of the alphabet", i as char)),
+            _ => Err(format!(
+                "Code(): `{}` is not part of the alphabet",
+                i as char
+            )),
         }
     }
 
@@ -372,7 +400,10 @@ impl Alphabet for AmbiguousNucleotideAlphabet {
             b'H' | b'h' => Ok(true),
             b'V' | b'v' => Ok(true),
             b'N' | b'n' => Ok(true),
-            _ => Err(format!("is_ambiguous(): `{}` is not part of the alphabet", i as char)),
+            _ => Err(format!(
+                "is_ambiguous(): `{}` is not part of the alphabet",
+                i as char
+            )),
         }
     }
 
@@ -393,7 +424,10 @@ impl Alphabet for AmbiguousNucleotideAlphabet {
             b'H' | b'h' => Ok(false),
             b'V' | b'v' => Ok(false),
             b'N' | b'n' => Ok(true),
-            _ => Err(format!("is_wildcard(): `{}` is not part of the alphabet", i as char)),
+            _ => Err(format!(
+                "is_wildcard(): `{}` is not part of the alphabet",
+                i as char
+            )),
         }
     }
 
@@ -454,7 +488,10 @@ impl ComplementableAlphabet for AmbiguousNucleotideAlphabet {
             b'H' | b'h' => Ok(b'd'),
             b'V' | b'v' => Ok(b'b'),
             b'N' | b'n' => Ok(b'n'),
-            _ => Err(format!("Complement(): `{}` is not part of the alphabet", i as char)),
+            _ => Err(format!(
+                "Complement(): `{}` is not part of the alphabet",
+                i as char
+            )),
         }
     }
 }

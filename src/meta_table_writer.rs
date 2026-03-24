@@ -18,30 +18,33 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
- use std::io;
- use std::io::{BufWriter, Write};
+use std::io;
+use std::io::{BufWriter, Write};
 
- use crate::meta::{Meta, MetaData};
- 
- /* -------------------------------------------------------------------------- */
- 
- pub struct MetaTableWriter<'a> {
-    meta          : &'a Meta,
-    widths        : Vec<usize>,
-    use_scientific: bool
- }
- 
+use crate::meta::{Meta, MetaData};
+
 /* -------------------------------------------------------------------------- */
- 
-impl<'a> MetaTableWriter<'a> {
 
+pub struct MetaTableWriter<'a> {
+    meta: &'a Meta,
+    widths: Vec<usize>,
+    use_scientific: bool,
+}
+
+/* -------------------------------------------------------------------------- */
+
+impl<'a> MetaTableWriter<'a> {
     pub fn new(meta: &'a Meta, use_scientific: bool) -> Self {
-        MetaTableWriter{meta: meta, widths: vec![0; meta.num_cols()], use_scientific: use_scientific}
+        MetaTableWriter {
+            meta: meta,
+            widths: vec![0; meta.num_cols()],
+            use_scientific: use_scientific,
+        }
     }
 
     pub fn determine_widths(&mut self) -> io::Result<()> {
         for j in 0..self.meta.num_cols() {
-            self.widths[j] = self.meta.meta_name[j].len()+1;
+            self.widths[j] = self.meta.meta_name[j].len() + 1;
         }
         for i in 0..self.meta.num_rows() {
             update_max_widths(self.meta, i, &mut self.widths, self.use_scientific)?;
@@ -50,12 +53,15 @@ impl<'a> MetaTableWriter<'a> {
     }
 
     pub fn write_header<W: Write>(&self, writer: &mut W) -> io::Result<()> {
-
         for j in 0..self.meta.num_cols() {
-            write!(writer, " {:width$}", self.meta.meta_name[j], width = self.widths[j] - 1)?;
+            write!(
+                writer,
+                " {:width$}",
+                self.meta.meta_name[j],
+                width = self.widths[j] - 1
+            )?;
         }
         writeln!(writer)
-    
     }
 
     pub fn write_row<W: Write>(&self, writer: &mut W, i: usize) -> io::Result<()> {
@@ -66,13 +72,17 @@ impl<'a> MetaTableWriter<'a> {
             write_cell(self.meta, writer, i, j, &self.widths, self.use_scientific)?;
         }
         Ok(())
-    }    
-
+    }
 }
 
 /* -------------------------------------------------------------------------- */
 
-fn update_max_widths(meta: &Meta, i: usize, widths: &mut [usize], use_scientific: bool) -> io::Result<()> {
+fn update_max_widths(
+    meta: &Meta,
+    i: usize,
+    widths: &mut [usize],
+    use_scientific: bool,
+) -> io::Result<()> {
     for j in 0..meta.num_cols() {
         let mut tmp_buffer = Vec::new();
         {
@@ -80,7 +90,7 @@ fn update_max_widths(meta: &Meta, i: usize, widths: &mut [usize], use_scientific
             write_cell(meta, &mut tmp_writer, i, j, widths, use_scientific)?;
             tmp_writer.flush()?;
         }
-        let width = tmp_buffer.len()-1;
+        let width = tmp_buffer.len() - 1;
         if width > widths[j] {
             widths[j] = width;
         }
@@ -88,7 +98,14 @@ fn update_max_widths(meta: &Meta, i: usize, widths: &mut [usize], use_scientific
     Ok(())
 }
 
-fn write_cell_slice<W: Write>(data: &MetaData, writer: &mut W, i: usize, j: usize, widths: &[usize], use_scientific: bool) -> io::Result<()> {
+fn write_cell_slice<W: Write>(
+    data: &MetaData,
+    writer: &mut W,
+    i: usize,
+    j: usize,
+    widths: &[usize],
+    use_scientific: bool,
+) -> io::Result<()> {
     let mut tmp_buffer = Vec::new();
     {
         let mut tmp_writer = io::Cursor::new(&mut tmp_buffer);
@@ -124,10 +141,22 @@ fn write_cell_slice<W: Write>(data: &MetaData, writer: &mut W, i: usize, j: usiz
             _ => unreachable!(),
         }
     }
-    write!(writer, " {:width$}", String::from_utf8(tmp_buffer).unwrap(), width = widths[j] - 1)
+    write!(
+        writer,
+        " {:width$}",
+        String::from_utf8(tmp_buffer).unwrap(),
+        width = widths[j] - 1
+    )
 }
 
-fn write_cell<W: Write>(meta: &Meta, writer: &mut W, i: usize, j: usize, widths: &[usize], use_scientific: bool) -> io::Result<()> {
+fn write_cell<W: Write>(
+    meta: &Meta,
+    writer: &mut W,
+    i: usize,
+    j: usize,
+    widths: &[usize],
+    use_scientific: bool,
+) -> io::Result<()> {
     match &meta.meta_data[j] {
         MetaData::StringArray(v) => {
             write!(writer, " {:width$}", v[i], width = widths[j] - 1)

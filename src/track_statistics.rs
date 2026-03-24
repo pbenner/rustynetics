@@ -18,14 +18,14 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-use std::f64;
 use std::error::Error;
+use std::f64;
 
 use crate::genome::Genome;
 use crate::read::Read;
 use crate::track::Track;
-use crate::track_simple::SimpleTrack;
 use crate::track_generic::GenericMutableTrack;
+use crate::track_simple::SimpleTrack;
 use crate::utility::div_int_up;
 
 /* -------------------------------------------------------------------------- */
@@ -68,14 +68,14 @@ fn bin_variance(sum: f64, sum_squares: f64, _min: f64, _max: f64, n: f64) -> f64
 
 pub fn bin_summary_statistics_from_string(s: &str) -> Option<BinSummaryStatistics> {
     match s {
-        "mean"          => Some(bin_mean),
-        "max"           => Some(bin_max),
-        "min"           => Some(bin_min),
+        "mean" => Some(bin_mean),
+        "max" => Some(bin_max),
+        "min" => Some(bin_min),
         "discrete mean" => Some(bin_discrete_mean),
-        "discrete max"  => Some(bin_discrete_max),
-        "discrete min"  => Some(bin_discrete_min),
-        "variance"      => Some(bin_variance),
-        _               => None,
+        "discrete max" => Some(bin_discrete_max),
+        "discrete min" => Some(bin_discrete_min),
+        "variance" => Some(bin_variance),
+        _ => None,
     }
 }
 
@@ -89,7 +89,6 @@ pub fn track_crosscorrelation(
     to: i32,
     normalize: bool,
 ) -> Result<(Vec<i32>, Vec<f64>), Box<dyn Error>> {
-
     if from < 0 || to < from {
         return Err("Crosscorrelation(): invalid parameters".into());
     }
@@ -112,11 +111,11 @@ pub fn track_crosscorrelation(
         }
     }
 
-    let b             = track1.get_bin_size();
-    let n             = div_int_up(to - from, b as i32);
-    let mut m         = 0.0;
-    let mut mean1     = 0.0;
-    let mut mean2     = 0.0;
+    let b = track1.get_bin_size();
+    let n = div_int_up(to - from, b as i32);
+    let mut m = 0.0;
+    let mut mean1 = 0.0;
+    let mut mean2 = 0.0;
     let mut variance1 = 1.0;
     let mut variance2 = 1.0;
 
@@ -163,7 +162,8 @@ pub fn track_crosscorrelation(
             for i in 0..sequence1.n_bins() {
                 for j in 0..n as usize {
                     if i + (x[j] as usize) < sequence1.n_bins() {
-                        s[j] += (sequence1.at_bin(i) - mean1) * (sequence2.at_bin(i + x[j] as usize) - mean2);
+                        s[j] += (sequence1.at_bin(i) - mean1)
+                            * (sequence2.at_bin(i + x[j] as usize) - mean2);
                     }
                 }
             }
@@ -190,12 +190,11 @@ pub fn track_crosscorrelation(
 
 // Function to cross-correlate reads on forward and reverse strands
 pub fn crosscorrelate_reads(
-    reads    : impl Iterator<Item = Read>,
-    genome   : &Genome,
+    reads: impl Iterator<Item = Read>,
+    genome: &Genome,
     max_delay: i32,
-    bin_size : usize,
+    bin_size: usize,
 ) -> Result<(Vec<i32>, Vec<f64>, i32, u64), Box<dyn Error>> {
-
     let mut track1 = SimpleTrack::alloc("forward".to_string(), genome.clone(), 0.0, bin_size);
     let mut track2 = SimpleTrack::alloc("reverse".to_string(), genome.clone(), 0.0, bin_size);
     let mut n = 0_u64;
@@ -205,7 +204,10 @@ pub fn crosscorrelate_reads(
         if read.strand == '+' {
             let mut r = read.clone();
             r.range.to = r.range.from + 1;
-            if GenericMutableTrack::wrap(&mut track1).add_read(&r, 0).is_ok() {
+            if GenericMutableTrack::wrap(&mut track1)
+                .add_read(&r, 0)
+                .is_ok()
+            {
                 read_length += (r.range.to - r.range.from) as u64;
                 n += 1;
             }
@@ -214,7 +216,10 @@ pub fn crosscorrelate_reads(
             r.range.from = r.range.to - 1;
             r.range.from += 1;
             r.range.to += 1;
-            if GenericMutableTrack::wrap(&mut track2).add_read(&r, 0).is_ok() {
+            if GenericMutableTrack::wrap(&mut track2)
+                .add_read(&r, 0)
+                .is_ok()
+            {
                 read_length += (r.range.to - r.range.from) as u64;
                 n += 1;
             }
@@ -235,16 +240,16 @@ pub fn crosscorrelate_reads(
 
 // Function to estimate fragment length
 pub fn estimate_fragment_length(
-    reads        : impl Iterator<Item = Read>,
-    genome       : &Genome,
-    max_delay    : i32,
-    bin_size     : usize,
+    reads: impl Iterator<Item = Read>,
+    genome: &Genome,
+    max_delay: i32,
+    bin_size: usize,
     fraglen_range: (i32, i32),
 ) -> Result<(i32, Vec<i32>, Vec<f64>, u64), Box<dyn Error>> {
     let (x, y, read_length, n) = crosscorrelate_reads(reads, genome, max_delay, bin_size)?;
 
     let mut from = (read_length + read_length / 2) as i32;
-    let mut to   = max_delay;
+    let mut to = max_delay;
 
     if fraglen_range.0 != -1 {
         from = fraglen_range.0;
@@ -254,8 +259,8 @@ pub fn estimate_fragment_length(
         to = fraglen_range.1;
     }
 
-    let mut i        = from / (bin_size as i32);
-    let mut max      = y[i as usize];
+    let mut i = from / (bin_size as i32);
+    let mut max = y[i as usize];
     let mut frag_len = x[i as usize];
 
     while i < to / (bin_size as i32) {

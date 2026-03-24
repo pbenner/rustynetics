@@ -18,11 +18,11 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-use std::fmt;
 use std::error::Error;
+use std::fmt;
 
-use crate::range::Range;
 use crate::granges_row::GRange;
+use crate::range::Range;
 
 /* -------------------------------------------------------------------------- */
 
@@ -60,27 +60,26 @@ use crate::granges_row::GRange;
 /// ```
 #[derive(Clone, Debug)]
 pub struct Read {
-    pub seqname   : String,
-    pub range     : Range,
-    pub strand    : char,
-    pub mapq      : i64,
-    pub duplicate : bool,
+    pub seqname: String,
+    pub range: Range,
+    pub strand: char,
+    pub mapq: i64,
+    pub duplicate: bool,
     pub paired_end: bool,
 }
 
 /* -------------------------------------------------------------------------- */
 
 impl Read {
-
     /// Converts the `Read` to a `GRange` object.
     ///
     /// The `GRange` object contains only the sequence name, range, and strand,
     /// omitting other fields specific to reads.
     pub fn get_grange(&self) -> GRange {
-        GRange{
+        GRange {
             seqname: self.seqname.clone(),
-            range  : self.range,
-            strand : self.strand
+            range: self.range,
+            strand: self.strand,
         }
     }
 
@@ -99,7 +98,7 @@ impl Read {
     /// Returns a `StrandMissingError` if the strand is not valid ('+' or '-').
     pub fn extend(&self, d: usize) -> Result<Range, Box<dyn Error>> {
         let mut from = self.range.from;
-        let mut to   = self.range.to;
+        let mut to = self.range.to;
 
         if !self.paired_end && d > 0 {
             // Extend read in 3' direction
@@ -128,14 +127,17 @@ impl Read {
 
 impl fmt::Display for Read {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "READ: {}:[{}-{}):{}, MAPQ={}, DUPLICATE={}, PAIRED_END={}",
+        write!(
+            f,
+            "READ: {}:[{}-{}):{}, MAPQ={}, DUPLICATE={}, PAIRED_END={}",
             self.seqname,
             self.range.from,
             self.range.to,
             self.strand,
             self.mapq,
             self.duplicate,
-            self.paired_end)
+            self.paired_end
+        )
     }
 }
 
@@ -146,7 +148,11 @@ pub struct StrandMissingError(char);
 
 impl fmt::Display for StrandMissingError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "strand information is missing for read with strand `{}`", self.0)
+        write!(
+            f,
+            "strand information is missing for read with strand `{}`",
+            self.0
+        )
     }
 }
 

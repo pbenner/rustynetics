@@ -18,10 +18,10 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+use std::cmp::Ordering;
+use std::collections::HashMap;
 use std::hash::Hash;
 use std::hash::Hasher;
-use std::collections::HashMap;
-use std::cmp::Ordering;
 
 /* -------------------------------------------------------------------------- */
 
@@ -88,14 +88,13 @@ pub struct CumDist {
 
 // Implement methods for CumDist
 impl CumDist {
-
     pub fn from_counts(x: Vec<f64>, y: Vec<usize>) -> Self {
         // Sort the arrays based on x values and keep y aligned with x
         let mut indices: Vec<usize> = (0..x.len()).collect();
 
         indices.sort_by(|&i, &j| x[i].partial_cmp(&x[j]).unwrap_or(Ordering::Equal));
 
-        let     sorted_x: Vec<f64>   = indices.iter().map(|&i| x[i]).collect();
+        let sorted_x: Vec<f64> = indices.iter().map(|&i| x[i]).collect();
         let mut sorted_y: Vec<usize> = indices.iter().map(|&i| y[i]).collect();
 
         // Compute the cumulative distribution
@@ -105,13 +104,15 @@ impl CumDist {
             *val = n;
         }
 
-        CumDist { x: sorted_x, y: sorted_y }
+        CumDist {
+            x: sorted_x,
+            y: sorted_y,
+        }
     }
 
     pub fn new(m: HashMap<OrderedFloat, usize>) -> Self {
-
-        let mut x : Vec<f64>   = vec![];
-        let mut y : Vec<usize> = vec![];
+        let mut x: Vec<f64> = vec![];
+        let mut y: Vec<usize> = vec![];
 
         for (key, val) in m.iter() {
             x.push(key.0);
@@ -124,7 +125,7 @@ impl CumDist {
     pub fn num(&self) -> usize {
         match self.y.len() {
             0 => 0,
-            n => self.y[n-1],
+            n => self.y[n - 1],
         }
     }
 }
@@ -151,6 +152,5 @@ mod tests {
 
         assert_eq!(cum_dist.x, vec![1.0, 2.0, 3.0]);
         assert_eq!(cum_dist.y, vec![2, 5, 6]);
-
     }
 }

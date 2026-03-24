@@ -18,15 +18,14 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-use std::io::{Seek, Write};
 use std::error::Error;
+use std::io::{Seek, Write};
 
 use crate::track_generic::GenericTrack;
 
 /* -------------------------------------------------------------------------- */
 
 impl GenericTrack<'_> {
-
     pub fn write_bed<W: Write + Seek>(&self, writer: &mut W) -> Result<(), Box<dyn Error>> {
         let r = self.granges("score")?;
 
@@ -34,8 +33,11 @@ impl GenericTrack<'_> {
         Ok(())
     }
 
-
-    pub fn export_bed<W: Write + Seek>(&self, filename: &str, compress: bool) -> Result<(), Box<dyn Error>> {
+    pub fn export_bed<W: Write + Seek>(
+        &self,
+        filename: &str,
+        compress: bool,
+    ) -> Result<(), Box<dyn Error>> {
         let r = self.granges("score")?;
 
         r.export_bed6(filename, compress)?;

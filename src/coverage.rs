@@ -18,8 +18,8 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-use std::fmt;
 use std::error::Error;
+use std::fmt;
 
 use crate::infologger::Logger;
 
@@ -66,7 +66,9 @@ impl fmt::Display for OptionCoverage {
             OptionCoverage::NormalizeTrack(s) => write!(f, "Normalize Track: {}", s),
             OptionCoverage::ShiftReads(arr) => write!(f, "Shift Reads: {:?}", arr),
             OptionCoverage::PairedAsSingleEnd(b) => write!(f, "Paired as Single End: {}", b),
-            OptionCoverage::PairedEndStrandSpecific(b) => write!(f, "Paired End Strand Specific: {}", b),
+            OptionCoverage::PairedEndStrandSpecific(b) => {
+                write!(f, "Paired End Strand Specific: {}", b)
+            }
             OptionCoverage::InitialValue(v) => write!(f, "Initial Value: {}", v),
             OptionCoverage::LogScale(b) => write!(f, "Log Scale: {}", b),
             OptionCoverage::Pseudocounts(arr) => write!(f, "Pseudocounts: {:?}", arr),
@@ -251,34 +253,39 @@ pub struct FraglenEstimate {
 /* Coverage error type
  * -------------------------------------------------------------------------- */
 
- #[derive(Debug)]
- pub struct CoverageError{
-     pub error                      : Box<dyn Error>,
-     pub treatment_fraglen_estimates: Vec<FraglenEstimate>,
-     pub   control_fraglen_estimates: Vec<FraglenEstimate>,
- }
- 
- impl CoverageError {
- 
-     pub fn new(
-         error                      : Box<dyn Error>,
-         treatment_fraglen_estimates: Vec<FraglenEstimate>,
-         control_fraglen_estimates  : Vec<FraglenEstimate>
-     ) -> CoverageError {
-         CoverageError{error, treatment_fraglen_estimates, control_fraglen_estimates}
-     }
- 
-     pub fn new_empty(error: Box<dyn Error>) -> CoverageError {
-         CoverageError{error, treatment_fraglen_estimates: vec![], control_fraglen_estimates: vec![]}
-     }
- 
- }
- 
- impl fmt::Display for CoverageError {
-     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-         write!(f, "{}", self.error)
-     }
- }
- 
- impl std::error::Error for CoverageError {}
- 
+#[derive(Debug)]
+pub struct CoverageError {
+    pub error: Box<dyn Error>,
+    pub treatment_fraglen_estimates: Vec<FraglenEstimate>,
+    pub control_fraglen_estimates: Vec<FraglenEstimate>,
+}
+
+impl CoverageError {
+    pub fn new(
+        error: Box<dyn Error>,
+        treatment_fraglen_estimates: Vec<FraglenEstimate>,
+        control_fraglen_estimates: Vec<FraglenEstimate>,
+    ) -> CoverageError {
+        CoverageError {
+            error,
+            treatment_fraglen_estimates,
+            control_fraglen_estimates,
+        }
+    }
+
+    pub fn new_empty(error: Box<dyn Error>) -> CoverageError {
+        CoverageError {
+            error,
+            treatment_fraglen_estimates: vec![],
+            control_fraglen_estimates: vec![],
+        }
+    }
+}
+
+impl fmt::Display for CoverageError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.error)
+    }
+}
+
+impl std::error::Error for CoverageError {}

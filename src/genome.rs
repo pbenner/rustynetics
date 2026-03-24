@@ -42,7 +42,7 @@ use std::path::Path;
 #[derive(Clone, Debug, Default)]
 pub struct Genome {
     pub seqnames: Vec<String>,
-    pub lengths : Vec<usize>
+    pub lengths: Vec<usize>,
 }
 
 /* -------------------------------------------------------------------------- */
@@ -136,7 +136,7 @@ impl Genome {
             Err(format!("sequence `{}` already exists", seqname))
         } else {
             self.seqnames.push(seqname);
-            self.lengths .push(length);
+            self.lengths.push(length);
             Ok(self.len() - 1)
         }
     }
@@ -156,17 +156,17 @@ impl Genome {
         F: Fn(&str, usize) -> bool,
     {
         let mut seqnames = Vec::new();
-        let mut lengths  = Vec::new();
+        let mut lengths = Vec::new();
 
         for (seqname, length) in self.seqnames.iter().zip(self.lengths.iter()) {
             if f(seqname, *length) {
                 seqnames.push(seqname.clone());
-                lengths .push(*length);
+                lengths.push(*length);
             }
         }
         Genome {
             seqnames: seqnames,
-            lengths : lengths
+            lengths: lengths,
         }
     }
 
@@ -181,7 +181,6 @@ impl Genome {
 /* -------------------------------------------------------------------------- */
 
 impl Genome {
-
     /// Reads genome data from a reader.
     ///
     /// # Arguments
@@ -215,7 +214,7 @@ impl Genome {
     pub fn read<R: Read>(&mut self, reader: R) -> io::Result<()> {
         let reader = BufReader::new(reader);
         let mut seqnames = Vec::new();
-        let mut lengths  = Vec::new();
+        let mut lengths = Vec::new();
 
         for line in reader.lines() {
             let line = line?;
@@ -224,11 +223,16 @@ impl Genome {
             }
             let fields: Vec<&str> = line.split_whitespace().collect();
             if fields.len() < 2 {
-                return Err(io::Error::new(io::ErrorKind::InvalidData, "invalid genome file"));
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "invalid genome file",
+                ));
             }
-            let length: usize = fields[1].parse().map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+            let length: usize = fields[1]
+                .parse()
+                .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
             seqnames.push(fields[0].to_string());
-            lengths .push(length);
+            lengths.push(length);
         }
         *self = Genome::new(seqnames, lengths);
         Ok(())
@@ -260,15 +264,22 @@ impl Genome {
     /// A result indicating success or an I/O error if the file cannot be read or is incorrectly formatted.
     pub fn import<P: AsRef<Path>>(&mut self, filename: P) -> io::Result<()> {
         let file = File::open(filename.as_ref())?;
-        self.read(file).map_err(|e| io::Error::new(io::ErrorKind::Other, format!("reading genome from `{:?}` failed: {}", filename.as_ref(), e)))
+        self.read(file).map_err(|e| {
+            io::Error::new(
+                io::ErrorKind::Other,
+                format!(
+                    "reading genome from `{:?}` failed: {}",
+                    filename.as_ref(),
+                    e
+                ),
+            )
+        })
     }
-
 }
 
 /* -------------------------------------------------------------------------- */
 
 impl Genome {
-
     /// Writes the genome data to a writer.
     ///
     /// # Arguments
@@ -329,9 +340,13 @@ impl Genome {
     /// Returns an error if the file cannot be created or written to.
     pub fn export<P: AsRef<Path>>(&self, filename: P) -> io::Result<()> {
         let file = File::create(filename.as_ref())?;
-        self.write(file).map_err(|e| io::Error::new(io::ErrorKind::Other, format!("writing genome to `{:?}` failed: {}", filename.as_ref(), e)))
+        self.write(file).map_err(|e| {
+            io::Error::new(
+                io::ErrorKind::Other,
+                format!("writing genome to `{:?}` failed: {}", filename.as_ref(), e),
+            )
+        })
     }
-
 }
 
 /* -------------------------------------------------------------------------- */
@@ -344,7 +359,7 @@ impl PartialEq for Genome {
     /// `true` if both `Genome` instances have identical sequences and lengths, `false` otherwise.
     fn eq(&self, other: &Self) -> bool {
         if self.len() != other.len() {
-            return false
+            return false;
         }
         for (seqname, l1) in self.seqnames.iter().zip(self.lengths.iter()) {
             let l2 = match other.seq_length(seqname) {
@@ -352,7 +367,7 @@ impl PartialEq for Genome {
                 Err(_) => return false,
             };
             if *l1 != l2 {
-                return false
+                return false;
             }
         }
         true

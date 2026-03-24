@@ -18,20 +18,20 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-use std::fmt;
-use std::cmp::Ordering;
-use std::rc::Rc;
 use std::cell::RefCell;
 use std::clone::Clone;
+use std::cmp::Ordering;
+use std::fmt;
+use std::rc::Rc;
 
 /* -------------------------------------------------------------------------- */
- 
+
 #[derive(Clone)]
 pub struct EndPointNode {
     pub position: usize,
-    pub start   : Option<EndPoint>,
-    pub end     : Option<EndPoint>,
-    pub src_idx : usize,
+    pub start: Option<EndPoint>,
+    pub end: Option<EndPoint>,
+    pub src_idx: usize,
     pub is_query: bool,
 }
 
@@ -41,7 +41,12 @@ impl fmt::Debug for EndPointNode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "[position: {}, is_start: {}, is_end: {}, src_idx: {}, is_query: {}]", self.position, self.start.is_none(), self.end.is_none(), self.src_idx, self.is_query
+            "[position: {}, is_start: {}, is_end: {}, src_idx: {}, is_query: {}]",
+            self.position,
+            self.start.is_none(),
+            self.end.is_none(),
+            self.src_idx,
+            self.is_query
         )
     }
 }
@@ -51,13 +56,12 @@ impl fmt::Debug for EndPointNode {
 pub struct EndPoint(Rc<RefCell<EndPointNode>>);
 
 impl EndPoint {
-
     pub fn new(position: usize, src_idx: usize, is_query: bool) -> EndPoint {
         EndPoint(Rc::new(RefCell::new(EndPointNode {
             position: position,
-            start   : None,
-            end     : None,
-            src_idx : src_idx,
+            start: None,
+            end: None,
+            src_idx: src_idx,
             is_query: is_query,
         })))
     }
@@ -108,12 +112,14 @@ impl EndPoint {
             (r1, r2)
         };
 
-        if r1.0.borrow().start.is_none() || r2.get_position() <= r1.0.borrow().start.as_ref().unwrap().0.borrow().position {
+        if r1.0.borrow().start.is_none()
+            || r2.get_position() <= r1.0.borrow().start.as_ref().unwrap().0.borrow().position
+        {
             return (0, sign);
         }
 
-        let d1 = r2.get_start() as i64 - r1.get_end  () as i64;
-        let d2 = r2.get_end  () as i64 - r1.get_start() as i64;
+        let d1 = r2.get_start() as i64 - r1.get_end() as i64;
+        let d2 = r2.get_end() as i64 - r1.get_start() as i64;
 
         if d1 < d2 {
             (d1, sign)
@@ -171,21 +177,18 @@ impl std::ops::DerefMut for EndPoint {
 
 impl fmt::Debug for EndPoint {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{:?}", self.0.borrow()
-        )
+        write!(f, "{:?}", self.0.borrow())
     }
 }
 /* -------------------------------------------------------------------------- */
- 
+
 #[derive(Debug)]
 pub struct EndPointList(Vec<EndPoint>);
 
 impl EndPointList {
     pub fn new() -> Self {
-            EndPointList(Vec::new())
-        }
+        EndPointList(Vec::new())
+    }
 
     pub fn push(&mut self, endpoint: EndPoint) {
         self.0.push(endpoint);
@@ -239,13 +242,12 @@ impl Ord for EndPointList {
 /* -------------------------------------------------------------------------- */
 
 impl EndPointList {
-
     pub fn find_overlaps_entry(
-        query_hits  : &mut Vec<usize>,
+        query_hits: &mut Vec<usize>,
         subject_hits: &mut Vec<usize>,
-        entry       : &mut EndPointList,
+        entry: &mut EndPointList,
     ) {
-        let mut query_list   = EndPointList::new();
+        let mut query_list = EndPointList::new();
         let mut subject_list = EndPointList::new();
 
         for endpoint in &entry.0 {
@@ -253,7 +255,7 @@ impl EndPointList {
                 if endpoint.is_start() {
                     query_list.push(endpoint.clone());
                     for subject_endpoint in &subject_list.0 {
-                        query_hits  .push(        endpoint.src_idx());
+                        query_hits.push(endpoint.src_idx());
                         subject_hits.push(subject_endpoint.src_idx());
                     }
                 } else {
@@ -263,8 +265,8 @@ impl EndPointList {
                 if endpoint.is_start() {
                     subject_list.push(endpoint.clone());
                     for query_endpoint in &query_list.0 {
-                        query_hits  .push(query_endpoint.src_idx());
-                        subject_hits.push(      endpoint.src_idx());
+                        query_hits.push(query_endpoint.src_idx());
+                        subject_hits.push(endpoint.src_idx());
                     }
                 } else {
                     subject_list.remove(endpoint.borrow().start.as_ref().unwrap());
@@ -272,5 +274,4 @@ impl EndPointList {
             }
         }
     }
-
 }

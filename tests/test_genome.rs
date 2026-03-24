@@ -23,7 +23,7 @@
 #[cfg(test)]
 mod tests {
 
-    use rustynetics::genome::{Genome};
+    use rustynetics::genome::Genome;
 
     #[test]
     fn test_genome() {

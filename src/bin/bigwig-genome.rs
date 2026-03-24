@@ -48,19 +48,23 @@ fn main() {
         .version("1.0")
         .author("Philipp Benner [https://github.com/pbenner]")
         .about("Print bigWig genome entries")
-        .arg(Arg::new("input")
-            .required(true)
-            .index(1)
-            .help("Input BigWig file"))
-        .arg(Arg::new("verbose")
-            .short('v')
-            .long("verbose")
-            .action(clap::ArgAction::SetTrue)
-            .help("Enable verbose output"))
+        .arg(
+            Arg::new("input")
+                .required(true)
+                .index(1)
+                .help("Input BigWig file"),
+        )
+        .arg(
+            Arg::new("verbose")
+                .short('v')
+                .long("verbose")
+                .action(clap::ArgAction::SetTrue)
+                .help("Enable verbose output"),
+        )
         .get_matches();
 
     let filename_in = matches.get_one::<String>("input").unwrap();
-    let verbose     = matches.get_flag("verbose");
+    let verbose = matches.get_flag("verbose");
 
     get_genome(filename_in, verbose);
 }

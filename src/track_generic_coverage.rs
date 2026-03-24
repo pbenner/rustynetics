@@ -22,27 +22,26 @@ use std::error::Error;
 
 use futures::executor::block_on_stream;
 
+use crate::bam::BamFile;
 use crate::coverage::CoverageConfig;
 use crate::read_stream::ReadStream;
 use crate::track_generic::GenericMutableTrack;
-use crate::bam::BamFile;
 
 /* -------------------------------------------------------------------------- */
 
 impl<'a> GenericMutableTrack<'a> {
-
     pub fn coverage_from_bam(
-        mut config         : CoverageConfig,
-        mut track1         : GenericMutableTrack,
-        track2_arg         : Option<GenericMutableTrack>,
+        mut config: CoverageConfig,
+        mut track1: GenericMutableTrack,
+        track2_arg: Option<GenericMutableTrack>,
         filenames_treatment: &Vec<&str>,
-        filenames_control  : &Vec<&str>,
-        fraglen_treatment  : &Vec<usize>,
-        fraglen_control    : &Vec<usize>,
+        filenames_control: &Vec<&str>,
+        fraglen_treatment: &Vec<usize>,
+        fraglen_control: &Vec<usize>,
     ) -> Result<(), Box<dyn Error>> {
         // Treatment data
         let mut n_treatment = 0;
-        let mut n_control   = 0;
+        let mut n_control = 0;
 
         for (i, filename) in filenames_treatment.iter().enumerate() {
             let mut err_opt = None;
@@ -51,28 +50,52 @@ impl<'a> GenericMutableTrack<'a> {
             log!(config.logger, "Reading treatment tags from `{}`", filename);
             let mut bam = BamFile::open(filename, None)?;
 
-            let treatment = Box::pin(bam.reader.read_simple_stream(!config.paired_as_single_end, config.paired_end_strand_specific));
+            let treatment = Box::pin(bam.reader.read_simple_stream(
+                !config.paired_as_single_end,
+                config.paired_end_strand_specific,
+            ));
             // First round of filtering
-            let treatment = ReadStream::filter_paired_end   (treatment, Some(&config.logger),  config.filter_paired_end);
-            let treatment = ReadStream::filter_single_end   (treatment, Some(&config.logger),  config.filter_single_end);
-            let treatment = ReadStream::paired_as_single_end(treatment, Some(&config.logger),  config.paired_as_single_end);
-            let treatment = ReadStream::filter_read_length  (treatment, Some(&config.logger), &config.filter_read_lengths);
-            let treatment = ReadStream::filter_duplicates   (treatment, Some(&config.logger),  config.filter_duplicates);
-            let treatment = ReadStream::filter_mapq         (treatment, Some(&config.logger),  config.filter_mapq);
+            let treatment = ReadStream::filter_paired_end(
+                treatment,
+                Some(&config.logger),
+                config.filter_paired_end,
+            );
+            let treatment = ReadStream::filter_single_end(
+                treatment,
+                Some(&config.logger),
+                config.filter_single_end,
+            );
+            let treatment = ReadStream::paired_as_single_end(
+                treatment,
+                Some(&config.logger),
+                config.paired_as_single_end,
+            );
+            let treatment = ReadStream::filter_read_length(
+                treatment,
+                Some(&config.logger),
+                &config.filter_read_lengths,
+            );
+            let treatment = ReadStream::filter_duplicates(
+                treatment,
+                Some(&config.logger),
+                config.filter_duplicates,
+            );
+            let treatment =
+                ReadStream::filter_mapq(treatment, Some(&config.logger), config.filter_mapq);
             // Second round of filtering
-            let treatment = ReadStream::filter_strand       (treatment, Some(&config.logger),  config.filter_strand);
-            let treatment = ReadStream::shift_reads         (treatment, Some(&config.logger), &config.shift_reads);
+            let treatment =
+                ReadStream::filter_strand(treatment, Some(&config.logger), config.filter_strand);
+            let treatment =
+                ReadStream::shift_reads(treatment, Some(&config.logger), &config.shift_reads);
 
-            let treatment_iter = block_on_stream(treatment).map_while(|item| {
-                match item {
-                    Ok(read) => Some(read),
-                    Err(err) => {
-                        err_opt = Some(err);
-                        None
-                    }
+            let treatment_iter = block_on_stream(treatment).map_while(|item| match item {
+                Ok(read) => Some(read),
+                Err(err) => {
+                    err_opt = Some(err);
+                    None
                 }
             });
-        
+
             n_treatment += track1.add_reads(treatment_iter, fraglen, &config.binning_method);
 
             if let Some(err) = err_opt {
@@ -104,29 +127,53 @@ impl<'a> GenericMutableTrack<'a> {
 
                 log!(config.logger, "Reading control tags from `{}`", filename);
                 let mut bam = BamFile::open(filename, None)?;
-                let control = Box::pin(bam.reader.read_simple_stream(!config.paired_as_single_end, config.paired_end_strand_specific));
+                let control = Box::pin(bam.reader.read_simple_stream(
+                    !config.paired_as_single_end,
+                    config.paired_end_strand_specific,
+                ));
 
                 // First round of filtering
-                let control = ReadStream::filter_paired_end   (control, Some(&config.logger),  config.filter_paired_end);
-                let control = ReadStream::filter_single_end   (control, Some(&config.logger),  config.filter_single_end);
-                let control = ReadStream::paired_as_single_end(control, Some(&config.logger),  config.paired_as_single_end);
-                let control = ReadStream::filter_read_length  (control, Some(&config.logger), &config.filter_read_lengths);
-                let control = ReadStream::filter_duplicates   (control, Some(&config.logger),  config.filter_duplicates);
-                let control = ReadStream::filter_mapq         (control, Some(&config.logger),  config.filter_mapq);
+                let control = ReadStream::filter_paired_end(
+                    control,
+                    Some(&config.logger),
+                    config.filter_paired_end,
+                );
+                let control = ReadStream::filter_single_end(
+                    control,
+                    Some(&config.logger),
+                    config.filter_single_end,
+                );
+                let control = ReadStream::paired_as_single_end(
+                    control,
+                    Some(&config.logger),
+                    config.paired_as_single_end,
+                );
+                let control = ReadStream::filter_read_length(
+                    control,
+                    Some(&config.logger),
+                    &config.filter_read_lengths,
+                );
+                let control = ReadStream::filter_duplicates(
+                    control,
+                    Some(&config.logger),
+                    config.filter_duplicates,
+                );
+                let control =
+                    ReadStream::filter_mapq(control, Some(&config.logger), config.filter_mapq);
                 // Second round of filtering
-                let control = ReadStream::filter_strand       (control, Some(&config.logger),  config.filter_strand);
-                let control = ReadStream::shift_reads         (control, Some(&config.logger), &config.shift_reads);
+                let control =
+                    ReadStream::filter_strand(control, Some(&config.logger), config.filter_strand);
+                let control =
+                    ReadStream::shift_reads(control, Some(&config.logger), &config.shift_reads);
 
-                let control_iter = block_on_stream(control).map_while(|item| {
-                    match item {
-                        Ok(read) => Some(read),
-                        Err(err) => {
-                            err_opt = Some(err);
-                            None
-                        }
+                let control_iter = block_on_stream(control).map_while(|item| match item {
+                    Ok(read) => Some(read),
+                    Err(err) => {
+                        err_opt = Some(err);
+                        None
                     }
                 });
-        
+
                 n_control += track2.add_reads(control_iter, fraglen, &config.binning_method);
 
                 if let Some(err) = err_opt {
@@ -155,11 +202,19 @@ impl<'a> GenericMutableTrack<'a> {
 
             log!(config.logger, "Combining treatment and control tracks...");
             track1.normalize(
-                track2.track.as_track(), config.pseudocounts[0], config.pseudocounts[1], config.log_scale)?;
+                track2.track.as_track(),
+                config.pseudocounts[0],
+                config.pseudocounts[1],
+                config.log_scale,
+            )?;
         } else {
             // No control data
             if config.pseudocounts[0] != 0.0 {
-                log!(config.logger, "Adding pseudocount `{}`", config.pseudocounts[0]);
+                log!(
+                    config.logger,
+                    "Adding pseudocount `{}`",
+                    config.pseudocounts[0]
+                );
                 track1.map(|_name, _i, x| x + config.pseudocounts[0])?;
             }
             if config.log_scale {
@@ -171,14 +226,22 @@ impl<'a> GenericMutableTrack<'a> {
         // Filtering chromosomes
         if config.remove_filtered_chroms {
             if !config.filter_chroms.is_empty() {
-                log!(config.logger, "Removing chromosomes `{}`", config.filter_chroms.join(", "));
-                track1.track.filter_genome(&|name : &str, _length : usize| {
+                log!(
+                    config.logger,
+                    "Removing chromosomes `{}`",
+                    config.filter_chroms.join(", ")
+                );
+                track1.track.filter_genome(&|name: &str, _length: usize| {
                     !config.filter_chroms.contains(&name.to_string())
                 });
             }
         } else {
             if !config.filter_chroms.is_empty() {
-                log!(config.logger, "Removing all reads from `{}`", config.filter_chroms.join(", "));
+                log!(
+                    config.logger,
+                    "Removing all reads from `{}`",
+                    config.filter_chroms.join(", ")
+                );
                 for chr in &config.filter_chroms {
                     if let Ok(mut s) = track1.track.get_sequence_mut(chr) {
                         for i in 0..s.n_bins() {
@@ -190,8 +253,5 @@ impl<'a> GenericMutableTrack<'a> {
         }
 
         Ok(())
-
     }
-
 }
-

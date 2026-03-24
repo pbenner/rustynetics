@@ -18,8 +18,8 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-use std::process;
 use std::error::Error;
+use std::process;
 
 use clap::{Arg, Command};
 use rustynetics::bam::bam_import_genome;
@@ -61,12 +61,14 @@ fn main() {
                 .short('v')
                 .long("verbose")
                 .action(clap::ArgAction::SetTrue)
-                .help("Enable verbose output")
+                .help("Enable verbose output"),
         )
         .get_matches();
 
-    let filename_in = matches.get_one::<String>("input").expect("Input file is required");
-    let verbose     = matches.get_flag("verbose");
+    let filename_in = matches
+        .get_one::<String>("input")
+        .expect("Input file is required");
+    let verbose = matches.get_flag("verbose");
 
     if let Err(e) = get_genome(filename_in, verbose) {
         eprintln!("Error: {}", e);

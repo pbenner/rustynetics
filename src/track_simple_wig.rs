@@ -20,7 +20,7 @@
 
 use std::fs::File;
 use std::io::{self, BufRead, BufReader, Write};
-use std::{rc::Rc, cell::RefCell};
+use std::{cell::RefCell, rc::Rc};
 
 use crate::track_simple::SimpleTrack;
 use crate::utility::is_gzip;
@@ -28,11 +28,10 @@ use crate::utility::is_gzip;
 /* -------------------------------------------------------------------------- */
 
 impl SimpleTrack {
-
     fn write_wiggle_fixed_step<W: Write>(
         &self,
-        writer  : &mut W,
-        seqname : &str,
+        writer: &mut W,
+        seqname: &str,
         sequence: &[f64],
     ) -> io::Result<()> {
         let mut gap = true;
@@ -59,8 +58,8 @@ impl SimpleTrack {
 
     fn write_wiggle_variable_step<W: Write>(
         &self,
-        writer  : &mut W,
-        seqname : &str,
+        writer: &mut W,
+        seqname: &str,
         sequence: &[f64],
     ) -> io::Result<()> {
         writeln!(
@@ -77,8 +76,7 @@ impl SimpleTrack {
     }
 
     pub fn write_wiggle(&self, filename: &str, description: &str) -> io::Result<()> {
-
-        let mut file   = File::create(filename)?;
+        let mut file = File::create(filename)?;
         let mut writer = io::BufWriter::new(&mut file);
 
         writeln!(
@@ -88,7 +86,11 @@ impl SimpleTrack {
         )?;
 
         for (seqname, sequence) in &self.data {
-            let n = sequence.borrow().iter().filter(|&&x| x.is_nan() || x == 0.0).count();
+            let n = sequence
+                .borrow()
+                .iter()
+                .filter(|&&x| x.is_nan() || x == 0.0)
+                .count();
             if n >= sequence.borrow().len() / 2 {
                 // sparse data track
                 self.write_wiggle_variable_step(&mut writer, seqname, &sequence.borrow())?;
@@ -99,19 +101,18 @@ impl SimpleTrack {
         }
         Ok(())
     }
-
 }
 
 /* -------------------------------------------------------------------------- */
 
 impl SimpleTrack {
-
-    fn read_wiggle_header(&mut self, scanner: &mut dyn Iterator<Item = String>) -> Result<(), String> {
-
+    fn read_wiggle_header(
+        &mut self,
+        scanner: &mut dyn Iterator<Item = String>,
+    ) -> Result<(), String> {
         let fields: Vec<String> = fields_quoted(&scanner.next().unwrap());
 
         for field in fields.iter().skip(1) {
-
             let header_fields: Vec<&str> = field.split('=').collect();
             if header_fields.len() != 2 {
                 return Err("invalid declaration line".into());
@@ -133,9 +134,8 @@ impl SimpleTrack {
         &mut self,
         scanner: &mut dyn Iterator<Item = String>,
     ) -> Result<(), String> {
-
         let fields: Vec<String> = fields_quoted(&scanner.next().unwrap());
-        let mut seqname  = String::new();
+        let mut seqname = String::new();
         let mut position = 0;
 
         for field in fields.iter().skip(1) {
@@ -146,7 +146,9 @@ impl SimpleTrack {
             match header_fields[0] {
                 "chrom" => seqname = remove_quotes(header_fields[1]),
                 "start" => {
-                    let t = header_fields[1].parse::<i64>().map_err(|_| "invalid start value")?;
+                    let t = header_fields[1]
+                        .parse::<i64>()
+                        .map_err(|_| "invalid start value")?;
 
                     if t <= 0 {
                         return Err("declaration line defines invalid start position".into());
@@ -155,7 +157,9 @@ impl SimpleTrack {
                     position = self.index((t - 1) as usize);
                 }
                 "step" => {
-                    let t = header_fields[1].parse::<i64>().map_err(|_| "invalid step value")?;
+                    let t = header_fields[1]
+                        .parse::<i64>()
+                        .map_err(|_| "invalid step value")?;
                     if self.bin_size != t as usize {
                         return Err("step sizes do not match the binSize of the track".into());
                     }
@@ -168,7 +172,13 @@ impl SimpleTrack {
             return Err("declaration line is missing the chromosome name".into());
         }
 
-        let sequence = self.data.get(&seqname).cloned().unwrap_or_default().borrow().to_vec();
+        let sequence = self
+            .data
+            .get(&seqname)
+            .cloned()
+            .unwrap_or_default()
+            .borrow()
+            .to_vec();
 
         for line in scanner {
             let fields: Vec<&str> = line.split_whitespace().collect();
@@ -192,7 +202,6 @@ impl SimpleTrack {
         &mut self,
         scanner: &mut dyn Iterator<Item = String>,
     ) -> Result<(), String> {
-
         let fields: Vec<String> = fields_quoted(&scanner.next().unwrap());
         let mut seqname = String::new();
 
@@ -204,7 +213,9 @@ impl SimpleTrack {
             match header_fields[0] {
                 "chrom" => seqname = remove_quotes(header_fields[1]),
                 "span" => {
-                    let t = header_fields[1].parse::<i64>().map_err(|_| "invalid span value")?;
+                    let t = header_fields[1]
+                        .parse::<i64>()
+                        .map_err(|_| "invalid span value")?;
                     if self.bin_size != t as usize {
                         return Err("span does not match the binSize of the track".into());
                     }
@@ -223,7 +234,9 @@ impl SimpleTrack {
             if fields.len() != 2 {
                 break;
             }
-            let position = fields[0].parse::<i64>().map_err(|_| "invalid position value")?;
+            let position = fields[0]
+                .parse::<i64>()
+                .map_err(|_| "invalid position value")?;
             let value = fields[1].parse::<f64>().map_err(|_| "invalid data value")?;
 
             if position <= 0 {
@@ -239,11 +252,7 @@ impl SimpleTrack {
         Ok(())
     }
 
-    pub fn read_wiggle<R: BufRead>(
-        &mut self,
-        reader: R
-    ) -> Result<(), String> {
-
+    pub fn read_wiggle<R: BufRead>(&mut self, reader: R) -> Result<(), String> {
         let mut scanner = reader.lines().map(|l| l.unwrap());
         let mut header = false;
 
@@ -265,17 +274,17 @@ impl SimpleTrack {
                 "browser" => continue, // skip any browser options
                 "fixedStep" => self.read_wiggle_fixed_step(&mut scanner)?,
                 "variableStep" => self.read_wiggle_variable_step(&mut scanner)?,
-                _ => return Err("unknown sequence type (i.e., not fixedStep or variableStep)".into()),
+                _ => {
+                    return Err(
+                        "unknown sequence type (i.e., not fixedStep or variableStep)".into(),
+                    )
+                }
             }
         }
         Ok(())
     }
 
-    pub fn import_wiggle(
-        &mut self,
-        filename: &str
-    ) -> Result<(), String> {
-
+    pub fn import_wiggle(&mut self, filename: &str) -> Result<(), String> {
         let file = File::open(&filename).map_err(|_| "failed to open file")?;
         let reader = BufReader::new(file);
 
@@ -286,7 +295,6 @@ impl SimpleTrack {
             self.read_wiggle(reader)
         }
     }
-
 }
 
 /* -------------------------------------------------------------------------- */

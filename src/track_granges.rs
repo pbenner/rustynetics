@@ -27,7 +27,6 @@ use crate::track_generic::GenericTrack;
 /* -------------------------------------------------------------------------- */
 
 impl<'a> GenericTrack<'a> {
-
     /// Converts the track data into genomic ranges (GRanges) format.
     ///
     /// This function iterates over the sequences in the track and identifies contiguous intervals of equal values. For each interval, it records the start and end positions along with the corresponding value. The result is a `GRanges` object that contains the genomic ranges for each sequence along with their associated values.
@@ -45,19 +44,14 @@ impl<'a> GenericTrack<'a> {
     /// This function will return an error if:
     /// - There is a failure while retrieving the sequence from the track.
     /// - Any other errors related to the metadata or GRanges construction occur.
-    pub fn granges(
-        &self,
-        name : &str
-    ) -> Result<GRanges, Box<dyn Error>> {
-
-        let bin_size     = self.track.get_bin_size();
+    pub fn granges(&self, name: &str) -> Result<GRanges, Box<dyn Error>> {
+        let bin_size = self.track.get_bin_size();
         let mut seqnames = Vec::new();
-        let mut from     = Vec::new();
-        let mut to       = Vec::new();
-        let mut values   = Vec::new();
+        let mut from = Vec::new();
+        let mut to = Vec::new();
+        let mut values = Vec::new();
 
         for seq_name in self.track.get_seq_names() {
-
             let sequence = match self.track.get_sequence(&seq_name) {
                 Ok(seq) => seq,
                 Err(e) => return Err(e),
@@ -69,33 +63,31 @@ impl<'a> GenericTrack<'a> {
 
             // Current values
             let mut c_from = 0;
-            let mut c_to   = bin_size;
-            let mut c_val  = sequence.at_bin(0);
+            let mut c_to = bin_size;
+            let mut c_val = sequence.at_bin(0);
 
             for i in 1..sequence.n_bins() {
-
                 let v = sequence.at_bin(i);
 
                 if v != c_val {
-
                     seqnames.push(seq_name.clone());
-                    from    .push(c_from);
-                    to      .push(c_to);
-                    values  .push(c_val);
+                    from.push(c_from);
+                    to.push(c_to);
+                    values.push(c_val);
 
                     c_from = c_to;
-                    c_to   = c_from + bin_size;
-                    c_val  = v;
+                    c_to = c_from + bin_size;
+                    c_val = v;
                 } else {
-                    c_to  += bin_size;
+                    c_to += bin_size;
                 }
             }
 
             // Append last result
             seqnames.push(seq_name.clone());
-            from    .push(c_from);
-            to      .push(c_to);
-            values  .push(c_val);
+            from.push(c_from);
+            to.push(c_to);
+            values.push(c_val);
         }
 
         let mut r = GRanges::new(seqnames, from, to, vec![]);
@@ -104,5 +96,4 @@ impl<'a> GenericTrack<'a> {
 
         Ok(r)
     }
-
 }

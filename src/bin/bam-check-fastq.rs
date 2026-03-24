@@ -28,6 +28,7 @@ use clap::{Arg, Command};
 use flate2::read::MultiGzDecoder;
 
 use rustynetics::bam::{BamReader, BamReaderOptions};
+use rustynetics::fastq::FastqReader;
 use rustynetics::progress::{CountingReader, ProgressScope};
 
 /* -------------------------------------------------------------------------- */
@@ -53,14 +54,6 @@ struct CheckResult {
 /* -------------------------------------------------------------------------- */
 
 const STATUS_RECORD_UPDATE_INTERVAL: usize = 10_000;
-
-/* -------------------------------------------------------------------------- */
-
-fn trim_line(line: &str) -> &str {
-    line.trim_end_matches(&['\r', '\n'][..])
-}
-
-/* -------------------------------------------------------------------------- */
 
 fn normalize_read_name(name: &str, keep_pair_suffixes: bool) -> String {
     let token = name.split_whitespace().next().unwrap_or("");
@@ -103,84 +96,21 @@ fn read_fastq_names(
 ) -> Result<(HashSet<String>, usize), Box<dyn Error>> {
     let total_bytes = File::open(filename)?.metadata()?.len();
     let mut progress = ProgressScope::new("FASTQ", total_bytes);
-    let mut reader = open_fastq_reader(filename, progress.handle())?;
+    let reader = open_fastq_reader(filename, progress.handle())?;
+    let mut reader = FastqReader::new(reader);
     let mut names = HashSet::new();
-    let mut line = String::new();
-    let mut line_number = 0usize;
     let mut records = 0usize;
 
-    loop {
-        line.clear();
-        if reader.read_line(&mut line)? == 0 {
-            break;
-        }
-        line_number += 1;
-
-        let header = trim_line(&line);
-        if !header.starts_with('@') {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                format!("invalid FASTQ header at line {}", line_number),
-            )
-            .into());
-        }
-
-        let name = normalize_read_name(header, keep_pair_suffixes);
+    while let Some(record) = reader.read_record()? {
+        let name = normalize_read_name(record.name(), keep_pair_suffixes);
         if name.is_empty() {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                format!("empty FASTQ read name at line {}", line_number),
-            )
-            .into());
+            return Err(io::Error::new(io::ErrorKind::InvalidData, "empty FASTQ read name").into());
         }
         names.insert(name);
         records += 1;
         if records % STATUS_RECORD_UPDATE_INTERVAL == 0 {
             progress.set_records(records);
         }
-
-        line.clear();
-        if reader.read_line(&mut line)? == 0 {
-            return Err(io::Error::new(
-                io::ErrorKind::UnexpectedEof,
-                format!("unexpected end of FASTQ after header in record {}", records),
-            )
-            .into());
-        }
-        line_number += 1;
-
-        line.clear();
-        if reader.read_line(&mut line)? == 0 {
-            return Err(io::Error::new(
-                io::ErrorKind::UnexpectedEof,
-                format!(
-                    "unexpected end of FASTQ after sequence in record {}",
-                    records
-                ),
-            )
-            .into());
-        }
-        line_number += 1;
-        if !trim_line(&line).starts_with('+') {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                format!("invalid FASTQ separator at line {}", line_number),
-            )
-            .into());
-        }
-
-        line.clear();
-        if reader.read_line(&mut line)? == 0 {
-            return Err(io::Error::new(
-                io::ErrorKind::UnexpectedEof,
-                format!(
-                    "unexpected end of FASTQ after separator in record {}",
-                    records
-                ),
-            )
-            .into());
-        }
-        line_number += 1;
     }
 
     progress.finish(records);

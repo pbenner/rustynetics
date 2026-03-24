@@ -21,15 +21,14 @@
 use std::any::Any;
 use std::io::{self, BufRead, BufReader, Read, Write};
 
+use crate::granges_table::OptionPrintScientific;
 use crate::meta::Meta;
 use crate::meta_table_reader::MetaTableReader;
 use crate::meta_table_writer::MetaTableWriter;
-use crate::granges_table::OptionPrintScientific;
 
 /* -------------------------------------------------------------------------- */
 
 impl Meta {
-
     pub fn write_table<W: Write>(&self, writer: &mut W, args: &[&dyn Any]) -> io::Result<()> {
         let mut use_scientific = false;
         for arg in args {
@@ -48,8 +47,12 @@ impl Meta {
         Ok(())
     }
 
-    pub fn read_table<R: Read>(&mut self, reader: R, names: &[&str], types: &[&str]) -> io::Result<()> {
-
+    pub fn read_table<R: Read>(
+        &mut self,
+        reader: R,
+        names: &[&str],
+        types: &[&str],
+    ) -> io::Result<()> {
         let mut mreader = MetaTableReader::new(names, types);
 
         let mut buf_reader = BufReader::new(reader);
@@ -64,7 +67,6 @@ impl Meta {
         let mut line_counter = 0;
 
         while buf_reader.read_line(&mut line)? > 0 {
- 
             if line.is_empty() {
                 continue;
             }
@@ -88,4 +90,3 @@ impl Meta {
         String::from_utf8(buffer).unwrap()
     }
 }
-

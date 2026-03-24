@@ -18,10 +18,10 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+use std::error::Error;
 use std::fs::File;
 use std::io::BufReader;
 use std::process;
-use std::error::Error;
 
 use clap::{Arg, Command};
 
@@ -56,11 +56,11 @@ fn check_bin(filename_in: &str, verbose: bool) -> Result<(), Box<dyn Error>> {
     let reader = BufReader::new(file);
 
     let options = BamReaderOptions {
-        read_name     : true,
-        read_cigar    : true,
-        read_sequence : true,
+        read_name: true,
+        read_cigar: true,
+        read_sequence: true,
         read_auxiliary: false,
-        read_qual     : false,
+        read_qual: false,
     };
 
     let mut bam_reader = BamReader::new(reader, Some(options))?;
@@ -89,11 +89,7 @@ fn check_bin(filename_in: &str, verbose: bool) -> Result<(), Box<dyn Error>> {
             );
             println!(" -> {:?}\n", block);
         } else if verbose {
-            println!(
-                "record `{}` has correct bin value `{}`",
-                i + 1,
-                bin
-            );
+            println!("record `{}` has correct bin value `{}`", i + 1, bin);
             println!(" -> {:?}\n", block);
         }
 
@@ -118,15 +114,17 @@ fn main() {
         )
         .arg(
             Arg::new("verbose")
-            .short('v')
-            .long("verbose")
-            .action(clap::ArgAction::SetTrue)
-            .help("Enable verbose output")
+                .short('v')
+                .long("verbose")
+                .action(clap::ArgAction::SetTrue)
+                .help("Enable verbose output"),
         )
         .get_matches();
 
-    let filename_in = matches.get_one::<String>("input").expect("Input file is required");
-    let verbose     = matches.get_flag("verbose");
+    let filename_in = matches
+        .get_one::<String>("input")
+        .expect("Input file is required");
+    let verbose = matches.get_flag("verbose");
 
     if let Err(e) = check_bin(filename_in, verbose) {
         eprintln!("Error: {}", e);

@@ -20,20 +20,20 @@
 
 /* -------------------------------------------------------------------------- */
 
-use std::fmt;
 use std::collections::HashMap;
 use std::error::Error;
+use std::fmt;
 
-use crate::range::Range;
 use crate::genome::Genome;
-use crate::granges_row::GRangesRow;
 use crate::granges_find_overlaps::find_overlaps;
+use crate::granges_row::GRangesRow;
 use crate::meta::Meta;
+use crate::range::Range;
 use crate::utility::remove_duplicates_int;
 
 /* -------------------------------------------------------------------------- */
 
-/// A structure representing genomic ranges with associated metadata, 
+/// A structure representing genomic ranges with associated metadata,
 /// commonly used for handling regions of interest in genomic data processing.
 ///
 /// The `GRanges` struct stores chromosome names (`seqnames`), genomic ranges
@@ -66,19 +66,19 @@ use crate::utility::remove_duplicates_int;
 /// The `GRanges` struct provides several methods for manipulating and querying
 /// genomic ranges, such as `subset`, `intersection`, `filter_genome`, and more.
 /// Additionally, methods for adjusting range lengths (`set_lengths`) or filtering
-/// based on strand orientation are available, facilitating flexible operations 
+/// based on strand orientation are available, facilitating flexible operations
 /// on genomic data.
 ///
 /// # Note
 /// The `GRanges` struct is particularly useful for bioinformatics applications
-/// where analysis of specific genomic regions or annotations is needed, and 
+/// where analysis of specific genomic regions or annotations is needed, and
 /// supports various metadata types via the `Meta` struct.
 #[derive(Clone, Debug)]
 pub struct GRanges {
     pub seqnames: Vec<String>,
-    pub ranges  : Vec<Range>,
-    pub strand  : Vec<char>,
-    pub meta    : Meta,
+    pub ranges: Vec<Range>,
+    pub strand: Vec<char>,
+    pub meta: Meta,
 }
 
 /* -------------------------------------------------------------------------- */
@@ -86,8 +86,8 @@ pub struct GRanges {
 impl Default for GRanges {
     fn default() -> Self {
         let seqnames = vec!["".to_string(); 0];
-        let ranges   = vec![Range::new(0, 0); 0];
-        let strand   = vec!['*'; 0];
+        let ranges = vec![Range::new(0, 0); 0];
+        let strand = vec!['*'; 0];
         GRanges {
             seqnames,
             ranges,
@@ -100,7 +100,6 @@ impl Default for GRanges {
 /* -------------------------------------------------------------------------- */
 
 impl GRanges {
-
     /// Creates a new `GRanges` instance with specified sequence names, start and end positions, and strand information.
     ///
     /// # Arguments
@@ -248,15 +247,15 @@ impl GRanges {
     /// A new `GRanges` instance containing only the specified rows.
     pub fn subset(&self, indices: &[usize]) -> Self {
         let seqnames = indices.iter().map(|&i| self.seqnames[i].clone()).collect();
-        let from     = indices.iter().map(|&i| self.ranges  [i].from   ).collect();
-        let to       = indices.iter().map(|&i| self.ranges  [i].to     ).collect();
-        let strand   = indices.iter().map(|&i| self.strand  [i]        ).collect();
-        let result   = GRanges::new(seqnames, from, to, strand);
-        let meta     = self.meta.subset(indices);
+        let from = indices.iter().map(|&i| self.ranges[i].from).collect();
+        let to = indices.iter().map(|&i| self.ranges[i].to).collect();
+        let strand = indices.iter().map(|&i| self.strand[i]).collect();
+        let result = GRanges::new(seqnames, from, to, strand);
+        let meta = self.meta.subset(indices);
         GRanges {
             seqnames: result.seqnames,
-            ranges  : result.ranges,
-            strand  : result.strand,
+            ranges: result.ranges,
+            strand: result.strand,
             meta,
         }
     }
@@ -271,13 +270,13 @@ impl GRanges {
     /// A new `GRanges` instance containing rows within the specified range.
     pub fn slice(&self, ifrom: usize, ito: usize) -> Self {
         let ifrom = ifrom.min(self.num_rows());
-        let ito   = ito  .min(self.num_rows());
+        let ito = ito.min(self.num_rows());
         let seqnames = (ifrom..ito).map(|i| self.seqnames[i].clone()).collect();
-        let from     = (ifrom..ito).map(|i| self.ranges  [i].from   ).collect();
-        let to       = (ifrom..ito).map(|i| self.ranges  [i].to     ).collect();
-        let strand   = (ifrom..ito).map(|i| self.strand  [i]        ).collect();
-        let result   = GRanges::new(seqnames, from, to, strand);
-        let meta     = self.meta.slice(ifrom, ito);
+        let from = (ifrom..ito).map(|i| self.ranges[i].from).collect();
+        let to = (ifrom..ito).map(|i| self.ranges[i].to).collect();
+        let strand = (ifrom..ito).map(|i| self.strand[i]).collect();
+        let result = GRanges::new(seqnames, from, to, strand);
+        let meta = self.meta.slice(ifrom, ito);
         GRanges {
             seqnames: result.seqnames,
             ranges: result.ranges,
@@ -298,19 +297,19 @@ impl GRanges {
         let n = query_hits.len();
 
         let mut seqnames = Vec::with_capacity(n);
-        let mut from     = Vec::with_capacity(n);
-        let mut to       = Vec::with_capacity(n);
-        let mut strand   = Vec::with_capacity(n);
+        let mut from = Vec::with_capacity(n);
+        let mut to = Vec::with_capacity(n);
+        let mut strand = Vec::with_capacity(n);
 
         for i in 0..n {
-            let i_q =   query_hits[i];
+            let i_q = query_hits[i];
             let i_s = subject_hits[i];
-            let gr  = self.ranges[i_q].intersection(&s.ranges[i_s]);
+            let gr = self.ranges[i_q].intersection(&s.ranges[i_s]);
 
             seqnames.push(self.seqnames[i_q].clone());
-            strand  .push(self.strand  [i_q]);
-            from    .push(gr.from);
-            to      .push(gr.to  );
+            strand.push(self.strand[i_q]);
+            from.push(gr.from);
+            to.push(gr.to);
         }
         let mut granges = GRanges::new(seqnames, from, to, strand);
 
@@ -402,17 +401,16 @@ impl GRanges {
         }
         s
     }
-
 }
 
 /* -------------------------------------------------------------------------- */
 
 impl PartialEq for GRanges {
     fn eq(&self, other: &Self) -> bool {
-        self.seqnames == other.seqnames &&
-        self.ranges   == other.ranges   &&
-        self.strand   == other.strand   &&
-        self.meta     == other.meta
+        self.seqnames == other.seqnames
+            && self.ranges == other.ranges
+            && self.strand == other.strand
+            && self.meta == other.meta
     }
 }
 

@@ -26,43 +26,41 @@ use crate::meta::{Meta, MetaData};
 /* -------------------------------------------------------------------------- */
 
 pub struct MetaTableReader<'a> {
-    idx_map  : std::collections::HashMap<&'a str, i32>,
-    meta_map : std::collections::HashMap<&'a str, MetaData>
+    idx_map: std::collections::HashMap<&'a str, i32>,
+    meta_map: std::collections::HashMap<&'a str, MetaData>,
 }
 
 /* -------------------------------------------------------------------------- */
 
 impl<'a> MetaTableReader<'a> {
-
     pub fn new(names: &[&'a str], types: &[&'a str]) -> Self {
         if names.len() != types.len() {
             panic!("invalid arguments");
         }
 
-        let mut idx_map  = std::collections::HashMap::new();
+        let mut idx_map = std::collections::HashMap::new();
         let mut meta_map = std::collections::HashMap::new();
 
         for i in 0..names.len() {
             idx_map.insert(names[i], -1);
             match types[i] {
-                "String"      => meta_map.insert(names[i], MetaData::StringArray(Vec::new())),
-                "Int"         => meta_map.insert(names[i], MetaData::IntArray(Vec::new())),
-                "Float"       => meta_map.insert(names[i], MetaData::FloatArray(Vec::new())),
+                "String" => meta_map.insert(names[i], MetaData::StringArray(Vec::new())),
+                "Int" => meta_map.insert(names[i], MetaData::IntArray(Vec::new())),
+                "Float" => meta_map.insert(names[i], MetaData::FloatArray(Vec::new())),
                 "Vec<String>" => meta_map.insert(names[i], MetaData::StringMatrix(Vec::new())),
-                "Vec<Int>"    => meta_map.insert(names[i], MetaData::IntMatrix(Vec::new())),
-                "Vec<Float>"  => meta_map.insert(names[i], MetaData::FloatMatrix(Vec::new())),
+                "Vec<Int>" => meta_map.insert(names[i], MetaData::IntMatrix(Vec::new())),
+                "Vec<Float>" => meta_map.insert(names[i], MetaData::FloatMatrix(Vec::new())),
                 _ => panic!("invalid types argument"),
             };
         }
 
-        MetaTableReader{
-            idx_map : idx_map,
+        MetaTableReader {
+            idx_map: idx_map,
             meta_map: meta_map,
         }
     }
 
     pub fn read_header(&mut self, line: &String) -> io::Result<()> {
-
         let fields: Vec<&str> = line.split_whitespace().collect();
 
         for (i, field) in fields.iter().enumerate() {
@@ -74,7 +72,6 @@ impl<'a> MetaTableReader<'a> {
     }
 
     pub fn read_line(&mut self, line: &String, i: i32) -> io::Result<()> {
-
         let fields: Vec<&str> = line.split_whitespace().collect();
         for (name, idx) in &self.idx_map {
             if *idx == -1 {
@@ -119,7 +116,10 @@ impl<'a> MetaTableReader<'a> {
                             let value = i64::from_str(d).map_err(|e| {
                                 io::Error::new(
                                     io::ErrorKind::InvalidData,
-                                    format!("parsing meta information failed at line `{}`: {}", i, e),
+                                    format!(
+                                        "parsing meta information failed at line `{}`: {}",
+                                        i, e
+                                    ),
                                 )
                             })?;
                             entry.push(value);
@@ -137,7 +137,10 @@ impl<'a> MetaTableReader<'a> {
                             let value = f64::from_str(d).map_err(|e| {
                                 io::Error::new(
                                     io::ErrorKind::InvalidData,
-                                    format!("parsing meta information failed at line `{}`: {}", i, e),
+                                    format!(
+                                        "parsing meta information failed at line `{}`: {}",
+                                        i, e
+                                    ),
                                 )
                             })?;
                             entry.push(value);

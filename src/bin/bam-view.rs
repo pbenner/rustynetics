@@ -18,10 +18,10 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+use std::error::Error;
 use std::fs::File;
 use std::io::BufReader;
 use std::process;
-use std::error::Error;
 
 use clap::{Arg, Command};
 use rustynetics::bam::{BamReader, BamReaderOptions};
@@ -30,27 +30,26 @@ use rustynetics::bam::{BamReader, BamReaderOptions};
 
 struct Config {
     print_read_name: bool,
-    print_cigar    : bool,
-    print_sequence : bool,
+    print_cigar: bool,
+    print_sequence: bool,
     print_auxiliary: bool,
 }
 
 /* -------------------------------------------------------------------------- */
 
 fn bam_view(config: Config, filename_in: &str) -> Result<(), Box<dyn Error>> {
-
-    let file   = File::open(filename_in)?;
+    let file = File::open(filename_in)?;
     let reader = BufReader::new(file);
-    let star   = "*".to_string();
+    let star = "*".to_string();
     let mut pos_str;
 
     // Options for the BAM reader
     let options = BamReaderOptions {
-        read_name     : config.print_read_name,
-        read_cigar    : config.print_cigar,
-        read_sequence : config.print_sequence,
+        read_name: config.print_read_name,
+        read_cigar: config.print_cigar,
+        read_sequence: config.print_sequence,
         read_auxiliary: config.print_auxiliary,
-        read_qual     : false,
+        read_qual: false,
     };
 
     let mut bam_reader = BamReader::new(reader, Some(options))?;
@@ -58,7 +57,10 @@ fn bam_view(config: Config, filename_in: &str) -> Result<(), Box<dyn Error>> {
     let genome = bam_reader.get_genome().clone();
 
     // Print header
-    print!("{:>10} {:>15} {:>17} {:>4}", "Seqname", "Position", "Flag", "MapQ");
+    print!(
+        "{:>10} {:>15} {:>17} {:>4}",
+        "Seqname", "Position", "Flag", "MapQ"
+    );
 
     if options.read_cigar {
         print!(" {:>20}", "Cigar");
@@ -76,7 +78,6 @@ fn bam_view(config: Config, filename_in: &str) -> Result<(), Box<dyn Error>> {
 
     // Iterate over BAM records
     for result in bam_reader.read_single_end() {
-
         let block = result?.block;
 
         let seqname = if block.ref_id < 0 {
@@ -91,12 +92,9 @@ fn bam_view(config: Config, filename_in: &str) -> Result<(), Box<dyn Error>> {
             &pos_str
         };
 
-        print!("{:>10} {:>15} {:>5}:{:011b} {:>4}",
-            seqname,
-            position,
-            block.flag.0,
-            block.flag.0,
-            block.mapq
+        print!(
+            "{:>10} {:>15} {:>5}:{:011b} {:>4}",
+            seqname, position, block.flag.0, block.flag.0, block.mapq
         );
 
         if options.read_cigar {
@@ -176,9 +174,9 @@ fn main() {
 
     let config = Config {
         print_read_name: !matches.get_flag("no-read-name"),
-        print_cigar    : !matches.get_flag("no-cigar"),
-        print_sequence :  matches.get_flag("sequence"),
-        print_auxiliary:  matches.get_flag("auxiliary"),
+        print_cigar: !matches.get_flag("no-cigar"),
+        print_sequence: matches.get_flag("sequence"),
+        print_auxiliary: matches.get_flag("auxiliary"),
     };
 
     let filename_in = matches.get_one::<String>("input").unwrap();

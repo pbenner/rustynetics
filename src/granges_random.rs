@@ -20,8 +20,8 @@
 
 /* -------------------------------------------------------------------------- */
 
-use rand::Rng;
 use rand::prelude::SliceRandom;
+use rand::Rng;
 
 use crate::genome::Genome;
 use crate::granges::GRanges;
@@ -37,17 +37,16 @@ use crate::granges::GRanges;
 /// - `max_len`: The maximum length of any genomic range in the genome.
 struct GenomeRng {
     weights: Vec<f64>,
-    genome : Genome,
+    genome: Genome,
     max_len: usize,
 }
 
 /* -------------------------------------------------------------------------- */
 
 impl GenomeRng {
-
     /// Creates a new `GenomeRng` instance from a given genome.
     ///
-    /// This constructor initializes the cumulative probability weights based on the lengths of the genome's 
+    /// This constructor initializes the cumulative probability weights based on the lengths of the genome's
     /// sequences, allowing for probabilistic sampling of genomic ranges.
     ///
     /// # Arguments
@@ -57,12 +56,8 @@ impl GenomeRng {
     /// A new instance of `GenomeRng` initialized with the provided genome's lengths and cumulative weights.
     fn new(genome: &Genome) -> GenomeRng {
         let max_len = genome.lengths.iter().max().unwrap_or(&0);
-        let weights: Vec<f64> = genome
-            .lengths
-            .iter()
-            .map(|&length| length as f64)
-            .collect();
-        let sum    : f64      = weights.iter().sum();
+        let weights: Vec<f64> = genome.lengths.iter().map(|&length| length as f64).collect();
+        let sum: f64 = weights.iter().sum();
         let weights: Vec<f64> = weights.iter().map(|&weight| weight / sum).collect();
         let mut cumulative_probabilities = vec![weights[0]];
         for i in 1..weights.len() {
@@ -70,7 +65,7 @@ impl GenomeRng {
         }
         GenomeRng {
             weights: cumulative_probabilities,
-            genome : genome.clone(),
+            genome: genome.clone(),
             max_len: *max_len,
         }
     }
@@ -116,7 +111,6 @@ impl GenomeRng {
 /* -------------------------------------------------------------------------- */
 
 impl GRanges {
-
     /// Generates a random set of genomic ranges.
     ///
     /// This method creates `n` random genomic ranges of the specified window size from the provided
@@ -133,18 +127,18 @@ impl GRanges {
     pub fn random(n: usize, wsize: usize, genome: &Genome, use_strand: bool) -> GRanges {
         let gnome_rng = GenomeRng::new(genome);
         let mut seqnames = Vec::with_capacity(n);
-        let mut from     = Vec::with_capacity(n);
-        let mut to       = Vec::with_capacity(n);
-        let mut strand   = Vec::with_capacity(n);
-        let mut rng      = rand::thread_rng();
+        let mut from = Vec::with_capacity(n);
+        let mut to = Vec::with_capacity(n);
+        let mut strand = Vec::with_capacity(n);
+        let mut rng = rand::thread_rng();
         for _ in 0..n {
             let (j, position) = match gnome_rng.draw(wsize) {
                 Some(v) => v,
-                None    => return GRanges::default()
+                None => return GRanges::default(),
             };
             seqnames.push(genome.seqnames[j].clone());
-            from    .push(position);
-            to      .push(position + wsize);
+            from.push(position);
+            to.push(position + wsize);
             if use_strand {
                 let k = rng.gen_range(0..2);
                 strand.push(['+', '-'][k]);

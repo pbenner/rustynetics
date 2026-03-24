@@ -18,13 +18,13 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-use std::io;
 use std::error::Error;
+use std::fs::File;
+use std::io;
+use std::io::{Read, Seek, SeekFrom};
+use std::ops::Range;
 use std::path::Path;
 use std::result::Result;
-use std::io::{Read, Seek, SeekFrom};
-use std::fs::File;
-use std::ops::Range;
 
 use reqwest::blocking::{Client, Response};
 
@@ -54,26 +54,47 @@ impl NetFile {
             let file = File::open(path)?;
             Ok(NetFile::new(NetFileStream::File(file)))
         } else {
-            Err(Box::new(io::Error::new(io::ErrorKind::NotFound, "File not found")))
+            Err(Box::new(io::Error::new(
+                io::ErrorKind::NotFound,
+                "File not found",
+            )))
         }
     }
 
     fn open_http(url: &str) -> Result<NetFile, Box<dyn Error>> {
-        let client    = Client::new();
+        let client = Client::new();
         let head_resp = client.head(url).send()?;
 
         if !head_resp.status().is_success() {
-            return Err(Box::new(io::Error::new(io::ErrorKind::InvalidInput, "HTTP request failed")));
+            return Err(Box::new(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "HTTP request failed",
+            )));
         }
 
         let content_length = head_resp
             .headers()
             .get("Content-Length")
-            .ok_or_else(|| Box::new(io::Error::new(io::ErrorKind::InvalidData, "Missing Content-Length header")))?
+            .ok_or_else(|| {
+                Box::new(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "Missing Content-Length header",
+                ))
+            })?
             .to_str()
-            .map_err(|_| Box::new(io::Error::new(io::ErrorKind::InvalidData, "Invalid Content-Length header")))?
+            .map_err(|_| {
+                Box::new(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "Invalid Content-Length header",
+                ))
+            })?
             .parse::<u64>()
-            .map_err(|_| Box::new(io::Error::new(io::ErrorKind::InvalidData, "Invalid Content-Length header")))?;
+            .map_err(|_| {
+                Box::new(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "Invalid Content-Length header",
+                ))
+            })?;
 
         let http_reader = HttpSeekableReader::new(client, url.to_string(), content_length);
 
@@ -87,29 +108,24 @@ impl NetFile {
             NetFile::open_file(filename)
         }
     }
-
 }
 
 impl Read for NetFile {
-
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         match &mut self.stream {
             NetFileStream::File(file) => file.read(buf),
-            NetFileStream::Http(file) => file.read(buf)
+            NetFileStream::Http(file) => file.read(buf),
         }
     }
-
 }
 
 impl Seek for NetFile {
-
     fn seek(&mut self, pos: SeekFrom) -> io::Result<u64> {
         match &mut self.stream {
             NetFileStream::File(file) => file.seek(pos),
-            NetFileStream::Http(file) => file.seek(pos)
+            NetFileStream::Http(file) => file.seek(pos),
         }
     }
-
 }
 
 /* -------------------------------------------------------------------------- */
@@ -119,13 +135,13 @@ const BUFFER_SIZE: usize = 8192; // Example buffer size (8 KB)
 
 #[derive(Debug)]
 struct HttpSeekableReader {
-    client        : Client,
-    url           : String,
-    current_pos   : u64,
+    client: Client,
+    url: String,
+    current_pos: u64,
     content_length: u64,
-    buffer        : Vec<u8>,   // Buffer to hold fetched data
-    buffer_start  : u64,       // Start position of the buffer in the file
-    buffer_end    : u64,       // End position of the buffer in the file
+    buffer: Vec<u8>,   // Buffer to hold fetched data
+    buffer_start: u64, // Start position of the buffer in the file
+    buffer_end: u64,   // End position of the buffer in the file
 }
 
 impl HttpSeekableReader {
@@ -133,11 +149,11 @@ impl HttpSeekableReader {
         HttpSeekableReader {
             client,
             url,
-            current_pos : 0,
+            current_pos: 0,
             content_length,
-            buffer      : Vec::new(),
+            buffer: Vec::new(),
             buffer_start: 0,
-            buffer_end  : 0,
+            buffer_end: 0,
         }
     }
 
@@ -150,15 +166,17 @@ impl HttpSeekableReader {
     }
 
     fn fill_buffer(&mut self) -> io::Result<()> {
-        let range_end     = (self.current_pos + BUFFER_SIZE as u64).min(self.content_length);
-        let response      = self
+        let range_end = (self.current_pos + BUFFER_SIZE as u64).min(self.content_length);
+        let response = self
             .get_range(self.current_pos..range_end)
             .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
 
-        let bytes         = response.bytes().map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
-        self.buffer       = bytes.to_vec(); // Store the fetched data in the buffer
+        let bytes = response
+            .bytes()
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+        self.buffer = bytes.to_vec(); // Store the fetched data in the buffer
         self.buffer_start = self.current_pos;
-        self.buffer_end   = self.buffer_start + self.buffer.len() as u64;
+        self.buffer_end = self.buffer_start + self.buffer.len() as u64;
         Ok(())
     }
 }
@@ -171,11 +189,12 @@ impl Read for HttpSeekableReader {
         }
 
         // Calculate how much we can read from the buffer
-        let buffer_offset   = (self.current_pos - self.buffer_start) as usize;
+        let buffer_offset = (self.current_pos - self.buffer_start) as usize;
         let available_bytes = (self.buffer_end - self.current_pos) as usize;
-        let bytes_to_read   = buf.len().min(available_bytes);
+        let bytes_to_read = buf.len().min(available_bytes);
 
-        buf[..bytes_to_read].copy_from_slice(&self.buffer[buffer_offset..buffer_offset + bytes_to_read]);
+        buf[..bytes_to_read]
+            .copy_from_slice(&self.buffer[buffer_offset..buffer_offset + bytes_to_read]);
         self.current_pos += bytes_to_read as u64;
 
         Ok(bytes_to_read)
@@ -183,12 +202,9 @@ impl Read for HttpSeekableReader {
 }
 
 impl Seek for HttpSeekableReader {
-
     fn seek(&mut self, pos: SeekFrom) -> io::Result<u64> {
         let new_pos = match pos {
-            SeekFrom::Start(p) => {
-                p
-            },
+            SeekFrom::Start(p) => p,
             SeekFrom::Current(p) => {
                 if p >= 0 {
                     self.current_pos + p as u64
@@ -207,12 +223,14 @@ impl Seek for HttpSeekableReader {
 
         // Prevent seeking beyond EOF
         if new_pos > self.content_length {
-            return Err(io::Error::new(io::ErrorKind::InvalidInput, "Seek position beyond file size"));
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "Seek position beyond file size",
+            ));
         }
 
         self.current_pos = new_pos;
 
         Ok(new_pos)
     }
-
 }

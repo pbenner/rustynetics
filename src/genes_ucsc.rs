@@ -22,8 +22,8 @@ use std::fs::File;
 use std::io::{BufRead, BufReader};
 
 use flate2::read::GzDecoder;
-use mysql::prelude::*;
 use mysql::from_row;
+use mysql::prelude::*;
 use mysql::Pool;
 
 use crate::genes::Genes;
@@ -32,7 +32,6 @@ use crate::utility::is_gzip;
 /* -------------------------------------------------------------------------- */
 
 impl Genes {
-
     /// Imports gene information from a file.
     ///
     /// # Parameters
@@ -62,13 +61,13 @@ impl Genes {
     /// let genes = Genes::import_genes("path/to/genes.txt")?;
     /// ```
     pub fn import_genes(filename: &str) -> Result<Genes, Box<dyn std::error::Error>> {
-        let mut names    = vec![];
+        let mut names = vec![];
         let mut seqnames = vec![];
-        let mut tx_from  = vec![];
-        let mut tx_to    = vec![];
+        let mut tx_from = vec![];
+        let mut tx_to = vec![];
         let mut cds_from = vec![];
-        let mut cds_to   = vec![];
-        let mut strand   = vec![];
+        let mut cds_to = vec![];
+        let mut strand = vec![];
 
         let file = File::open(filename)?;
         let reader: Box<dyn BufRead> = if is_gzip(filename) {
@@ -86,15 +85,17 @@ impl Genes {
             if fields.len() != 7 {
                 return Err("file must have seven columns".into());
             }
-            names   .push(String::from(fields[0]));
+            names.push(String::from(fields[0]));
             seqnames.push(String::from(fields[1]));
-            tx_from .push(fields[2].parse()?);
-            tx_to   .push(fields[3].parse()?);
+            tx_from.push(fields[2].parse()?);
+            tx_to.push(fields[3].parse()?);
             cds_from.push(fields[4].parse()?);
-            cds_to  .push(fields[5].parse()?);
-            strand  .push(fields[6].chars().next().unwrap());
+            cds_to.push(fields[5].parse()?);
+            strand.push(fields[6].chars().next().unwrap());
         }
-        Ok(Genes::new(names, seqnames, tx_from, tx_to, cds_from, cds_to, strand))
+        Ok(Genes::new(
+            names, seqnames, tx_from, tx_to, cds_from, cds_to, strand,
+        ))
     }
 
     /// Imports gene data from the UCSC genome database.
@@ -129,38 +130,44 @@ impl Genes {
     ///
     /// let genes = Genes::import_genes_from_ucsc("hg38", "refGene")?;
     /// ```
-    pub fn import_genes_from_ucsc(genome: &str, table: &str) -> Result<Genes, Box<dyn std::error::Error>> {
-        let mut names    = vec![];
+    pub fn import_genes_from_ucsc(
+        genome: &str,
+        table: &str,
+    ) -> Result<Genes, Box<dyn std::error::Error>> {
+        let mut names = vec![];
         let mut seqnames = vec![];
-        let mut tx_from  = vec![];
-        let mut tx_to    = vec![];
+        let mut tx_from = vec![];
+        let mut tx_to = vec![];
         let mut cds_from = vec![];
-        let mut cds_to   = vec![];
-        let mut strand   = vec![];
+        let mut cds_to = vec![];
+        let mut strand = vec![];
 
-        let url      = format!("mysql://genome@genome-mysql.cse.ucsc.edu:3306/{}", genome);
-        let pool     = Pool::new(url.as_str())?;
+        let url = format!("mysql://genome@genome-mysql.cse.ucsc.edu:3306/{}", genome);
+        let pool = Pool::new(url.as_str())?;
         let mut conn = pool.get_conn()?;
-        let query    = format!("SELECT name, chrom, strand, txStart, txEnd, cdsStart, cdsEnd FROM {}", table);
+        let query = format!(
+            "SELECT name, chrom, strand, txStart, txEnd, cdsStart, cdsEnd FROM {}",
+            table
+        );
 
         let mut result = conn.query_iter(query)?;
 
         while let Some(result_set) = result.iter() {
-
             for row in result_set {
                 let r: (String, String, String, i32, i32, i32, i32) = from_row(row.unwrap());
 
-                names   .push(r.0.clone());
+                names.push(r.0.clone());
                 seqnames.push(r.1.clone());
-                strand  .push(r.2.chars().next().unwrap());
-                tx_from .push(r.3 as usize);
-                tx_to   .push(r.4 as usize);
+                strand.push(r.2.chars().next().unwrap());
+                tx_from.push(r.3 as usize);
+                tx_to.push(r.4 as usize);
                 cds_from.push(r.5 as usize);
-                cds_to  .push(r.6 as usize);
+                cds_to.push(r.6 as usize);
             }
         }
 
-        Ok(Genes::new(names, seqnames, tx_from, tx_to, cds_from, cds_to, strand))
+        Ok(Genes::new(
+            names, seqnames, tx_from, tx_to, cds_from, cds_to, strand,
+        ))
     }
-
 }

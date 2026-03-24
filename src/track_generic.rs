@@ -18,28 +18,27 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-use std::fmt;
 use std::collections::HashMap;
 use std::error::Error;
+use std::fmt;
 
 use crate::range::Range;
 use crate::read::Read;
 use crate::track::{MutableTrack, Track};
-use crate::utility::{div_int_up, div_int_down};
+use crate::utility::{div_int_down, div_int_up};
 use crate::utility_cumdist::{CumDist, OrderedFloat};
 
 /* -------------------------------------------------------------------------- */
 
 pub struct GenericTrack<'a> {
-    pub track : &'a dyn Track,
+    pub track: &'a dyn Track,
 }
 
 /* -------------------------------------------------------------------------- */
 
 impl<'a> GenericTrack<'a> {
-
-    pub fn wrap(track : &'a dyn Track) -> Self {
-        Self{track}
+    pub fn wrap(track: &'a dyn Track) -> Self {
+        Self { track }
     }
 
     pub fn reduce<F>(&self, f: F, x0: f64) -> HashMap<String, f64>
@@ -71,19 +70,15 @@ impl<'a> GenericTrack<'a> {
         result
     }
 
-    pub fn map<F>(
-        &self,
-        mut f: F
-    ) -> Result<(), Box<dyn Error>>
+    pub fn map<F>(&self, mut f: F) -> Result<(), Box<dyn Error>>
     where
         F: FnMut(&str, usize, f64),
     {
         let bin_size = self.track.get_bin_size();
 
         for name in self.track.get_seq_names() {
-
             let seq = self.track.get_sequence(&name)?;
-            
+
             for i in 0..seq.n_bins() {
                 // Call the function `f` with name, index and value
                 f(&name, i * bin_size, seq.at_bin(i));
@@ -93,11 +88,7 @@ impl<'a> GenericTrack<'a> {
         Ok(())
     }
 
-    pub fn window_map<F>(
-        &self,
-        window_size: usize,
-        mut f      : F,
-    ) -> Result<(), Box<dyn Error>>
+    pub fn window_map<F>(&self, window_size: usize, mut f: F) -> Result<(), Box<dyn Error>>
     where
         F: FnMut(&str, usize, &[f64]),
     {
@@ -105,7 +96,7 @@ impl<'a> GenericTrack<'a> {
             return Err(Box::new(InvalidWindowSizeError));
         }
 
-        let mut v    = vec![f64::NAN; window_size];
+        let mut v = vec![f64::NAN; window_size];
         let bin_size = self.track.get_bin_size();
 
         for name in self.track.get_seq_names() {
@@ -126,21 +117,18 @@ impl<'a> GenericTrack<'a> {
         Ok(())
     }
 
-    pub fn map_list<F>(
-        tracks: &[&dyn Track],
-        mut f : F,
-    ) -> Result<(), Box<dyn Error>>
+    pub fn map_list<F>(tracks: &[&dyn Track], mut f: F) -> Result<(), Box<dyn Error>>
     where
         F: FnMut(&str, usize, &[f64]) -> f64,
     {
         if tracks.is_empty() {
             return Ok(());
         }
-    
-        let n        = tracks.len();
+
+        let n = tracks.len();
         let bin_size = tracks[0].get_bin_size();
-        let mut v    = vec![f64::NAN; n];
-    
+        let mut v = vec![f64::NAN; n];
+
         // Check bin sizes
         for i in 1..n {
             if tracks[0].get_bin_size() != tracks[i].get_bin_size() {
@@ -150,7 +138,7 @@ impl<'a> GenericTrack<'a> {
 
         for name in tracks[0].get_seq_names() {
             let mut sequences = Vec::new();
-            let mut nbins     = None;
+            let mut nbins = None;
 
             // Collect source sequences
             for (k, t) in tracks.iter().enumerate() {
@@ -185,14 +173,14 @@ impl<'a> GenericTrack<'a> {
                 f(&name, i * bin_size, &v);
             }
         }
-    
+
         Ok(())
     }
 
     pub fn window_map_list<F>(
-        tracks     : &[&dyn Track],
+        tracks: &[&dyn Track],
         window_size: usize,
-        mut f      : F,
+        mut f: F,
     ) -> Result<(), Box<dyn Error>>
     where
         F: FnMut(&str, usize, &[Vec<f64>]) -> f64,
@@ -203,11 +191,11 @@ impl<'a> GenericTrack<'a> {
         if window_size == 0 {
             return Err(Box::new(InvalidWindowSizeError));
         }
-    
-        let n        = tracks.len();
+
+        let n = tracks.len();
         let bin_size = tracks[0].get_bin_size();
         let mut v: Vec<Vec<f64>> = vec![vec![f64::NAN; window_size]; n];
-    
+
         // Check bin sizes
         for i in 1..n {
             if bin_size != tracks[i].get_bin_size() {
@@ -217,7 +205,7 @@ impl<'a> GenericTrack<'a> {
 
         for name in tracks[0].get_seq_names() {
             let mut sequences = Vec::new();
-            let mut nbins     = None;
+            let mut nbins = None;
 
             // Collect source sequences
             for (k, t) in tracks.iter().enumerate() {
@@ -259,7 +247,7 @@ impl<'a> GenericTrack<'a> {
                 f(&name, i * bin_size, &v);
             }
         }
-    
+
         Ok(())
     }
 }
@@ -267,15 +255,14 @@ impl<'a> GenericTrack<'a> {
 /* -------------------------------------------------------------------------- */
 
 pub struct GenericMutableTrack<'a> {
-    pub track : &'a mut dyn MutableTrack,
+    pub track: &'a mut dyn MutableTrack,
 }
 
 /* -------------------------------------------------------------------------- */
 
 impl<'a> GenericMutableTrack<'a> {
-
-    pub fn wrap(track : &'a mut dyn MutableTrack) -> Self {
-        Self{track}
+    pub fn wrap(track: &'a mut dyn MutableTrack) -> Self {
+        Self { track }
     }
 
     /// Adds a single read to the coverage track by incrementing the value of each bin that
@@ -299,10 +286,9 @@ impl<'a> GenericMutableTrack<'a> {
     /// This function will return an error if the read's position falls outside of the track's bin range.
     /// Specifically, a `ReadOutOfRangeError` is returned if the read cannot be mapped to any valid bins.
     pub fn add_read(&mut self, read: &Read, d: usize) -> Result<(), Box<dyn Error>> {
-
-        let bin_size        = self.track.get_bin_size();
-        let mut seq         = self.track.get_sequence_mut(&read.seqname)?;
-        let Range{from, to} = read.extend(d)?;
+        let bin_size = self.track.get_bin_size();
+        let mut seq = self.track.get_sequence_mut(&read.seqname)?;
+        let Range { from, to } = read.extend(d)?;
 
         if from / bin_size >= seq.n_bins() {
             return Err(Box::new(ReadOutOfRangeError(read.clone())));
@@ -312,7 +298,8 @@ impl<'a> GenericMutableTrack<'a> {
             if j >= seq.n_bins() {
                 break;
             } else {
-                let mut v = seq.at_bin(j); if v.is_nan() {
+                let mut v = seq.at_bin(j);
+                if v.is_nan() {
                     v = 0.0;
                 }
                 seq.set_bin(j, v + 1.0);
@@ -347,10 +334,9 @@ impl<'a> GenericMutableTrack<'a> {
     /// This function returns an error if the read's position is outside of the valid bin range.
     /// Specifically, a `ReadOutOfRangeError` is returned if the read cannot be mapped to any valid bins.
     fn add_read_mean_overlap(&mut self, read: &Read, d: usize) -> Result<(), Box<dyn Error>> {
-
-        let bin_size        = self.track.get_bin_size();
-        let mut seq         = self.track.get_sequence_mut(&read.seqname)?;
-        let Range{from, to} = read.extend(d)?;
+        let bin_size = self.track.get_bin_size();
+        let mut seq = self.track.get_sequence_mut(&read.seqname)?;
+        let Range { from, to } = read.extend(d)?;
 
         if from / bin_size >= seq.n_bins() {
             return Err(Box::new(ReadOutOfRangeError(read.clone())));
@@ -360,11 +346,12 @@ impl<'a> GenericMutableTrack<'a> {
             if j >= seq.n_bins() {
                 break;
             } else {
-                let mut v = seq.at_bin(j); if v.is_nan() {
+                let mut v = seq.at_bin(j);
+                if v.is_nan() {
                     v = 0.0;
                 }
                 let jfrom = std::cmp::max(from, j * bin_size);
-                let jto   = std::cmp::min(to, (j + 1) * bin_size);
+                let jto = std::cmp::min(to, (j + 1) * bin_size);
 
                 seq.set_bin(j, v + (jto - jfrom) as f64 / bin_size as f64);
             }
@@ -392,10 +379,9 @@ impl<'a> GenericMutableTrack<'a> {
     /// Returns `Ok(())` if the read was successfully added to the track.
     /// If the read's position is out of range, an error is returned.
     fn add_read_overlap(&mut self, read: &Read, d: usize) -> Result<(), Box<dyn Error>> {
-
-        let bin_size        = self.track.get_bin_size();
-        let mut seq         = self.track.get_sequence_mut(&read.seqname)?;
-        let Range{from, to} = read.extend(d)?;
+        let bin_size = self.track.get_bin_size();
+        let mut seq = self.track.get_sequence_mut(&read.seqname)?;
+        let Range { from, to } = read.extend(d)?;
 
         if from / bin_size >= seq.n_bins() {
             return Err(Box::new(ReadOutOfRangeError(read.clone())));
@@ -405,11 +391,12 @@ impl<'a> GenericMutableTrack<'a> {
             if j >= seq.n_bins() {
                 break;
             } else {
-                let mut v = seq.at_bin(j); if v.is_nan() {
+                let mut v = seq.at_bin(j);
+                if v.is_nan() {
                     v = 0.0;
                 }
                 let jfrom = std::cmp::max(from, j * bin_size);
-                let jto   = std::cmp::min(to, (j + 1) * bin_size);
+                let jto = std::cmp::min(to, (j + 1) * bin_size);
                 seq.set_bin(j, v + (jto - jfrom) as f64);
             }
         }
@@ -452,10 +439,10 @@ impl<'a> GenericMutableTrack<'a> {
     ///
     pub fn add_reads(
         &mut self,
-        reads : impl Iterator<Item = Read>,
-        d     : usize,
-        method: &str) -> usize
-    {
+        reads: impl Iterator<Item = Read>,
+        d: usize,
+        method: &str,
+    ) -> usize {
         let mut n = 0;
 
         match method {
@@ -510,12 +497,11 @@ impl<'a> GenericMutableTrack<'a> {
     /// Additionally, an error may occur if sequences cannot be retrieved from either the treatment or control track.
     pub fn normalize(
         &mut self,
-        control  : &dyn Track,
-        c1       : f64,
-        c2       : f64,
+        control: &dyn Track,
+        c1: f64,
+        c2: f64,
         log_scale: bool,
     ) -> Result<(), Box<dyn Error>> {
-
         if c1 <= 0.0 || c2 <= 0.0 {
             return Err("pseudocounts must be strictly positive".into());
         }
@@ -524,7 +510,7 @@ impl<'a> GenericMutableTrack<'a> {
             let mut seq1 = self.track.get_sequence_mut(&name)?;
             let seq2 = match control.get_sequence(&name) {
                 Ok(seq) => seq,
-                Err(_)  => continue,
+                Err(_) => continue,
             };
 
             for i in 0..seq1.n_bins() {
@@ -541,12 +527,16 @@ impl<'a> GenericMutableTrack<'a> {
         Ok(())
     }
 
-    pub fn quantile_normalize_to_counts(&mut self, x: Vec<f64>, y: Vec<usize>) -> Result<(), Box<dyn Error>> {
+    pub fn quantile_normalize_to_counts(
+        &mut self,
+        x: Vec<f64>,
+        y: Vec<usize>,
+    ) -> Result<(), Box<dyn Error>> {
         let mut map_in: HashMap<OrderedFloat, usize> = HashMap::new();
-        let mut map_tr: HashMap<OrderedFloat, f64  > = HashMap::new();
+        let mut map_tr: HashMap<OrderedFloat, f64> = HashMap::new();
 
         // Mapping values to count occurrences
-        self.map(&mut |_seqname : &str, _position, value : f64| {
+        self.map(&mut |_seqname: &str, _position, value: f64| {
             if !value.is_nan() {
                 *map_in.entry(OrderedFloat(value)).or_insert(0) += 1;
             }
@@ -554,7 +544,7 @@ impl<'a> GenericMutableTrack<'a> {
         })?;
 
         let dist_ref = CumDist::from_counts(x, y);
-        let dist_in  = CumDist::new(map_in);
+        let dist_in = CumDist::new(map_in);
 
         if dist_ref.x.is_empty() {
             return Ok(());
@@ -580,7 +570,7 @@ impl<'a> GenericMutableTrack<'a> {
         }
 
         // Applying the transformation
-        self.map(&mut |_seqname : &str, _position, value : f64| {
+        self.map(&mut |_seqname: &str, _position, value: f64| {
             if value.is_nan() {
                 value
             } else {
@@ -593,18 +583,18 @@ impl<'a> GenericMutableTrack<'a> {
 
     pub fn quantile_normalize(&mut self, track_ref: &dyn Track) -> Result<(), Box<dyn Error>> {
         let mut map_ref = HashMap::new();
-        let mut map_in  = HashMap::new();
-        let mut map_tr  = HashMap::new();
+        let mut map_in = HashMap::new();
+        let mut map_tr = HashMap::new();
 
         // Map `track_ref` to `map_ref`
-        GenericTrack::wrap(track_ref).map(&mut |_ : &str, _, value : f64| {
+        GenericTrack::wrap(track_ref).map(&mut |_: &str, _, value: f64| {
             if !value.is_nan() {
                 *map_ref.entry(OrderedFloat(value)).or_insert(0) += 1;
             }
         })?;
 
         // Map `self` to `map_in`
-        self.map(&mut |_ : &str, _, value : f64| {
+        self.map(&mut |_: &str, _, value: f64| {
             if !value.is_nan() {
                 *map_in.entry(OrderedFloat(value)).or_insert(0) += 1;
             }
@@ -612,7 +602,7 @@ impl<'a> GenericMutableTrack<'a> {
         })?;
 
         let dist_ref = CumDist::new(map_ref);
-        let dist_in  = CumDist::new(map_in);
+        let dist_in = CumDist::new(map_in);
 
         if dist_ref.x.is_empty() {
             return Ok(());
@@ -635,7 +625,7 @@ impl<'a> GenericMutableTrack<'a> {
         }
 
         // Apply the mapping to normalize `track`
-        self.map(&mut |_ : &str, _, value : f64| {
+        self.map(&mut |_: &str, _, value: f64| {
             if value.is_nan() {
                 value
             } else {
@@ -672,67 +662,70 @@ impl<'a> GenericMutableTrack<'a> {
     ///
     /// This function does not panic. However, if `window_sizes` is empty, the function will immediately return
     /// without modifying the track.
-    pub fn smoothen(&mut self, min_counts: f64, window_sizes: Vec<usize>) -> Result<(), Box<dyn Error>> {
+    pub fn smoothen(
+        &mut self,
+        min_counts: f64,
+        window_sizes: Vec<usize>,
+    ) -> Result<(), Box<dyn Error>> {
         if window_sizes.is_empty() {
             return Ok(());
         }
-        
+
         let mut window_sizes = window_sizes;
         window_sizes.sort(); // Sort window sizes in ascending order
-        
-        let offset1 = div_int_up  (window_sizes[0] - 1, 2);
+
+        let offset1 = div_int_up(window_sizes[0] - 1, 2);
         let offset2 = div_int_down(window_sizes[0] - 1, 2);
-        let nw      = window_sizes.len(); // Number of window sizes
-        
+        let nw = window_sizes.len(); // Number of window sizes
+
         // Loop over sequences
         for name in self.track.get_seq_names() {
-
             let mut seq = self.track.get_sequence_mut(&name)?;
             let nbins = seq.n_bins();
             let mut rst = vec![f64::NEG_INFINITY; nbins];
-            
+
             // Loop over sequence bins
             for i in offset1..(nbins - offset2) {
-                let mut counts : f64 = f64::NEG_INFINITY;
-                let mut wsize  : i64 = -1;
-                
+                let mut counts: f64 = f64::NEG_INFINITY;
+                let mut wsize: i64 = -1;
+
                 for k in 0..nw {
-                    let mut from = i as isize - div_int_up  (window_sizes[k] - 1, 2) as isize;
-                    let mut to   = i as isize + div_int_down(window_sizes[k] - 1, 2) as isize;
-                    
+                    let mut from = i as isize - div_int_up(window_sizes[k] - 1, 2) as isize;
+                    let mut to = i as isize + div_int_down(window_sizes[k] - 1, 2) as isize;
+
                     if from < 0 {
                         to += -from;
                     }
-                    
+
                     if to >= nbins as isize {
                         from -= to - (nbins as isize - 1);
                         to = nbins as isize - 1;
                     }
-                    
+
                     let from = std::cmp::max(0, from) as usize;
-                    let to   = std::cmp::min(nbins - 1, to as usize);
-                    
+                    let to = std::cmp::min(nbins - 1, to as usize);
+
                     counts = 0.0;
                     for j in from..=to {
                         counts += seq.at_bin(j);
                     }
                     wsize = (to - from + 1) as i64;
-                    
+
                     if counts >= min_counts {
                         break;
                     }
                 }
-                
+
                 if wsize != -1 {
                     rst[i] = counts / wsize as f64;
                 }
             }
-            
+
             for i in 0..nbins {
                 seq.set_bin(i, rst[i]);
             }
         }
-        
+
         Ok(())
     }
 
@@ -743,9 +736,8 @@ impl<'a> GenericMutableTrack<'a> {
         let bin_size = self.track.get_bin_size();
 
         for name in self.track.get_seq_names() {
-
             let mut seq = self.track.get_sequence_mut(&name)?;
-            
+
             for i in 0..seq.n_bins() {
                 // Call the function `f` with name, index and value
                 let v = f(&name, i * bin_size, seq.at_bin(i));
@@ -781,9 +773,9 @@ impl<'a> GenericMutableTrack<'a> {
     /// * Returns an error if the sequences in the two tracks have different numbers of bins.
     pub fn window_map<F>(
         &mut self,
-        track      : &dyn Track,
+        track: &dyn Track,
         window_size: usize,
-        mut f      : F,
+        mut f: F,
     ) -> Result<(), Box<dyn Error>>
     where
         F: FnMut(&str, usize, &[f64]) -> f64,
@@ -792,7 +784,7 @@ impl<'a> GenericMutableTrack<'a> {
             return Err(Box::new(InvalidWindowSizeError));
         }
 
-        let mut v    = vec![f64::NAN; window_size];
+        let mut v = vec![f64::NAN; window_size];
         let bin_size = self.track.get_bin_size();
 
         if self.track.get_bin_size() != track.get_bin_size() {
@@ -801,7 +793,7 @@ impl<'a> GenericMutableTrack<'a> {
 
         for name in self.track.get_seq_names() {
             let mut seq1 = self.track.get_sequence_mut(&name)?;
-            let     seq2 = track.get_sequence(&name)?;
+            let seq2 = track.get_sequence(&name)?;
 
             if seq1.n_bins() != seq2.n_bins() {
                 return Err(Box::new(SequenceLengthMismatchError(name)));
@@ -842,21 +834,17 @@ impl<'a> GenericMutableTrack<'a> {
     /// * Returns an error if the list of tracks is empty.
     /// * Returns an error if the bin sizes of any track do not match the bin size of the current track.
     /// * Returns an error if any sequence in the provided tracks has a different number of bins than the corresponding sequence in the current track.
-    pub fn map_list<F>(
-        &mut self,
-        tracks: &[&dyn Track],
-        mut f : F,
-    ) -> Result<(), Box<dyn Error>>
+    pub fn map_list<F>(&mut self, tracks: &[&dyn Track], mut f: F) -> Result<(), Box<dyn Error>>
     where
         F: FnMut(&str, usize, &[f64]) -> f64,
     {
         if tracks.is_empty() {
             return Ok(());
         }
-    
-        let n        = tracks.len();
+
+        let n = tracks.len();
         let bin_size = self.track.get_bin_size();
-        let mut v    = vec![f64::NAN; n];
+        let mut v = vec![f64::NAN; n];
 
         // Check bin sizes
         for t in tracks.iter() {
@@ -866,8 +854,7 @@ impl<'a> GenericMutableTrack<'a> {
         }
 
         for name in self.track.get_seq_names() {
-
-            let mut dst       = self.track.get_sequence_mut(&name)?;
+            let mut dst = self.track.get_sequence_mut(&name)?;
             let mut sequences = Vec::new();
 
             // Collect source sequences
@@ -900,7 +887,7 @@ impl<'a> GenericMutableTrack<'a> {
                 dst.set_bin(i, f(&name, i * bin_size, &v));
             }
         }
-    
+
         Ok(())
     }
 
@@ -925,9 +912,9 @@ impl<'a> GenericMutableTrack<'a> {
     /// * Returns an error if any sequence in the provided tracks has a different number of bins than the corresponding sequence in the current track.
     pub fn window_map_list<F>(
         &mut self,
-        tracks     : &[&dyn Track],
+        tracks: &[&dyn Track],
         window_size: usize,
-        mut f      : F,
+        mut f: F,
     ) -> Result<(), Box<dyn Error>>
     where
         F: FnMut(&str, usize, &[Vec<f64>]) -> f64,
@@ -938,11 +925,11 @@ impl<'a> GenericMutableTrack<'a> {
         if window_size == 0 {
             return Err(Box::new(InvalidWindowSizeError));
         }
-    
-        let n        = tracks.len();
+
+        let n = tracks.len();
         let bin_size = self.track.get_bin_size();
         let mut v: Vec<Vec<f64>> = vec![vec![f64::NAN; window_size]; n];
-    
+
         // Check bin sizes
         for t in tracks.iter() {
             if bin_size != t.get_bin_size() {
@@ -951,8 +938,7 @@ impl<'a> GenericMutableTrack<'a> {
         }
 
         for name in self.track.get_seq_names() {
-
-            let mut dst       = self.track.get_sequence_mut(&name)?;
+            let mut dst = self.track.get_sequence_mut(&name)?;
             let mut sequences = Vec::new();
 
             // Collect source sequences
@@ -992,10 +978,9 @@ impl<'a> GenericMutableTrack<'a> {
                 dst.set_bin(i, f(&name, i * bin_size, &v));
             }
         }
-    
+
         Ok(())
     }
-
 }
 
 /* -------------------------------------------------------------------------- */

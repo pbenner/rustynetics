@@ -22,8 +22,8 @@
 
 use std::fmt;
 
-use crate::range::Range;
 use crate::granges::GRanges;
+use crate::range::Range;
 
 /* -------------------------------------------------------------------------- */
 
@@ -37,9 +37,9 @@ use crate::granges::GRanges;
 /// - `range`: Interval of the range, as a `Range` object with `from` and `to` positions.
 /// - `strand`: Character representing the strand ('+', '-', or '.' for no strand).
 pub struct GRange {
-    pub seqname : String,
-    pub range   : Range,
-    pub strand  : char,
+    pub seqname: String,
+    pub range: Range,
+    pub strand: char,
 }
 
 /* -------------------------------------------------------------------------- */
@@ -55,7 +55,7 @@ impl GRange {
     ///
     /// # Returns
     /// A new `GRange` instance.
-    pub fn new(seqname : String, from : usize, to : usize, strand : char) -> Self {
+    pub fn new(seqname: String, from: usize, to: usize, strand: char) -> Self {
         GRange {
             seqname,
             range: Range::new(from, to),
@@ -76,7 +76,7 @@ impl GRange {
 /// - `row`: Index of the row within the `GRanges` structure to access.
 pub struct GRangesRow<'a> {
     granges: &'a GRanges,
-    row    : usize,
+    row: usize,
 }
 
 /* -------------------------------------------------------------------------- */
@@ -118,9 +118,9 @@ impl<'a> fmt::Display for GRangesRow<'a> {
             f,
             "GRangesRow(seqname={}, range=({}, {}), strand={})",
             self.granges.seqnames[self.row],
-            self.granges.ranges  [self.row].from,
-            self.granges.ranges  [self.row].to,
-            self.granges.strand  [self.row] as char
+            self.granges.ranges[self.row].from,
+            self.granges.ranges[self.row].to,
+            self.granges.strand[self.row] as char
         )
     }
 }

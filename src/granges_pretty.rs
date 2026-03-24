@@ -25,7 +25,6 @@ use crate::granges::GRanges;
 /* -------------------------------------------------------------------------- */
 
 impl GRanges {
-
     /// Prints the contents of the `GRanges` instance in a pretty-printed format to the provided writer.
     ///
     /// This method formats the `GRanges` data into a human-readable string and writes it to the specified
@@ -42,17 +41,24 @@ impl GRanges {
         let meta_str = format!("{}", self.meta);
         let mut meta_reader = BufReader::new(meta_str.as_bytes());
 
-        let mut widths : [usize; 5] = [1, 8, 1, 1, 6];
+        let mut widths: [usize; 5] = [1, 8, 1, 1, 6];
 
         for i in 0..self.num_rows() {
             update_max_widths(self, i, &mut widths);
         }
 
-        let widths_row    = [widths[0], widths[1], widths[2], widths[3], widths[4]];
+        let widths_row = [widths[0], widths[1], widths[2], widths[3], widths[4]];
         let widths_header = [widths[0], widths[1], widths[2] + widths[3] + 4, widths[4]];
 
         write_header(self, writer, &mut meta_reader, &widths_header)?;
-        write_all   (self, writer, &mut meta_reader, &widths_header, &widths_row, n)?;
+        write_all(
+            self,
+            writer,
+            &mut meta_reader,
+            &widths_header,
+            &widths_row,
+            n,
+        )?;
 
         Ok(())
     }
@@ -78,8 +84,8 @@ impl GRanges {
         }
 
         let s = match String::from_utf8(buffer) {
-            Ok (v) => v,
-            Err(_) => panic!("internal error")
+            Ok(v) => v,
+            Err(_) => panic!("internal error"),
         };
         Ok(s)
     }
@@ -95,14 +101,18 @@ fn update_max_width(widths: &mut [usize], j: usize, args: String) {
 }
 
 fn update_max_widths(granges: &GRanges, i: usize, widths: &mut [usize; 5]) {
-    update_max_width(widths, 0, (i + 1)                 .to_string());
-    update_max_width(widths, 1, granges.seqnames[i]     .to_string());
-    update_max_width(widths, 2, granges.ranges  [i].from.to_string());
-    update_max_width(widths, 3, granges.ranges  [i].to  .to_string());
-    update_max_width(widths, 4, granges.strand  [i]     .to_string());
+    update_max_width(widths, 0, (i + 1).to_string());
+    update_max_width(widths, 1, granges.seqnames[i].to_string());
+    update_max_width(widths, 2, granges.ranges[i].from.to_string());
+    update_max_width(widths, 3, granges.ranges[i].to.to_string());
+    update_max_width(widths, 4, granges.strand[i].to_string());
 }
 
-fn write_meta_row<W: Write>(granges: &GRanges, writer: &mut W, reader: &mut dyn BufRead) -> io::Result<()> {
+fn write_meta_row<W: Write>(
+    granges: &GRanges,
+    writer: &mut W,
+    reader: &mut dyn BufRead,
+) -> io::Result<()> {
     if granges.meta.num_cols() > 0 {
         write!(writer, " |")?;
         let mut line = String::new();
@@ -112,26 +122,62 @@ fn write_meta_row<W: Write>(granges: &GRanges, writer: &mut W, reader: &mut dyn 
     Ok(())
 }
 
-fn write_header<W: Write>(granges: &GRanges, writer: &mut W, meta_reader: &mut dyn BufRead, widths: &[usize]) -> io::Result<()> {
-    write!(writer,
+fn write_header<W: Write>(
+    granges: &GRanges,
+    writer: &mut W,
+    meta_reader: &mut dyn BufRead,
+    widths: &[usize],
+) -> io::Result<()> {
+    write!(
+        writer,
         "{:width0$} {:width1$} {:width2$} {:width3$}",
-        "", "seqnames", "ranges", "strand",
-        width0=widths[0], width1=widths[1], width2=widths[2], width3=widths[3])?;
+        "",
+        "seqnames",
+        "ranges",
+        "strand",
+        width0 = widths[0],
+        width1 = widths[1],
+        width2 = widths[2],
+        width3 = widths[3]
+    )?;
     write_meta_row(granges, writer, meta_reader)?;
     Ok(())
 }
 
-fn write_row<W: Write>(granges: &GRanges, writer: &mut W, meta_reader: &mut dyn BufRead, widths: &[usize], i: usize) -> io::Result<()> {
+fn write_row<W: Write>(
+    granges: &GRanges,
+    writer: &mut W,
+    meta_reader: &mut dyn BufRead,
+    widths: &[usize],
+    i: usize,
+) -> io::Result<()> {
     writeln!(writer)?;
-    write!(writer,
+    write!(
+        writer,
         "{:width0$} {:width1$} [{:width2$}, {:width3$}) {:width4$}",
-        i + 1, granges.seqnames[i], granges.ranges[i].from, granges.ranges[i].to, granges.strand[i],
-        width0=widths[0], width1=widths[1], width2=widths[2], width3=widths[3], width4=widths[4])?;
+        i + 1,
+        granges.seqnames[i],
+        granges.ranges[i].from,
+        granges.ranges[i].to,
+        granges.strand[i],
+        width0 = widths[0],
+        width1 = widths[1],
+        width2 = widths[2],
+        width3 = widths[3],
+        width4 = widths[4]
+    )?;
     write_meta_row(granges, writer, meta_reader)?;
     Ok(())
 }
 
-fn write_all<W: Write>(granges: &GRanges, writer: &mut W, meta_reader: &mut dyn BufRead, widths_header : &[usize], widths_row: &[usize], n: usize) -> io::Result<()> {
+fn write_all<W: Write>(
+    granges: &GRanges,
+    writer: &mut W,
+    meta_reader: &mut dyn BufRead,
+    widths_header: &[usize],
+    widths_row: &[usize],
+    n: usize,
+) -> io::Result<()> {
     if granges.num_rows() <= n + 1 {
         for i in 0..granges.num_rows() {
             write_row(granges, writer, meta_reader, &widths_row, i)?;
@@ -143,10 +189,18 @@ fn write_all<W: Write>(granges: &GRanges, writer: &mut W, meta_reader: &mut dyn 
         }
         // Print gap
         writeln!(writer)?;
-        write!(writer, 
+        write!(
+            writer,
             "{:width0$} {:width1$} {:width2$} {:width3$}",
-            "", "...", "...", "",
-            width0=widths_header[0], width1=widths_header[1], width2=widths_header[2], width3=widths_header[3])?;
+            "",
+            "...",
+            "...",
+            "",
+            width0 = widths_header[0],
+            width1 = widths_header[1],
+            width2 = widths_header[2],
+            width3 = widths_header[3]
+        )?;
         write_meta_row(granges, writer, meta_reader)?;
         // Print last n/2 rows
         for i in granges.num_rows() - n / 2..granges.num_rows() {

@@ -18,9 +18,9 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-use std::io::{self, Read};
-use flate2::read::MultiGzDecoder;
 use byteorder::{LittleEndian, ReadBytesExt};
+use flate2::read::MultiGzDecoder;
+use std::io::{self, Read};
 
 /* -------------------------------------------------------------------------- */
 
@@ -34,9 +34,9 @@ use byteorder::{LittleEndian, ReadBytesExt};
 /// - `bsize`: Block size of the BGZF compressed block.
 #[derive(Clone, Debug, PartialEq)]
 pub struct BgzfExtra {
-    pub si1  : u8,
-    pub si2  : u8,
-    pub slen : u16,
+    pub si1: u8,
+    pub si2: u8,
+    pub slen: u16,
     pub bsize: u16,
 }
 
@@ -81,24 +81,36 @@ impl<R: Read> BgzfReader<R> {
     /// A `Result` containing a `BgzfExtra` struct with BGZF metadata,
     /// or an `io::Error` if the header or extra fields cannot be read.
     pub fn get_extra(&mut self) -> io::Result<BgzfExtra> {
-        let header = self.decoder.header().ok_or_else(|| {
-            io::Error::new(io::ErrorKind::Other, "Failed to read gzip header")
-        })?;
-        
+        let header = self
+            .decoder
+            .header()
+            .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "Failed to read gzip header"))?;
+
         if let Some(extra) = header.extra() {
             if extra.len() != 6 {
-                return Err(io::Error::new(io::ErrorKind::Other, "No extra information available"));
+                return Err(io::Error::new(
+                    io::ErrorKind::Other,
+                    "No extra information available",
+                ));
             }
 
             let mut cursor = io::Cursor::new(extra);
-            let si1   = cursor.read_u8()?;
-            let si2   = cursor.read_u8()?;
-            let slen  = cursor.read_u16::<LittleEndian>()?;
+            let si1 = cursor.read_u8()?;
+            let si2 = cursor.read_u8()?;
+            let slen = cursor.read_u16::<LittleEndian>()?;
             let bsize = cursor.read_u16::<LittleEndian>()?;
 
-            Ok(BgzfExtra { si1, si2, slen, bsize })
+            Ok(BgzfExtra {
+                si1,
+                si2,
+                slen,
+                bsize,
+            })
         } else {
-            Err(io::Error::new(io::ErrorKind::Other, "No extra information available"))
+            Err(io::Error::new(
+                io::ErrorKind::Other,
+                "No extra information available",
+            ))
         }
     }
 }
@@ -106,7 +118,6 @@ impl<R: Read> BgzfReader<R> {
 /* -------------------------------------------------------------------------- */
 
 impl<R: Read> Read for BgzfReader<R> {
-
     /// Reads data from the BGZF compressed stream into the provided buffer.
     ///
     /// This implementation of the `Read` trait allows reading decompressed
@@ -123,7 +134,6 @@ impl<R: Read> Read for BgzfReader<R> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         self.decoder.read(buf)
     }
-
 }
 
 /* -------------------------------------------------------------------------- */
@@ -132,51 +142,50 @@ impl<R: Read> Read for BgzfReader<R> {
 #[cfg(test)]
 mod tests {
 
-    use std::fs::File;
-    use byteorder::ReadBytesExt;
     use byteorder::LittleEndian;
+    use byteorder::ReadBytesExt;
+    use std::fs::File;
 
     use crate::bgzf::{BgzfExtra, BgzfReader};
     use crate::netfile::NetFile;
 
     #[test]
     fn test_bgzf() {
-
         let file = File::open("tests/test_bam_1.bam");
         let bgzf = BgzfReader::new(file.unwrap());
 
         let mut reader = bgzf.unwrap();
 
-        assert_eq!(
-            reader.read_i64::<LittleEndian>().unwrap(),
-            150345695554
-        );
+        assert_eq!(reader.read_i64::<LittleEndian>().unwrap(), 150345695554);
 
         assert_eq!(
             reader.get_extra().unwrap(),
-            BgzfExtra{si1: 66, si2: 67, slen: 2, bsize: 77}
+            BgzfExtra {
+                si1: 66,
+                si2: 67,
+                slen: 2,
+                bsize: 77
+            }
         );
-
     }
 
     #[test]
     fn test_bgzf_netfile() {
-
         let file = NetFile::open("tests/test_bam_1.bam");
         let bgzf = BgzfReader::new(file.unwrap());
 
         let mut reader = bgzf.unwrap();
 
-        assert_eq!(
-            reader.read_i64::<LittleEndian>().unwrap(),
-            150345695554
-        );
+        assert_eq!(reader.read_i64::<LittleEndian>().unwrap(), 150345695554);
 
         assert_eq!(
             reader.get_extra().unwrap(),
-            BgzfExtra{si1: 66, si2: 67, slen: 2, bsize: 77}
+            BgzfExtra {
+                si1: 66,
+                si2: 67,
+                slen: 2,
+                bsize: 77
+            }
         );
-
     }
-
 }

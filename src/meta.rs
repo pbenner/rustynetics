@@ -20,8 +20,8 @@
 
 /* -------------------------------------------------------------------------- */
 
-use std::fmt;
 use std::error::Error;
+use std::fmt;
 
 use list_comprehension_macro::comp;
 
@@ -31,13 +31,13 @@ use crate::range::Range;
 
 #[derive(Debug, Clone)]
 pub enum MetaData {
-    StringMatrix (Vec<Vec<String>>),
-    StringArray  (Vec<String>     ),
-    FloatMatrix  (Vec<Vec<f64>>   ),
-    FloatArray   (Vec<f64>        ),
-    IntMatrix    (Vec<Vec<i64>>   ),
-    IntArray     (Vec<i64>        ),
-    RangeArray   (Vec<Range>      ),
+    StringMatrix(Vec<Vec<String>>),
+    StringArray(Vec<String>),
+    FloatMatrix(Vec<Vec<f64>>),
+    FloatArray(Vec<f64>),
+    IntMatrix(Vec<Vec<i64>>),
+    IntArray(Vec<i64>),
+    RangeArray(Vec<Range>),
 }
 
 /* -------------------------------------------------------------------------- */
@@ -45,109 +45,140 @@ pub enum MetaData {
 impl MetaData {
     pub fn len(&self) -> usize {
         match self {
-            MetaData::FloatArray  (v) => v.len(),
-            MetaData::IntArray    (v) => v.len(),
-            MetaData::StringArray (v) => v.len(),
+            MetaData::FloatArray(v) => v.len(),
+            MetaData::IntArray(v) => v.len(),
+            MetaData::StringArray(v) => v.len(),
             MetaData::StringMatrix(v) => v.len(),
-            MetaData::FloatMatrix (v) => v.len(),
-            MetaData::IntMatrix   (v) => v.len(),
-            MetaData::RangeArray  (v) => v.len(),
+            MetaData::FloatMatrix(v) => v.len(),
+            MetaData::IntMatrix(v) => v.len(),
+            MetaData::RangeArray(v) => v.len(),
         }
     }
 
-    pub fn concat(&self, data : &Self) -> Result<Self, Box<dyn Error>> {
+    pub fn concat(&self, data: &Self) -> Result<Self, Box<dyn Error>> {
         match (self, data) {
-            (MetaData::FloatArray  (v), MetaData::FloatArray  (w)) => Ok(MetaData::FloatArray  ([v.clone(), w.clone()].concat())),
-            (MetaData::IntArray    (v), MetaData::IntArray    (w)) => Ok(MetaData::IntArray    ([v.clone(), w.clone()].concat())),
-            (MetaData::StringArray (v), MetaData::StringArray (w)) => Ok(MetaData::StringArray ([v.clone(), w.clone()].concat())),
-            (MetaData::StringMatrix(v), MetaData::StringMatrix(w)) => Ok(MetaData::StringMatrix([v.clone(), w.clone()].concat())),
-            (MetaData::FloatMatrix (v), MetaData::FloatMatrix (w)) => Ok(MetaData::FloatMatrix ([v.clone(), w.clone()].concat())),
-            (MetaData::IntMatrix   (v), MetaData::IntMatrix   (w)) => Ok(MetaData::IntMatrix   ([v.clone(), w.clone()].concat())),
-            (MetaData::RangeArray  (v), MetaData::RangeArray  (w)) => Ok(MetaData::RangeArray  ([v.clone(), w.clone()].concat())),
-            _ => Err(format!("MetaData types do not match").into())
+            (MetaData::FloatArray(v), MetaData::FloatArray(w)) => {
+                Ok(MetaData::FloatArray([v.clone(), w.clone()].concat()))
+            }
+            (MetaData::IntArray(v), MetaData::IntArray(w)) => {
+                Ok(MetaData::IntArray([v.clone(), w.clone()].concat()))
+            }
+            (MetaData::StringArray(v), MetaData::StringArray(w)) => {
+                Ok(MetaData::StringArray([v.clone(), w.clone()].concat()))
+            }
+            (MetaData::StringMatrix(v), MetaData::StringMatrix(w)) => {
+                Ok(MetaData::StringMatrix([v.clone(), w.clone()].concat()))
+            }
+            (MetaData::FloatMatrix(v), MetaData::FloatMatrix(w)) => {
+                Ok(MetaData::FloatMatrix([v.clone(), w.clone()].concat()))
+            }
+            (MetaData::IntMatrix(v), MetaData::IntMatrix(w)) => {
+                Ok(MetaData::IntMatrix([v.clone(), w.clone()].concat()))
+            }
+            (MetaData::RangeArray(v), MetaData::RangeArray(w)) => {
+                Ok(MetaData::RangeArray([v.clone(), w.clone()].concat()))
+            }
+            _ => Err(format!("MetaData types do not match").into()),
         }
     }
 
-    pub fn slice(&self, ifrom : usize, ito : usize) -> Self {
+    pub fn slice(&self, ifrom: usize, ito: usize) -> Self {
         match self {
-            MetaData::FloatArray  (v) => MetaData::FloatArray  (comp![ v[i] for i in ifrom..ito ]),
-            MetaData::IntArray    (v) => MetaData::IntArray    (comp![ v[i] for i in ifrom..ito ]),
-            MetaData::StringArray (v) => MetaData::StringArray (comp![ v[i].clone() for i in ifrom..ito ]),
-            MetaData::StringMatrix(v) => MetaData::StringMatrix(comp![ v[i].clone() for i in ifrom..ito ]),
-            MetaData::FloatMatrix (v) => MetaData::FloatMatrix (comp![ v[i].clone() for i in ifrom..ito ]),
-            MetaData::IntMatrix   (v) => MetaData::IntMatrix   (comp![ v[i].clone() for i in ifrom..ito ]),
-            MetaData::RangeArray  (v) => MetaData::RangeArray  (comp![ v[i].clone() for i in ifrom..ito ]),
+            MetaData::FloatArray(v) => MetaData::FloatArray(comp![ v[i] for i in ifrom..ito ]),
+            MetaData::IntArray(v) => MetaData::IntArray(comp![ v[i] for i in ifrom..ito ]),
+            MetaData::StringArray(v) => {
+                MetaData::StringArray(comp![ v[i].clone() for i in ifrom..ito ])
+            }
+            MetaData::StringMatrix(v) => {
+                MetaData::StringMatrix(comp![ v[i].clone() for i in ifrom..ito ])
+            }
+            MetaData::FloatMatrix(v) => {
+                MetaData::FloatMatrix(comp![ v[i].clone() for i in ifrom..ito ])
+            }
+            MetaData::IntMatrix(v) => {
+                MetaData::IntMatrix(comp![ v[i].clone() for i in ifrom..ito ])
+            }
+            MetaData::RangeArray(v) => {
+                MetaData::RangeArray(comp![ v[i].clone() for i in ifrom..ito ])
+            }
         }
     }
 
-    pub fn subset(&self, indices : &[usize]) -> Self {
+    pub fn subset(&self, indices: &[usize]) -> Self {
         match self {
-            MetaData::FloatArray  (v) => MetaData::FloatArray  (comp![ v[*i] for i in indices ]),
-            MetaData::IntArray    (v) => MetaData::IntArray    (comp![ v[*i] for i in indices ]),
-            MetaData::StringArray (v) => MetaData::StringArray (comp![ v[*i].clone() for i in indices ]),
-            MetaData::StringMatrix(v) => MetaData::StringMatrix(comp![ v[*i].clone() for i in indices ]),
-            MetaData::FloatMatrix (v) => MetaData::FloatMatrix (comp![ v[*i].clone() for i in indices ]),
-            MetaData::IntMatrix   (v) => MetaData::IntMatrix   (comp![ v[*i].clone() for i in indices ]),
-            MetaData::RangeArray  (v) => MetaData::RangeArray  (comp![ v[*i].clone() for i in indices ]),
+            MetaData::FloatArray(v) => MetaData::FloatArray(comp![ v[*i] for i in indices ]),
+            MetaData::IntArray(v) => MetaData::IntArray(comp![ v[*i] for i in indices ]),
+            MetaData::StringArray(v) => {
+                MetaData::StringArray(comp![ v[*i].clone() for i in indices ])
+            }
+            MetaData::StringMatrix(v) => {
+                MetaData::StringMatrix(comp![ v[*i].clone() for i in indices ])
+            }
+            MetaData::FloatMatrix(v) => {
+                MetaData::FloatMatrix(comp![ v[*i].clone() for i in indices ])
+            }
+            MetaData::IntMatrix(v) => MetaData::IntMatrix(comp![ v[*i].clone() for i in indices ]),
+            MetaData::RangeArray(v) => {
+                MetaData::RangeArray(comp![ v[*i].clone() for i in indices ])
+            }
         }
     }
 
     pub fn get_float(&self) -> Option<&Vec<f64>> {
         match self {
             MetaData::FloatArray(v) => Some(v),
-            _ => None
+            _ => None,
         }
     }
 
     pub fn get_int(&self) -> Option<&Vec<i64>> {
         match self {
             MetaData::IntArray(v) => Some(v),
-            _ => None
+            _ => None,
         }
     }
 
     pub fn get_str(&self) -> Option<&Vec<String>> {
         match self {
             MetaData::StringArray(v) => Some(v),
-            _ => None
+            _ => None,
         }
     }
 
     pub fn get_range(&self) -> Option<&Vec<Range>> {
         match self {
             MetaData::RangeArray(v) => Some(v),
-            _ => None
+            _ => None,
         }
     }
 
     pub fn get_float_mut(&mut self) -> Option<&mut Vec<f64>> {
         match self {
             MetaData::FloatArray(v) => Some(v),
-            _ => None
+            _ => None,
         }
     }
 
     pub fn get_int_mut(&mut self) -> Option<&mut Vec<i64>> {
         match self {
             MetaData::IntArray(v) => Some(v),
-            _ => None
+            _ => None,
         }
     }
 
     pub fn get_str_mut(&mut self) -> Option<&mut Vec<String>> {
         match self {
             MetaData::StringArray(v) => Some(v),
-            _ => None
+            _ => None,
         }
     }
 
     pub fn get_range_mut(&mut self) -> Option<&mut Vec<Range>> {
         match self {
             MetaData::RangeArray(v) => Some(v),
-            _ => None
+            _ => None,
         }
     }
-
 }
 
 /* -------------------------------------------------------------------------- */
@@ -155,14 +186,14 @@ impl MetaData {
 impl PartialEq for MetaData {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (MetaData::FloatArray  (v), MetaData::FloatArray  (w)) => v == w,
-            (MetaData::IntArray    (v), MetaData::IntArray    (w)) => v == w,
-            (MetaData::StringArray (v), MetaData::StringArray (w)) => v == w,
+            (MetaData::FloatArray(v), MetaData::FloatArray(w)) => v == w,
+            (MetaData::IntArray(v), MetaData::IntArray(w)) => v == w,
+            (MetaData::StringArray(v), MetaData::StringArray(w)) => v == w,
             (MetaData::StringMatrix(v), MetaData::StringMatrix(w)) => v == w,
-            (MetaData::FloatMatrix (v), MetaData::FloatMatrix (w)) => v == w,
-            (MetaData::IntMatrix   (v), MetaData::IntMatrix   (w)) => v == w,
-            (MetaData::RangeArray  (v), MetaData::RangeArray  (w)) => v == w,
-            _ => false
+            (MetaData::FloatMatrix(v), MetaData::FloatMatrix(w)) => v == w,
+            (MetaData::IntMatrix(v), MetaData::IntMatrix(w)) => v == w,
+            (MetaData::RangeArray(v), MetaData::RangeArray(w)) => v == w,
+            _ => false,
         }
     }
 }
@@ -225,7 +256,6 @@ impl Default for Meta {
 /* -------------------------------------------------------------------------- */
 
 impl Meta {
-
     /// Creates a new `Meta` instance with the given column names and data.
     ///
     /// # Arguments
@@ -294,7 +324,7 @@ impl Meta {
     /// let combined = meta1.append(&meta2).unwrap();
     /// assert_eq!(combined.num_rows(), 2);
     /// ```
-    pub fn append(&self, meta : &Meta) -> Result<Self, Box<dyn Error>> {
+    pub fn append(&self, meta: &Meta) -> Result<Self, Box<dyn Error>> {
         let n1 = self.num_rows();
         let n2 = meta.num_rows();
 
@@ -306,7 +336,9 @@ impl Meta {
             let meta_col2 = meta.get_column(&meta.meta_name[j]);
 
             if meta_col2.is_none() {
-                return Err(format!("Column {} not found in meta object", &meta.meta_name[j]).into())
+                return Err(
+                    format!("Column {} not found in meta object", &meta.meta_name[j]).into(),
+                );
             }
             let meta_col3 = meta_col1.concat(meta_col2.unwrap())?;
 
@@ -316,7 +348,7 @@ impl Meta {
         let meta = Meta {
             meta_name: meta_name,
             meta_data: meta_data,
-            rows: n1+n2,
+            rows: n1 + n2,
         };
         Ok(meta)
     }
@@ -378,7 +410,7 @@ impl Meta {
     /// - `name`: The name of the column to retrieve.
     ///
     /// # Returns
-    /// An `Option` containing a reference to the `MetaData` of the specified column. 
+    /// An `Option` containing a reference to the `MetaData` of the specified column.
     /// Returns `None` if no column with the given name is found.
     ///
     /// # Example
@@ -400,7 +432,10 @@ impl Meta {
     /// This function does not return an error but rather returns `None` if the specified
     /// column name is not found.
     pub fn get_column(&self, name: &str) -> Option<&MetaData> {
-        self.meta_name.iter().position(|x| x == name).map(|index| &self.meta_data[index])
+        self.meta_name
+            .iter()
+            .position(|x| x == name)
+            .map(|index| &self.meta_data[index])
     }
 
     /// Retrieves a reference to a column containing integer data by its name.
@@ -500,7 +535,10 @@ impl Meta {
     /// }
     /// ```
     pub fn get_column_mut(&mut self, name: &str) -> Option<&mut MetaData> {
-        self.meta_name.iter().position(|x| x == name).map(move |index| &mut self.meta_data[index])
+        self.meta_name
+            .iter()
+            .position(|x| x == name)
+            .map(move |index| &mut self.meta_data[index])
     }
 
     /// Retrieves a mutable reference to a column containing integer data by its name.
@@ -582,9 +620,8 @@ impl Meta {
     ///
     /// # Returns
     /// A new `Meta` instance containing only the specified slice of rows for each column.
-    pub fn slice(&self, ifrom : usize, ito : usize) -> Meta {
-
-        let n = ito-ifrom;
+    pub fn slice(&self, ifrom: usize, ito: usize) -> Meta {
+        let n = ito - ifrom;
         let m = self.meta_name.len();
         let mut data = Vec::new();
 
@@ -645,17 +682,20 @@ impl Meta {
         if reverse {
             match self.get_column(name).unwrap() {
                 MetaData::StringArray(v) => indices.sort_by(|&i, &j| v[j].cmp(&v[i])),
-                MetaData::FloatArray (v) => indices.sort_by(|&i, &j| v[j].partial_cmp(&v[i]).unwrap()),
-                MetaData::IntArray   (v) => indices.sort_by(|&i, &j| v[j].cmp(&v[i])),
-                _ => ()
+                MetaData::FloatArray(v) => {
+                    indices.sort_by(|&i, &j| v[j].partial_cmp(&v[i]).unwrap())
+                }
+                MetaData::IntArray(v) => indices.sort_by(|&i, &j| v[j].cmp(&v[i])),
+                _ => (),
             }
-        }
-        else {
+        } else {
             match self.get_column(name).unwrap() {
                 MetaData::StringArray(v) => indices.sort_by(|&i, &j| v[i].cmp(&v[j])),
-                MetaData::FloatArray (v) => indices.sort_by(|&i, &j| v[i].partial_cmp(&v[j]).unwrap()),
-                MetaData::IntArray   (v) => indices.sort_by(|&i, &j| v[i].cmp(&v[j])),
-                _ => ()
+                MetaData::FloatArray(v) => {
+                    indices.sort_by(|&i, &j| v[i].partial_cmp(&v[j]).unwrap())
+                }
+                MetaData::IntArray(v) => indices.sort_by(|&i, &j| v[i].cmp(&v[j])),
+                _ => (),
             }
         }
         Ok(self.subset(&indices))
@@ -704,7 +744,6 @@ impl PartialEq for Meta {
 /* -------------------------------------------------------------------------- */
 
 impl fmt::Display for Meta {
-
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.pad(&format!("{}", self.format_pretty(10, false).unwrap()))
     }

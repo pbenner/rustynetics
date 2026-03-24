@@ -46,7 +46,7 @@ use std::fmt;
 #[derive(Clone, Copy, Debug)]
 pub struct Range {
     pub from: usize,
-    pub to  : usize,
+    pub to: usize,
 }
 
 /* -------------------------------------------------------------------------- */
@@ -72,7 +72,10 @@ impl Range {
     /// ```
     pub fn new(from: usize, to: usize) -> Range {
         if from > to {
-            panic!("NewRange(): invalid range, i.e. from > to (from={}, to={})", from, to);
+            panic!(
+                "NewRange(): invalid range, i.e. from > to (from={}, to={})",
+                from, to
+            );
         }
         Range { from, to }
     }
@@ -130,8 +133,7 @@ impl PartialEq for Range {
     /// assert_eq!(range1, range2);
     /// ```
     fn eq(&self, other: &Self) -> bool {
-        self.from == other.from &&
-        self.to   == other.to
+        self.from == other.from && self.to == other.to
     }
 }
 

@@ -22,25 +22,23 @@ use std::io;
 use std::io::{BufRead, Write};
 
 use crate::granges::GRanges;
- 
+
 /* -------------------------------------------------------------------------- */
- 
 
 /// A writer for formatting and outputting a `GRanges` instance as a table.
 ///
 /// This struct holds a reference to a `GRanges` instance and is responsible for determining the width of
 /// columns based on the content of the `GRanges` and for writing the formatted output to a specified writer.
 pub struct GRangesTableWriter<'a> {
-    granges       : &'a GRanges,
-    widths        : Vec<usize>,
+    granges: &'a GRanges,
+    widths: Vec<usize>,
     use_scientific: bool,
-    use_strand    : bool,
- }
- 
-/* -------------------------------------------------------------------------- */
- 
-impl<'a> GRangesTableWriter<'a> {
+    use_strand: bool,
+}
 
+/* -------------------------------------------------------------------------- */
+
+impl<'a> GRangesTableWriter<'a> {
     /// Creates a new instance of `GRangesTableWriter`.
     ///
     /// # Arguments
@@ -51,11 +49,11 @@ impl<'a> GRangesTableWriter<'a> {
     /// # Returns
     /// A new instance of `GRangesTableWriter`.
     pub fn new(granges: &'a GRanges, use_scientific: bool, use_strand: bool) -> Self {
-        GRangesTableWriter{
-            granges       : granges,
-            widths        : vec![8, 4, 2, 6],
+        GRangesTableWriter {
+            granges: granges,
+            widths: vec![8, 4, 2, 6],
             use_scientific: use_scientific,
-            use_strand    : use_strand,
+            use_strand: use_strand,
         }
     }
 
@@ -65,7 +63,7 @@ impl<'a> GRangesTableWriter<'a> {
     /// for all rows. It is called to ensure proper alignment when writing the table.
     ///
     /// # Returns
-    /// An `io::Result<()>`, which will be `Ok(())` if the operation succeeds, or an error if width 
+    /// An `io::Result<()>`, which will be `Ok(())` if the operation succeeds, or an error if width
     /// calculation fails.
     pub fn determine_widths(&mut self) -> io::Result<()> {
         for i in 0..self.granges.num_rows() {
@@ -84,10 +82,14 @@ impl<'a> GRangesTableWriter<'a> {
     ///
     /// # Returns
     /// An `io::Result<()>`, which will be `Ok(())` if the operation succeeds, or an error if writing fails.
-    pub fn write_header<R: BufRead, W: Write>(&self, writer: &mut W, meta_reader: &mut R) -> io::Result<()> {
+    pub fn write_header<R: BufRead, W: Write>(
+        &self,
+        writer: &mut W,
+        meta_reader: &mut R,
+    ) -> io::Result<()> {
         write_header(writer, &self.widths, self.use_strand)?;
         write_row_meta(self.granges, writer, meta_reader)?;
-        writeln!(writer)    
+        writeln!(writer)
     }
 
     /// Writes a single row of `GRanges` data to the specified writer.
@@ -101,17 +103,26 @@ impl<'a> GRangesTableWriter<'a> {
     ///
     /// # Returns
     /// An `io::Result<()>`, which will be `Ok(())` if the operation succeeds, or an error if writing fails.
-    pub fn write_row<R: BufRead, W: Write>(&self, writer: &mut W, meta_reader: &mut R, i: usize) -> io::Result<()> {
-        write_row     (self.granges, writer, i, &self.widths, self.use_strand)?;
+    pub fn write_row<R: BufRead, W: Write>(
+        &self,
+        writer: &mut W,
+        meta_reader: &mut R,
+        i: usize,
+    ) -> io::Result<()> {
+        write_row(self.granges, writer, i, &self.widths, self.use_strand)?;
         write_row_meta(self.granges, writer, meta_reader)?;
-        writeln!(writer)    
+        writeln!(writer)
     }
-
 }
 
 /* -------------------------------------------------------------------------- */
 
-fn update_max_widths(granges: &GRanges, i: usize, widths: &mut [usize], strand: bool) -> io::Result<()> {
+fn update_max_widths(
+    granges: &GRanges,
+    i: usize,
+    widths: &mut [usize],
+    strand: bool,
+) -> io::Result<()> {
     let seqname_width = granges.seqnames[i].len();
     if seqname_width > widths[0] {
         widths[0] = seqname_width;
@@ -135,20 +146,38 @@ fn update_max_widths(granges: &GRanges, i: usize, widths: &mut [usize], strand: 
 
 fn write_header<W: Write>(writer: &mut W, widths: &[usize], strand: bool) -> io::Result<()> {
     if strand {
-        write!(writer,
+        write!(
+            writer,
             "{:width0$} {:width1$} {:width2$} {:width3$}",
-            "seqnames", "from", "to", "strand",
-            width0=widths[0], width1=widths[1], width2=widths[2], width3=widths[3])?;
+            "seqnames",
+            "from",
+            "to",
+            "strand",
+            width0 = widths[0],
+            width1 = widths[1],
+            width2 = widths[2],
+            width3 = widths[3]
+        )?;
     } else {
-        write!(writer,
+        write!(
+            writer,
             "{:width0$} {:width1$} {:width2$}",
-            "seqnames", "from", "to",
-            width0=widths[0], width1=widths[1], width2=widths[2])?;
+            "seqnames",
+            "from",
+            "to",
+            width0 = widths[0],
+            width1 = widths[1],
+            width2 = widths[2]
+        )?;
     }
     Ok(())
 }
 
-fn write_row_meta(granges: &GRanges, writer: &mut dyn Write, meta_reader: &mut dyn BufRead) -> io::Result<()> {
+fn write_row_meta(
+    granges: &GRanges,
+    writer: &mut dyn Write,
+    meta_reader: &mut dyn BufRead,
+) -> io::Result<()> {
     if granges.meta.num_cols() > 0 {
         let mut line = String::new();
         meta_reader.read_line(&mut line)?;
@@ -157,17 +186,37 @@ fn write_row_meta(granges: &GRanges, writer: &mut dyn Write, meta_reader: &mut d
     Ok(())
 }
 
-fn write_row<W: Write>(granges: &GRanges, writer: &mut W, i: usize, widths: &[usize], strand: bool) -> io::Result<()> {
+fn write_row<W: Write>(
+    granges: &GRanges,
+    writer: &mut W,
+    i: usize,
+    widths: &[usize],
+    strand: bool,
+) -> io::Result<()> {
     if strand {
-        write!(writer,
+        write!(
+            writer,
             "{:width0$} {:width1$} {:width2$} {:width3$}",
-            granges.seqnames[i], granges.ranges[i].from, granges.ranges[i].to, granges.strand[i],
-            width0=widths[0], width1=widths[1], width2=widths[2], width3=widths[3])?;
+            granges.seqnames[i],
+            granges.ranges[i].from,
+            granges.ranges[i].to,
+            granges.strand[i],
+            width0 = widths[0],
+            width1 = widths[1],
+            width2 = widths[2],
+            width3 = widths[3]
+        )?;
     } else {
-        write!(writer,
+        write!(
+            writer,
             "{:width0$} {:width1$} {:width2$}",
-            granges.seqnames[i], granges.ranges[i].from, granges.ranges[i].to,
-            width0=widths[0], width1=widths[1], width2=widths[2])?;
+            granges.seqnames[i],
+            granges.ranges[i].from,
+            granges.ranges[i].to,
+            width0 = widths[0],
+            width1 = widths[1],
+            width2 = widths[2]
+        )?;
     }
     Ok(())
 }

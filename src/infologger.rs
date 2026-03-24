@@ -18,10 +18,10 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-use std::fmt;
-use std::io::{self, Write};
 use std::cell::RefCell;
+use std::fmt;
 use std::fmt::Error;
+use std::io::{self, Write};
 
 /* -------------------------------------------------------------------------- */
 
@@ -46,7 +46,6 @@ pub struct Logger(pub Box<RefCell<dyn Write>>);
 /* -------------------------------------------------------------------------- */
 
 impl Logger {
-
     /// Creates a `Logger` instance that discards all output.
     ///
     /// This is useful for situations where logging is required by function
@@ -98,7 +97,6 @@ impl Logger {
     pub fn new_stderr() -> Logger {
         Logger(Box::new(RefCell::new(io::stderr())))
     }
-
 }
 
 /* -------------------------------------------------------------------------- */
@@ -124,7 +122,10 @@ impl fmt::Write for Logger {
     /// write!(&mut logger, "Formatted log message: {}", 42).unwrap();
     /// ```
     fn write_str(&mut self, s: &str) -> Result<(), Error> {
-        self.0.borrow_mut().write(s.as_bytes()).map_err(|_io_err| Error)?;
+        self.0
+            .borrow_mut()
+            .write(s.as_bytes())
+            .map_err(|_io_err| Error)?;
         Ok(())
     }
 }

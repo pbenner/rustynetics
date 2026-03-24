@@ -107,9 +107,10 @@ pub fn trim_and_unquote(input: &str) -> String {
     let trimmed = input.trim_end();
 
     // Step 2: Remove outermost quotes if they exist
-    if (trimmed.starts_with('"') && trimmed.ends_with('"')) ||
-       (trimmed.starts_with('\'') && trimmed.ends_with('\'')) {
-        trimmed[1..trimmed.len()-1].to_string()
+    if (trimmed.starts_with('"') && trimmed.ends_with('"'))
+        || (trimmed.starts_with('\'') && trimmed.ends_with('\''))
+    {
+        trimmed[1..trimmed.len() - 1].to_string()
     } else {
         trimmed.to_string()
     }
@@ -144,7 +145,7 @@ pub fn trim_and_unquote(input: &str) -> String {
 /// let result = div_int_up(10, 2);
 /// assert_eq!(result, 5);  // 10 / 2 is exactly 5
 /// ```
-pub fn div_int_up<T : PrimInt>(a: T, b: T) -> T {
+pub fn div_int_up<T: PrimInt>(a: T, b: T) -> T {
     (a + b - T::one()) / b
 }
 
@@ -175,7 +176,7 @@ pub fn div_int_up<T : PrimInt>(a: T, b: T) -> T {
 /// let result = div_int_down(10, 2);
 /// assert_eq!(result, 5);  // 10 / 2 is exactly 5
 /// ```
-pub fn div_int_down<T : PrimInt>(n: T, d: T) -> T {
+pub fn div_int_down<T: PrimInt>(n: T, d: T) -> T {
     n / d
 }
 
@@ -205,5 +206,8 @@ pub fn div_int_down<T : PrimInt>(n: T, d: T) -> T {
 /// assert!(!result);  // file does not have a .gz extension
 /// ```
 pub fn is_gzip<P: AsRef<Path>>(filename: P) -> bool {
-    filename.as_ref().extension().map_or(false, |ext| ext == "gz")
+    filename
+        .as_ref()
+        .extension()
+        .map_or(false, |ext| ext == "gz")
 }

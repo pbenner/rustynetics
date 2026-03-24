@@ -26,7 +26,6 @@ use crate::granges_find_endpoint::{EndPoint, EndPointList};
 /* -------------------------------------------------------------------------- */
 
 impl GRanges {
-
     /// Merges overlapping or contiguous genomic ranges from the given `GRanges` object.
     ///
     /// This function processes an `EndPointList` for a specific sequence name, combining
@@ -45,18 +44,17 @@ impl GRanges {
     /// This function will panic if it encounters an invalid state in the `EndPointList`,
     /// specifically if it does not start with a start position.
     fn merge_impl(r: &GRanges, seqname: String, entry: &EndPointList) -> GRanges {
-
         let mut seqnames = vec![];
-        let mut from     = vec![];
-        let mut to       = vec![];
+        let mut from = vec![];
+        let mut to = vec![];
 
         let mut i = 0;
         while i < entry.len() {
             // next item must be a start position
             assert!(entry[i].is_start());
 
-            let     r_from = entry[i].get_position();
-            let mut r_to   = entry[i].get_position() + 1;
+            let r_from = entry[i].get_position();
+            let mut r_to = entry[i].get_position() + 1;
 
             // k: number open intervals
             let mut k = 1;
@@ -74,8 +72,8 @@ impl GRanges {
                 }
             }
             seqnames.push(seqname.clone());
-            from    .push(r_from);
-            to      .push(r_to);
+            from.push(r_from);
+            to.push(r_to);
             // go to next item
             i += 1;
         }
@@ -106,19 +104,19 @@ impl GRanges {
     /// let merged = GRanges::merge(&[&granges]);
     /// ```
     pub fn merge(granges: &[&GRanges]) -> GRanges {
-
         let mut r = GRanges::default();
         let mut rmap: HashMap<String, EndPointList> = HashMap::new();
 
         for g in granges.iter() {
             for i in 0..g.num_rows() {
-
                 let start = EndPoint::new(g.ranges[i].from, i, true);
-                let end   = EndPoint::new(g.ranges[i].to-1, i, true);
-    
+                let end = EndPoint::new(g.ranges[i].to - 1, i, true);
+
                 end.borrow_mut().start = Some(start.clone());
-    
-                let entry = rmap.entry(g.seqnames[i].clone()).or_insert_with(EndPointList::new);
+
+                let entry = rmap
+                    .entry(g.seqnames[i].clone())
+                    .or_insert_with(EndPointList::new);
                 entry.push(start);
                 entry.push(end);
             }
@@ -147,24 +145,24 @@ mod tests {
 
     #[test]
     fn test_merge() {
+        let seqnames = vec!["chr1", "chr1", "chr1", "chr2", "chr2"]
+            .iter()
+            .map(|&x| x.into())
+            .collect();
+        let from = vec![6, 10, 24, 6, 10];
+        let to = vec![21, 31, 81, 21, 31];
+        let strand = vec![];
 
-        let seqnames = vec!["chr1", "chr1", "chr1", "chr2", "chr2"].iter().map(|&x| x.into()).collect();
-        let from     = vec![ 6, 10, 24,  6, 10];
-        let to       = vec![21, 31, 81, 21, 31];
-        let strand   = vec![];
-
-        let granges  = GRanges::new(seqnames, from, to, strand);
+        let granges = GRanges::new(seqnames, from, to, strand);
 
         let r = GRanges::merge(&[&granges]);
 
         assert!(r.num_rows() == 2);
 
         assert!(r.ranges[0].from == 6);
-        assert!(r.ranges[0].to   == 81);
+        assert!(r.ranges[0].to == 81);
 
         assert!(r.ranges[1].from == 6);
-        assert!(r.ranges[1].to   == 31);
-
+        assert!(r.ranges[1].to == 31);
     }
-
 }

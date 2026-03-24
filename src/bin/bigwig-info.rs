@@ -26,7 +26,7 @@ use serde::Serialize;
 use serde_json;
 
 use rustynetics::bbi::{BbiHeader, BbiHeaderZoom};
-use rustynetics::bbi::{BBI_TYPE_FIXED, BBI_TYPE_VARIABLE, BBI_TYPE_BED_GRAPH};
+use rustynetics::bbi::{BBI_TYPE_BED_GRAPH, BBI_TYPE_FIXED, BBI_TYPE_VARIABLE};
 use rustynetics::bigwig::BigWigFile;
 
 /* -------------------------------------------------------------------------- */
@@ -34,11 +34,11 @@ use rustynetics::bigwig::BigWigFile;
 // Wrapper struct for BbiZoomHeader to implement Serialize
 #[derive(Serialize)]
 pub struct SerializableBbiHeaderZoom {
-    pub reduction_level : u32,
-    pub reserved        : u32,
-    pub data_offset     : u64,
-    pub index_offset    : u64,
-    pub n_blocks        : u32,
+    pub reduction_level: u32,
+    pub reserved: u32,
+    pub data_offset: u64,
+    pub index_offset: u64,
+    pub n_blocks: u32,
 }
 
 /* -------------------------------------------------------------------------- */
@@ -46,11 +46,11 @@ pub struct SerializableBbiHeaderZoom {
 impl From<&BbiHeaderZoom> for SerializableBbiHeaderZoom {
     fn from(header: &BbiHeaderZoom) -> Self {
         SerializableBbiHeaderZoom {
-            reduction_level : header.reduction_level,
-            reserved        : header.reserved,
-            data_offset     : header.data_offset,
-            index_offset    : header.index_offset,
-            n_blocks        : header.n_blocks,
+            reduction_level: header.reduction_level,
+            reserved: header.reserved,
+            data_offset: header.data_offset,
+            index_offset: header.index_offset,
+            n_blocks: header.n_blocks,
         }
     }
 }
@@ -60,25 +60,25 @@ impl From<&BbiHeaderZoom> for SerializableBbiHeaderZoom {
 // Wrapper struct for BbiHeader to implement Serialize
 #[derive(Serialize)]
 struct SerializableBbiHeader {
-    magic              : u32,
-    version            : u16,
-    zoom_levels        : u16,
-    ct_offset          : u64,
-    data_offset        : u64,
-    index_offset       : u64,
-    field_count        : u16,
+    magic: u32,
+    version: u16,
+    zoom_levels: u16,
+    ct_offset: u64,
+    data_offset: u64,
+    index_offset: u64,
+    field_count: u16,
     defined_field_count: u16,
-    sql_offset         : u64,
-    summary_offset     : u64,
+    sql_offset: u64,
+    summary_offset: u64,
     uncompress_buf_size: u32,
-    extension_offset   : u64,
-    n_bases_covered    : u64,
-    min_val            : f64,
-    max_val            : f64,
-    sum_data           : f64,
-    sum_squares        : f64,
-    zoom_headers       : Vec<SerializableBbiHeaderZoom>,
-    n_blocks           : u64,
+    extension_offset: u64,
+    n_bases_covered: u64,
+    min_val: f64,
+    max_val: f64,
+    sum_data: f64,
+    sum_squares: f64,
+    zoom_headers: Vec<SerializableBbiHeaderZoom>,
+    n_blocks: u64,
 }
 
 /* -------------------------------------------------------------------------- */
@@ -86,25 +86,29 @@ struct SerializableBbiHeader {
 impl From<&BbiHeader> for SerializableBbiHeader {
     fn from(header: &BbiHeader) -> Self {
         SerializableBbiHeader {
-            magic              : header.magic,
-            version            : header.version,
-            zoom_levels        : header.zoom_levels,
-            ct_offset          : header.ct_offset,
-            data_offset        : header.data_offset,
-            index_offset       : header.index_offset,
-            field_count        : header.field_count,
+            magic: header.magic,
+            version: header.version,
+            zoom_levels: header.zoom_levels,
+            ct_offset: header.ct_offset,
+            data_offset: header.data_offset,
+            index_offset: header.index_offset,
+            field_count: header.field_count,
             defined_field_count: header.defined_field_count,
-            sql_offset         : header.sql_offset,
-            summary_offset     : header.summary_offset,
+            sql_offset: header.sql_offset,
+            summary_offset: header.summary_offset,
             uncompress_buf_size: header.uncompress_buf_size,
-            extension_offset   : header.extension_offset,
-            n_bases_covered    : header.n_bases_covered,
-            min_val            : header.min_val,
-            max_val            : header.max_val,
-            sum_data           : header.sum_data,
-            sum_squares        : header.sum_squares,
-            zoom_headers       : header.zoom_headers.iter().map(|h| SerializableBbiHeaderZoom::from(h)).collect(),
-            n_blocks           : header.n_blocks,
+            extension_offset: header.extension_offset,
+            n_bases_covered: header.n_bases_covered,
+            min_val: header.min_val,
+            max_val: header.max_val,
+            sum_data: header.sum_data,
+            sum_squares: header.sum_squares,
+            zoom_headers: header
+                .zoom_headers
+                .iter()
+                .map(|h| SerializableBbiHeaderZoom::from(h))
+                .collect(),
+            n_blocks: header.n_blocks,
         }
     }
 }
@@ -113,17 +117,17 @@ impl From<&BbiHeader> for SerializableBbiHeader {
 
 #[derive(Serialize)]
 struct TrackInfo {
-    seqname   : String,
+    seqname: String,
     track_type: String,
-    length    : usize,
-    binsize   : Option<usize>,
+    length: usize,
+    binsize: Option<usize>,
 }
 
 #[derive(Serialize)]
 struct FileInfo {
     filename: String,
-    header  : SerializableBbiHeader,  // Including header info
-    tracks  : Vec<TrackInfo>,
+    header: SerializableBbiHeader, // Including header info
+    tracks: Vec<TrackInfo>,
 }
 
 /* -------------------------------------------------------------------------- */
@@ -180,7 +184,7 @@ fn print_json(filename_in: &str, verbose: bool) {
     // Prepare file information, now including the header
     let file_info = FileInfo {
         filename: filename_in.to_string(),
-        header  : SerializableBbiHeader::from(&header),
+        header: SerializableBbiHeader::from(&header),
         tracks,
     };
 
@@ -223,12 +227,11 @@ fn print_info(filename_in: &str, verbose: bool) {
                     println!("  {}:", seqname);
                     if record.data_type == BBI_TYPE_FIXED {
                         println!("    type   : fixed");
-                    } else
-                    if record.data_type == BBI_TYPE_VARIABLE {
+                    } else if record.data_type == BBI_TYPE_VARIABLE {
                         println!("    type   : variable");
                     } else {
                         eprintln!("Invalid track data type");
-                        process::exit(1);                
+                        process::exit(1);
                     }
                     println!("    length : {}", length);
                     println!("    binsize: {}", binsize);
@@ -246,25 +249,31 @@ fn main() {
         .version("1.0")
         .author("Philipp Benner [https://github.com/pbenner]")
         .about("Print bigWig information")
-        .arg(Arg::new("input")
-            .required(true)
-            .index(1)
-            .help("Input BigWig file"))
-        .arg(Arg::new("verbose")
-            .short('v')
-            .long("verbose")
-            .action(clap::ArgAction::SetTrue)
-            .help("Enable verbose output"))
-        .arg(Arg::new("json")
-            .short('j')
-            .long("json")
-            .action(clap::ArgAction::SetTrue)
-            .help("Print output in json format"))
+        .arg(
+            Arg::new("input")
+                .required(true)
+                .index(1)
+                .help("Input BigWig file"),
+        )
+        .arg(
+            Arg::new("verbose")
+                .short('v')
+                .long("verbose")
+                .action(clap::ArgAction::SetTrue)
+                .help("Enable verbose output"),
+        )
+        .arg(
+            Arg::new("json")
+                .short('j')
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help("Print output in json format"),
+        )
         .get_matches();
 
     let filename_in = matches.get_one::<String>("input").unwrap();
-    let verbose     = matches.get_flag("verbose");
-    let json        = matches.get_flag("json");
+    let verbose = matches.get_flag("verbose");
+    let json = matches.get_flag("json");
 
     if json {
         print_json(filename_in, verbose);

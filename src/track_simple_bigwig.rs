@@ -18,8 +18,8 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-use std::fs::File;
 use std::error::Error;
+use std::fs::File;
 use std::io::{self, Read, Seek, Write};
 
 use crate::bigwig::{BigWigReader, OptionBigWig};
@@ -30,17 +30,15 @@ use crate::track_statistics::BinSummaryStatistics;
 /* -------------------------------------------------------------------------- */
 
 impl SimpleTrack {
-
     pub fn read_bigwig<R: Read + Seek>(
         &mut self,
         reader: &mut R,
-        name  : &str,
-        f     : BinSummaryStatistics,
+        name: &str,
+        f: BinSummaryStatistics,
         mut bin_size: usize,
         bin_overlap: usize,
         init: f64,
     ) -> Result<(), Box<dyn Error>> {
-
         let mut bwr = BigWigReader::new(reader)?;
         let mut sequences: Vec<Vec<f64>> = Vec::new();
         let genome = bwr.genome().clone();
@@ -61,46 +59,45 @@ impl SimpleTrack {
 
     pub fn import_bigwig(
         &mut self,
-        filename   : &str,
-        name       : &str,
-        s          : BinSummaryStatistics,
-        bin_size   : usize,
+        filename: &str,
+        name: &str,
+        s: BinSummaryStatistics,
+        bin_size: usize,
         bin_overlap: usize,
-        init       : f64,
+        init: f64,
     ) -> Result<(), Box<dyn Error>> {
-
         let mut f = File::open(filename)?;
 
-        Ok(self.read_bigwig(&mut f, name, s, bin_size, bin_overlap, init)
+        Ok(self
+            .read_bigwig(&mut f, name, s, bin_size, bin_overlap, init)
             .map_err(|e| {
-                io::Error::new(io::ErrorKind::Other, format!("importing bigWig file from `{}` failed: {}", filename, e))
-            }
-        )?)
-
+                io::Error::new(
+                    io::ErrorKind::Other,
+                    format!("importing bigWig file from `{}` failed: {}", filename, e),
+                )
+            })?)
     }
 
     pub fn write_bigwig<W: Write + Seek>(
         &self,
         writer: &mut W,
-        params: Vec<OptionBigWig>
+        params: Vec<OptionBigWig>,
     ) -> Result<(), Box<dyn Error>> {
-
         GenericTrack { track: self }.write_bigwig(writer, params)
-
     }
 
     pub fn export_bigwig(
         &self,
         filename: &str,
-        params  : Vec<OptionBigWig>
+        params: Vec<OptionBigWig>,
     ) -> Result<(), Box<dyn Error>> {
-
         let mut f = File::create(filename)?;
 
         Ok(self.write_bigwig(&mut f, params).map_err(|e| {
-            io::Error::new(io::ErrorKind::Other, format!("exporting bigWig file to `{}` failed: {}", filename, e))
+            io::Error::new(
+                io::ErrorKind::Other,
+                format!("exporting bigWig file to `{}` failed: {}", filename, e),
+            )
         })?)
-
     }
-
 }

@@ -27,7 +27,6 @@ use rustynetics::bigwig::BigWigFile;
 /* -------------------------------------------------------------------------- */
 
 fn query(filename_in: &str, chrom: &str, from: usize, to: usize, bin_size: usize, verbose: bool) {
-
     if verbose {
         eprintln!("Opening bigWig file {}", filename_in);
     }
@@ -42,11 +41,10 @@ fn query(filename_in: &str, chrom: &str, from: usize, to: usize, bin_size: usize
     for result in reader.query(chrom, from, to, bin_size) {
         match result {
             Ok(record) => {
-                println!("{}:[{}, {})={}",
-                    record.data.chrom,
-                    record.data.from,
-                    record.data.to,
-                    record.data.statistics);
+                println!(
+                    "{}:[{}, {})={}",
+                    record.data.chrom, record.data.from, record.data.to, record.data.statistics
+                );
             }
             Err(err) => {
                 eprintln!("Error querying BigWig file: {}", err);
@@ -98,11 +96,16 @@ fn main() {
                 .short('v')
                 .long("verbose")
                 .action(clap::ArgAction::SetTrue)
-                .help("Be verbose"))
+                .help("Be verbose"),
+        )
         .get_matches();
 
-    let filename_in = matches.get_one::<String>("input").expect("Input file is required");
-    let chrom = matches.get_one::<String>("chrom").expect("Chromosome is required");
+    let filename_in = matches
+        .get_one::<String>("input")
+        .expect("Input file is required");
+    let chrom = matches
+        .get_one::<String>("chrom")
+        .expect("Chromosome is required");
     let from: usize = matches
         .get_one::<String>("from")
         .expect("Start position is required")
@@ -130,5 +133,4 @@ fn main() {
     let verbose = matches.get_flag("verbose");
 
     query(filename_in, chrom, from, to, bin_size, verbose);
-
 }

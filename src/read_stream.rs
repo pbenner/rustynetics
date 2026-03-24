@@ -18,14 +18,14 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-use std::io;
 use core::pin::Pin;
+use std::io;
 
-use futures::{Stream, StreamExt};
 use async_stream::stream;
+use futures::{Stream, StreamExt};
 
-use crate::read;
 use crate::infologger::Logger;
+use crate::read;
 
 /* -------------------------------------------------------------------------- */
 
@@ -38,7 +38,6 @@ pub enum ReadStream {}
 /* -------------------------------------------------------------------------- */
 
 impl ReadStream {
-
     /// Converts a stream of paired reads into a stream of single-end reads.
     ///
     /// If the `switch` parameter is set to `true`, the function will modify the input stream to
@@ -56,10 +55,9 @@ impl ReadStream {
     /// A new stream where all reads are marked as single-end if `switch` is `true`.
     pub fn paired_as_single_end<'a>(
         mut stream_in: ReadStreamType<'a>,
-        _logger      : Option<&'a Logger>,
-        switch       : bool,
+        _logger: Option<&'a Logger>,
+        switch: bool,
     ) -> ReadStreamType<'a> {
-
         // If PairedAsSingleEnd is false, return the input stream directly
         if !switch {
             return stream_in;
@@ -81,7 +79,7 @@ impl ReadStream {
         Box::pin(output_stream)
     }
 
-/* -------------------------------------------------------------------------- */
+    /* -------------------------------------------------------------------------- */
 
     /// Filters the input stream to include only paired-end reads.
     ///
@@ -99,10 +97,9 @@ impl ReadStream {
     /// A new stream that only includes paired-end reads if `switch` is `true`.
     pub fn filter_paired_end<'a>(
         mut stream_in: ReadStreamType<'a>,
-        logger       : Option<&'a Logger>,
-        switch       : bool,
+        logger: Option<&'a Logger>,
+        switch: bool,
     ) -> ReadStreamType<'a> {
-
         if !switch {
             return stream_in;
         }
@@ -132,7 +129,7 @@ impl ReadStream {
         Box::pin(output_stream)
     }
 
-/* -------------------------------------------------------------------------- */
+    /* -------------------------------------------------------------------------- */
 
     /// Filters the input stream to include only single-end reads.
     ///
@@ -150,10 +147,9 @@ impl ReadStream {
     /// A new stream that only includes single-end reads if `switch` is `true`.
     pub fn filter_single_end<'a>(
         mut stream_in: ReadStreamType<'a>,
-        logger       : Option<&'a Logger>,
-        switch       : bool,
+        logger: Option<&'a Logger>,
+        switch: bool,
     ) -> ReadStreamType<'a> {
-
         if !switch {
             return stream_in;
         }
@@ -183,7 +179,7 @@ impl ReadStream {
         Box::pin(output_stream)
     }
 
-/* -------------------------------------------------------------------------- */
+    /* -------------------------------------------------------------------------- */
 
     /// Filters the input stream to exclude duplicate reads.
     ///
@@ -201,10 +197,9 @@ impl ReadStream {
     /// A new stream that only includes non-duplicate reads if `switch` is `true`.
     pub fn filter_duplicates<'a>(
         mut stream_in: ReadStreamType<'a>,
-        logger       : Option<&'a Logger>,
-        switch       : bool,
+        logger: Option<&'a Logger>,
+        switch: bool,
     ) -> ReadStreamType<'a> {
-
         if !switch {
             return stream_in;
         }
@@ -234,7 +229,7 @@ impl ReadStream {
         Box::pin(output_stream)
     }
 
-/* -------------------------------------------------------------------------- */
+    /* -------------------------------------------------------------------------- */
 
     /// Filters the input stream based on strand information.
     ///
@@ -252,10 +247,9 @@ impl ReadStream {
     /// A new stream that only includes reads matching the specified strand.
     pub fn filter_strand<'a>(
         mut stream_in: ReadStreamType<'a>,
-        logger       : Option<&'a Logger>,
-        strand       : char,
+        logger: Option<&'a Logger>,
+        strand: char,
     ) -> ReadStreamType<'a> {
-
         if strand == '*' {
             return stream_in;
         }
@@ -285,7 +279,7 @@ impl ReadStream {
         Box::pin(output_stream)
     }
 
-/* -------------------------------------------------------------------------- */
+    /* -------------------------------------------------------------------------- */
 
     /// Filters the input stream based on mapping quality.
     ///
@@ -303,10 +297,9 @@ impl ReadStream {
     /// A new stream that only includes reads with mapping quality above the specified threshold.
     pub fn filter_mapq<'a>(
         mut stream_in: ReadStreamType<'a>,
-        logger       : Option<&'a Logger>,
-        mapq         : i64,
+        logger: Option<&'a Logger>,
+        mapq: i64,
     ) -> ReadStreamType<'a> {
-
         if mapq <= 0 {
             return stream_in;
         }
@@ -336,7 +329,7 @@ impl ReadStream {
         Box::pin(output_stream)
     }
 
-/* -------------------------------------------------------------------------- */
+    /* -------------------------------------------------------------------------- */
 
     /// Filters the input stream based on read length.
     ///
@@ -354,10 +347,9 @@ impl ReadStream {
     /// A new stream that only includes reads within the specified length range.
     pub fn filter_read_length<'a>(
         mut stream_in: ReadStreamType<'a>,
-        logger       : Option<&'a Logger>,
-        read_lengths : &'a [usize; 2],
+        logger: Option<&'a Logger>,
+        read_lengths: &'a [usize; 2],
     ) -> ReadStreamType<'a> {
-
         if read_lengths[0] == 0 && read_lengths[1] == 0 {
             return stream_in;
         }
@@ -389,7 +381,7 @@ impl ReadStream {
         Box::pin(output_stream)
     }
 
-/* -------------------------------------------------------------------------- */
+    /* -------------------------------------------------------------------------- */
 
     /// Shifts the reads based on their strand.
     ///
@@ -407,10 +399,9 @@ impl ReadStream {
     /// A new stream with shifted reads based on the specified strand shifts.
     pub fn shift_reads<'a>(
         mut stream_in: ReadStreamType<'a>,
-        logger       : Option<&'a Logger>,
-        shift        : &'a [usize; 2]
+        logger: Option<&'a Logger>,
+        shift: &'a [usize; 2],
     ) -> ReadStreamType<'a> {
-
         if shift[0] == 0 && shift[1] == 0 {
             return stream_in;
         }
@@ -443,5 +434,4 @@ impl ReadStream {
 
         Box::pin(output_stream)
     }
-
 }

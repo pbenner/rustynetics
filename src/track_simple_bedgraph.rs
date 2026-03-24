@@ -31,12 +31,10 @@ use crate::utility::is_gzip;
 /* -------------------------------------------------------------------------- */
 
 impl SimpleTrack {
-
     pub fn read_bedgraph<R: BufRead>(&mut self, reader: R) -> io::Result<()> {
-
-        let mut cur_seq  = &mut Rc::new(RefCell::new(vec![]));
+        let mut cur_seq = &mut Rc::new(RefCell::new(vec![]));
         let mut cur_name = String::new();
-        let bin_size     = self.bin_size;
+        let bin_size = self.bin_size;
 
         for line in reader.lines() {
             let line = line?;
@@ -46,19 +44,28 @@ impl SimpleTrack {
                 break;
             }
             if fields.len() != 4 {
-                return Err(io::Error::new(io::ErrorKind::InvalidInput, "BedGraph file must have four columns!"));
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "BedGraph file must have four columns!",
+                ));
             }
 
-            let from  = usize::from_str(fields[1]).map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "Invalid integer in column 2"))?;
-            let to    = usize::from_str(fields[2]).map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "Invalid integer in column 3"))?;
-            let value =   f64::from_str(fields[3]).map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "Invalid float in column 4"))?;
-            let name  = fields[0].to_string();
+            let from = usize::from_str(fields[1]).map_err(|_| {
+                io::Error::new(io::ErrorKind::InvalidInput, "Invalid integer in column 2")
+            })?;
+            let to = usize::from_str(fields[2]).map_err(|_| {
+                io::Error::new(io::ErrorKind::InvalidInput, "Invalid integer in column 3")
+            })?;
+            let value = f64::from_str(fields[3]).map_err(|_| {
+                io::Error::new(io::ErrorKind::InvalidInput, "Invalid float in column 4")
+            })?;
+            let name = fields[0].to_string();
 
             if name != cur_name {
-
-                cur_seq = self.data.entry(name.clone()).or_insert_with(
-                    || Rc::new(RefCell::new(vec![0.0; (to / bin_size) + 1]))
-                );
+                cur_seq = self
+                    .data
+                    .entry(name.clone())
+                    .or_insert_with(|| Rc::new(RefCell::new(vec![0.0; (to / bin_size) + 1])));
 
                 cur_name = name;
             }

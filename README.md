@@ -1,7 +1,7 @@
 
 ## Rustynetics
 
-Rustynetics is a high-performance Rust library designed for bioinformatics applications, offering efficient and scalable handling of common genomic file formats. It supports reading and writing of widely used formats such as bigWig, bedGraph, BED, and GFF, making it an essential tool for genomic data processing pipelines.
+Rustynetics is a high-performance Rust library designed for bioinformatics applications, offering efficient and scalable handling of common genomic file formats. It supports reading and writing of widely used formats such as BAM, FASTQ, bigWig, bedGraph, BED, and GFF, making it an essential tool for genomic data processing pipelines.
 
 The library excels in computing coverage tracks, summarizing sequence alignments or read counts across the genome, allowing users to generate coverage profiles over specified the genome. In addition, it offers advanced statistical features, such as the calculation of cross-correlations, which can be used to assess relationships between different genomic datasets, for example, in ChIP-seq or RNA-seq analysis.
 
@@ -22,6 +22,7 @@ The package contains the following command line tools:
 | bam-check-fastq          | check whether all BAM read names are present in a FASTQ file             |
 | bam-check-bin            | check bin records of a bam file                                          |
 | bam-genome               | print the genome (sequence table) of a bam file                          |
+| bam-to-fastq             | reconstruct FASTQ records from a BAM file                                |
 | bam-to-bigwig            | convert bam to bigWig (estimate fragment length if required)             |
 | bam-view                 | print contents of a bam file                                             |
 | bigwig-genome            | print the genome (sequence table) of a bigWig file                       |
@@ -112,6 +113,56 @@ The result is:
 4889 chr7         [  3303050,   3303101) +      |  163   60   51M <@<DADADAAFFFC@>DGEHIICEGH@HCCEGHCCEBGGGFG:BFCGGGBB
 4890 chr11        [  4737838,   4737889) -      |   83   60   51M DB9;HCD?D??:?:):)CCA<C2:@HFAHEEHF@<?<?:ACADB;:BB1@?
 4891 chr11        [  4737786,   4737837) +      |  163   60   51M @@<DDBDDFD+C?A:1CFDHBFHC<?F9+CGGI:49CCGFACE99?DC990
+```
+
+### Read and write FASTQ records
+
+```rust
+use std::io::{BufReader, BufWriter};
+use std::fs::File;
+
+use rustynetics::fastq::{FastqReader, FastqRecord, FastqWriter};
+
+let input = File::open("reads.fastq").unwrap();
+let mut reader = FastqReader::new(BufReader::new(input));
+
+let output = File::create("copy.fastq").unwrap();
+let mut writer = FastqWriter::new(BufWriter::new(output));
+
+while let Some(record) = reader.read_record().unwrap() {
+    writer.write_record(&record).unwrap();
+}
+
+let record = FastqRecord::new(
+    "read1/1".to_string(),
+    "ACGT".to_string(),
+    "IIII".to_string(),
+).unwrap();
+
+writer.write_record(&record).unwrap();
+writer.flush().unwrap();
+```
+
+### Reconstruct FASTQ from BAM
+
+`bam-to-fastq` reconstructs FASTQ records from BAM alignments. Reverse-strand reads are emitted in original FASTQ orientation by reverse-complementing the sequence and reversing the qualities.
+
+```bash
+# Write a single FASTQ stream
+bam-to-fastq reads.bam > reads.fastq
+
+# Split paired-end output into separate files and keep singles
+bam-to-fastq reads.bam \
+  --output1 reads_R1.fastq \
+  --output2 reads_R2.fastq \
+  --output-single reads_single.fastq \
+  --pair-suffixes
+```
+
+If a BAM file does not contain quality scores, use `--fill-missing-quality` to emit synthetic qualities:
+
+```bash
+bam-to-fastq reads.bam --fill-missing-quality I > reads.fastq
 ```
 
 ### Reading BigWig files
