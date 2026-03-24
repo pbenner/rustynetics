@@ -509,7 +509,7 @@ impl<'a> BbiRawBlockDecoder<'a> {
         Ok(decoder)
     }
 
-    fn decode(&self) -> BbiRawBlockDecoderIterator {
+    fn decode(&self) -> BbiRawBlockDecoderIterator<'_> {
         BbiRawBlockDecoderIterator {
             decoder : self,
             position: 0
@@ -589,7 +589,7 @@ impl<'a> BbiZoomBlockDecoder<'a> {
         })
     }
 
-    fn decode(&self) -> BbiZoomBlockDecoderIterator {
+    fn decode(&self) -> BbiZoomBlockDecoderIterator<'_> {
         let iterator = BbiZoomBlockDecoderIterator {
             decoder : self,
             position: 0

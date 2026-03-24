@@ -146,7 +146,7 @@ impl GRanges {
     ///
     /// # Panics
     /// Panics if the index is out of bounds.
-    pub fn row(&self, i: usize) -> GRangesRow {
+    pub fn row(&self, i: usize) -> GRangesRow<'_> {
         GRangesRow::new(self, i)
     }
 
