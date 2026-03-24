@@ -23,6 +23,7 @@
 use std::fmt;
 
 use crate::granges::GRanges;
+use crate::meta_row::{MetaRow, MetaRowValue};
 use crate::range::Range;
 
 /* -------------------------------------------------------------------------- */
@@ -107,6 +108,43 @@ impl<'a> GRangesRow<'a> {
     /// Returns the strand of the genomic range in this row.
     pub fn strand(&self) -> char {
         self.granges.strand[self.row]
+    }
+
+    /// Returns the metadata row associated with this genomic range row.
+    pub fn meta(&self) -> MetaRow<'a> {
+        self.granges.meta.row(self.row)
+    }
+
+    pub fn get_meta(&self, name: &str) -> Option<MetaRowValue<'a>> {
+        self.meta().get_meta(name)
+    }
+
+    pub fn get_meta_str(&self, name: &str) -> Option<&'a str> {
+        self.meta().get_meta_str(name)
+    }
+
+    pub fn get_meta_strs(&self, name: &str) -> Option<&'a [String]> {
+        self.meta().get_meta_strs(name)
+    }
+
+    pub fn get_meta_float(&self, name: &str) -> Option<f64> {
+        self.meta().get_meta_float(name)
+    }
+
+    pub fn get_meta_floats(&self, name: &str) -> Option<&'a [f64]> {
+        self.meta().get_meta_floats(name)
+    }
+
+    pub fn get_meta_int(&self, name: &str) -> Option<i64> {
+        self.meta().get_meta_int(name)
+    }
+
+    pub fn get_meta_ints(&self, name: &str) -> Option<&'a [i64]> {
+        self.meta().get_meta_ints(name)
+    }
+
+    pub fn get_meta_range(&self, name: &str) -> Option<Range> {
+        self.meta().get_meta_range(name)
     }
 }
 

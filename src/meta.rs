@@ -25,6 +25,7 @@ use std::fmt;
 
 use list_comprehension_macro::comp;
 
+use crate::meta_row::MetaRow;
 use crate::range::Range;
 
 /* -------------------------------------------------------------------------- */
@@ -287,6 +288,11 @@ impl Meta {
     /// Returns the number of columns in the `Meta` instance.
     pub fn num_cols(&self) -> usize {
         self.meta_name.len()
+    }
+
+    /// Returns a row view of the metadata at the specified index.
+    pub fn row(&self, i: usize) -> MetaRow<'_> {
+        MetaRow::new(self, i)
     }
 
     /// Appends rows from another `Meta` instance to the current instance, matching columns by name.
