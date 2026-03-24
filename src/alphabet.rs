@@ -39,6 +39,7 @@ pub trait ComplementableAlphabet: Alphabet {
 
 /* -------------------------------------------------------------------------- */
 
+#[derive(Clone, Copy, Debug, Default)]
 pub struct NucleotideAlphabet;
 
 /* -------------------------------------------------------------------------- */
@@ -164,6 +165,7 @@ impl ComplementableAlphabet for NucleotideAlphabet {
 
 /* -------------------------------------------------------------------------- */
 
+#[derive(Clone, Copy, Debug, Default)]
 pub struct GappedNucleotideAlphabet;
 
 /* -------------------------------------------------------------------------- */
@@ -296,6 +298,7 @@ impl ComplementableAlphabet for GappedNucleotideAlphabet {
 
 /* -------------------------------------------------------------------------- */
 
+#[derive(Clone, Copy, Debug, Default)]
 pub struct AmbiguousNucleotideAlphabet;
 
 /* -------------------------------------------------------------------------- */
