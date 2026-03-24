@@ -46,6 +46,7 @@ pub mod granges_sort;
 #[macro_use]
 pub mod infologger;
 pub mod meta;
+pub mod progress;
 pub mod range;
 pub mod read;
 pub mod read_stream;

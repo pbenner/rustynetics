@@ -28,6 +28,7 @@ use clap::{Arg, Command};
 use flate2::read::MultiGzDecoder;
 
 use rustynetics::bam::{BamReader, BamReaderOptions};
+use rustynetics::progress::{CountingReader, ProgressScope};
 
 /* -------------------------------------------------------------------------- */
 
@@ -48,6 +49,10 @@ struct CheckResult {
     missing_unique: usize,
     missing_examples: Vec<String>,
 }
+
+/* -------------------------------------------------------------------------- */
+
+const STATUS_RECORD_UPDATE_INTERVAL: usize = 10_000;
 
 /* -------------------------------------------------------------------------- */
 
@@ -74,8 +79,13 @@ fn normalize_read_name(name: &str, keep_pair_suffixes: bool) -> String {
 
 /* -------------------------------------------------------------------------- */
 
-fn open_fastq_reader(filename: &str) -> Result<Box<dyn BufRead>, Box<dyn Error>> {
-    let mut reader = BufReader::new(File::open(filename)?);
+fn open_fastq_reader(
+    filename: &str,
+    progress: Option<rustynetics::progress::ProgressHandle>,
+) -> Result<Box<dyn BufRead>, Box<dyn Error>> {
+    let file = File::open(filename)?;
+    let reader = CountingReader::new(file, progress);
+    let mut reader = BufReader::new(reader);
     let magic = reader.fill_buf()?;
 
     if magic.len() >= 2 && magic[0] == 0x1f && magic[1] == 0x8b {
@@ -91,7 +101,9 @@ fn read_fastq_names(
     filename: &str,
     keep_pair_suffixes: bool,
 ) -> Result<(HashSet<String>, usize), Box<dyn Error>> {
-    let mut reader = open_fastq_reader(filename)?;
+    let total_bytes = File::open(filename)?.metadata()?.len();
+    let mut progress = ProgressScope::new("FASTQ", total_bytes);
+    let mut reader = open_fastq_reader(filename, progress.handle())?;
     let mut names = HashSet::new();
     let mut line = String::new();
     let mut line_number = 0usize;
@@ -123,6 +135,9 @@ fn read_fastq_names(
         }
         names.insert(name);
         records += 1;
+        if records % STATUS_RECORD_UPDATE_INTERVAL == 0 {
+            progress.set_records(records);
+        }
 
         line.clear();
         if reader.read_line(&mut line)? == 0 {
@@ -168,6 +183,8 @@ fn read_fastq_names(
         line_number += 1;
     }
 
+    progress.finish(records);
+
     Ok((names, records))
 }
 
@@ -185,8 +202,10 @@ fn check_bam_fastq(config: &Config) -> Result<CheckResult, Box<dyn Error>> {
         read_qual: false,
     };
 
+    let total_bytes = File::open(&config.filename_bam)?.metadata()?.len();
+    let mut progress = ProgressScope::new("BAM", total_bytes);
     let file = File::open(&config.filename_bam)?;
-    let reader = BufReader::new(file);
+    let reader = BufReader::new(CountingReader::new(file, progress.handle()));
     let mut bam_reader = BamReader::new(reader, Some(options))?;
 
     let mut bam_records = 0usize;
@@ -199,6 +218,9 @@ fn check_bam_fastq(config: &Config) -> Result<CheckResult, Box<dyn Error>> {
         let name = normalize_read_name(&block.read_name, config.keep_pair_suffixes);
 
         bam_records += 1;
+        if bam_records % STATUS_RECORD_UPDATE_INTERVAL == 0 {
+            progress.set_records(bam_records);
+        }
 
         if !fastq_names.contains(&name) {
             missing_records += 1;
@@ -208,6 +230,8 @@ fn check_bam_fastq(config: &Config) -> Result<CheckResult, Box<dyn Error>> {
             }
         }
     }
+
+    progress.finish(bam_records);
 
     Ok(CheckResult {
         fastq_records,
