@@ -30,6 +30,7 @@ pub mod bigwig;
 pub mod coverage;
 pub mod cpg;
 pub mod genes;
+pub mod genes_expr;
 pub mod genes_ucsc;
 pub mod genome;
 pub mod granges;
