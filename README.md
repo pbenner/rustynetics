@@ -19,6 +19,7 @@ The package contains the following command line tools:
 
 | Tool                     | Description                                                              |
 | ------------------------ | ------------------------------------------------------------------------ |
+| bam-check-fastq          | check whether all BAM read names are present in a FASTQ file             |
 | bam-check-bin            | check bin records of a bam file                                          |
 | bam-genome               | print the genome (sequence table) of a bam file                          |
 | bam-to-bigwig            | convert bam to bigWig (estimate fragment length if required)             |
