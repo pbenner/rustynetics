@@ -24,7 +24,6 @@ use std::io::{Read, Seek, Write};
 use std::{cell::RefCell, rc::Rc};
 
 use crate::bbi::{BBI_MAX_ZOOM_LEVELS, BBI_RES_INCREMENT};
-use crate::bigwig::BigWigFile;
 use crate::bigwig::{BigWigParameters, BigWigReader, BigWigWriter, OptionBigWig};
 use crate::genome::Genome;
 use crate::granges_row::GRangesRow;
@@ -50,16 +49,16 @@ pub struct BigWigTrack<R: Read + Seek> {
 
 /* -------------------------------------------------------------------------- */
 
-impl BigWigTrack<NetFile> {
-    pub fn new(
-        filename: &str,
+impl<R: Read + Seek> BigWigTrack<R> {
+    fn from_reader(
+        reader: R,
         name: String,
         f: BinSummaryStatistics,
         bin_size: usize,
         bin_overlap: usize,
         init: f64,
     ) -> Result<Self, Box<dyn Error>> {
-        let mut bwr = BigWigFile::new_reader(filename)?;
+        let mut bwr = BigWigReader::new(reader)?;
         let genome = bwr.genome().clone();
         let bin_size = if bin_size == 0 {
             bwr.get_bin_size()?
@@ -76,6 +75,150 @@ impl BigWigTrack<NetFile> {
             genome,
             init,
         })
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+
+impl BigWigTrack<NetFile> {
+    pub fn new(
+        filename: &str,
+        name: String,
+        f: BinSummaryStatistics,
+        bin_size: usize,
+        bin_overlap: usize,
+        init: f64,
+    ) -> Result<Self, Box<dyn Error>> {
+        let reader = NetFile::open(filename)?;
+        Self::from_reader(reader, name, f, bin_size, bin_overlap, init)
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+
+pub struct LazyTrack<R: Read + Seek> {
+    track: BigWigTrack<R>,
+}
+
+/* -------------------------------------------------------------------------- */
+
+impl<R: Read + Seek> LazyTrack<R> {
+    pub fn from_reader(
+        reader: R,
+        name: String,
+        f: BinSummaryStatistics,
+        bin_size: usize,
+        bin_overlap: usize,
+        init: f64,
+    ) -> Result<Self, Box<dyn Error>> {
+        Ok(Self {
+            track: BigWigTrack::from_reader(reader, name, f, bin_size, bin_overlap, init)?,
+        })
+    }
+
+    pub fn filter_genome<F>(&mut self, f: F)
+    where
+        F: Fn(&str, usize) -> bool,
+    {
+        self.track.genome = self.track.genome.filter(f);
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+
+impl<R: Read + Seek> Track for LazyTrack<R> {
+    fn get_bin_size(&self) -> usize {
+        self.track.get_bin_size()
+    }
+
+    fn get_name(&self) -> String {
+        self.track.get_name()
+    }
+
+    fn get_seq_names(&self) -> Vec<String> {
+        self.track.get_seq_names()
+    }
+
+    fn get_genome(&self) -> &Genome {
+        self.track.get_genome()
+    }
+
+    fn get_sequence(&self, query: &str) -> Result<TrackSequence, Box<dyn Error>> {
+        self.track.get_sequence(query)
+    }
+
+    fn get_slice(&self, r: &GRangesRow) -> Result<Vec<f64>, Box<dyn Error>> {
+        self.track.get_slice(r)
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+
+pub struct LazyTrackFile {
+    track: LazyTrack<NetFile>,
+}
+
+/* -------------------------------------------------------------------------- */
+
+impl LazyTrackFile {
+    pub fn open(
+        filename: &str,
+        name: String,
+        f: BinSummaryStatistics,
+        bin_size: usize,
+        bin_overlap: usize,
+        init: f64,
+    ) -> Result<Self, Box<dyn Error>> {
+        let reader = NetFile::open(filename)?;
+        Ok(Self {
+            track: LazyTrack::from_reader(reader, name, f, bin_size, bin_overlap, init)?,
+        })
+    }
+
+    pub fn import_bigwig(
+        filename: &str,
+        name: &str,
+        f: BinSummaryStatistics,
+        bin_size: usize,
+        bin_overlap: usize,
+        init: f64,
+    ) -> Result<Self, Box<dyn Error>> {
+        Self::open(filename, name.to_string(), f, bin_size, bin_overlap, init)
+    }
+
+    pub fn filter_genome<F>(&mut self, f: F)
+    where
+        F: Fn(&str, usize) -> bool,
+    {
+        self.track.filter_genome(f);
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+
+impl Track for LazyTrackFile {
+    fn get_bin_size(&self) -> usize {
+        self.track.get_bin_size()
+    }
+
+    fn get_name(&self) -> String {
+        self.track.get_name()
+    }
+
+    fn get_seq_names(&self) -> Vec<String> {
+        self.track.get_seq_names()
+    }
+
+    fn get_genome(&self) -> &Genome {
+        self.track.get_genome()
+    }
+
+    fn get_sequence(&self, query: &str) -> Result<TrackSequence, Box<dyn Error>> {
+        self.track.get_sequence(query)
+    }
+
+    fn get_slice(&self, r: &GRangesRow) -> Result<Vec<f64>, Box<dyn Error>> {
+        self.track.get_slice(r)
     }
 }
 
@@ -245,10 +388,15 @@ mod tests {
 
     use std::fs;
 
+    use crate::bigwig::BigWigFile;
     use crate::genome::Genome;
-    use crate::track_bigwig::{BigWigFile, OptionBigWig};
+    use crate::track::Track;
+    use crate::track_bigwig::OptionBigWig;
     use crate::track_generic::GenericTrack;
     use crate::track_simple::SimpleTrack;
+    use crate::track_statistics::bin_summary_statistics_from_string;
+
+    use super::LazyTrackFile;
 
     #[test]
     fn test_track_bigwig_1() {
@@ -360,5 +508,41 @@ mod tests {
         }
 
         assert!(fs::remove_file(filename).is_ok());
+    }
+
+    #[test]
+    fn lazy_track_file_matches_eager_import() {
+        let summary = bin_summary_statistics_from_string("mean").unwrap();
+
+        let mut eager = SimpleTrack::empty("eager".to_string());
+        eager
+            .import_bigwig("tests/test_bigwig_2.bw", "eager", summary, 100, 0, f64::NAN)
+            .unwrap();
+
+        let lazy = LazyTrackFile::import_bigwig(
+            "tests/test_bigwig_2.bw",
+            "lazy",
+            summary,
+            100,
+            0,
+            f64::NAN,
+        )
+        .unwrap();
+
+        assert_eq!(lazy.get_bin_size(), eager.get_bin_size());
+        assert_eq!(lazy.get_seq_names(), eager.get_seq_names());
+
+        for seqname in lazy.get_seq_names() {
+            let lazy_values = lazy.get_sequence(&seqname).unwrap().clone_as_vec();
+            let eager_values = eager.get_sequence(&seqname).unwrap().clone_as_vec();
+
+            assert_eq!(lazy_values.len(), eager_values.len());
+            for (lazy_value, eager_value) in lazy_values.iter().zip(eager_values.iter()) {
+                if lazy_value.is_nan() && eager_value.is_nan() {
+                    continue;
+                }
+                assert!((lazy_value - eager_value).abs() < 1e-10);
+            }
+        }
     }
 }

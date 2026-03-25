@@ -7,6 +7,7 @@ use clap::{Arg, ArgAction, Command};
 use libloading::{Library, Symbol};
 
 use rustynetics::track::Track;
+use rustynetics::track_bigwig::LazyTrackFile;
 use rustynetics::track_generic::{GenericMutableTrack, GenericTrack};
 use rustynetics::track_simple::SimpleTrack;
 
@@ -20,7 +21,7 @@ fn load_tracks(
     bin_size: usize,
     bin_overlap: usize,
     verbose: u8,
-) -> Vec<SimpleTrack> {
+) -> Vec<LazyTrackFile> {
     let summary = common::parse_bin_summary(summary_name).unwrap_or_else(|error| {
         eprintln!("{error}");
         process::exit(1);
@@ -32,7 +33,7 @@ fn load_tracks(
             if verbose > 0 {
                 eprintln!("Opening BigWig `{path}`...");
             }
-            common::import_simple_track(path, path, summary, bin_size, bin_overlap, f64::NAN)
+            common::import_lazy_track(path, path, summary, bin_size, bin_overlap, f64::NAN)
                 .unwrap_or_else(|error| {
                     eprintln!("opening `{path}` failed: {error}");
                     process::exit(1);
@@ -41,7 +42,7 @@ fn load_tracks(
         .collect()
 }
 
-fn build_output_track(tracks: &[SimpleTrack], requested_bin_size: usize) -> SimpleTrack {
+fn build_output_track(tracks: &[LazyTrackFile], requested_bin_size: usize) -> SimpleTrack {
     let bin_size = if requested_bin_size == 0 {
         tracks.first().map(Track::get_bin_size).unwrap_or(0)
     } else {

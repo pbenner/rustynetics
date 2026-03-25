@@ -9,6 +9,7 @@ use flate2::write::GzEncoder;
 use flate2::Compression;
 
 use rustynetics::track::Track;
+use rustynetics::track_bigwig::LazyTrackFile;
 use rustynetics::track_simple::SimpleTrack;
 use rustynetics::track_statistics::{bin_summary_statistics_from_string, BinSummaryStatistics};
 
@@ -65,6 +66,17 @@ pub fn import_simple_track(
 pub fn export_simple_track(track: &SimpleTrack, filename: &str) -> Result<(), Box<dyn Error>> {
     track.export_bigwig(filename, vec![])?;
     Ok(())
+}
+
+pub fn import_lazy_track(
+    filename: &str,
+    name: &str,
+    summary: BinSummaryStatistics,
+    bin_size: usize,
+    bin_overlap: usize,
+    init: f64,
+) -> Result<LazyTrackFile, Box<dyn Error>> {
+    LazyTrackFile::import_bigwig(filename, name, summary, bin_size, bin_overlap, init)
 }
 
 #[derive(Clone, Copy, Debug)]
