@@ -31,6 +31,7 @@ The package contains the following command line tools:
 | bigwig-genome            | print the genome (sequence table) of a bigWig file                       |
 | bigwig-histogram         | compute a histogram or cumulative histogram over track values            |
 | bigwig-info              | print information about a bigWig file                                    |
+| bigwig-map               | apply a shared-library mapping function across one or more bigWig tracks |
 | bigwig-nil               | re-encode a bigWig track through the Rust implementation                 |
 | bigwig-positive          | call joint positive regions across one or more bigWig tracks             |
 | bigwig-quantile-normalize| quantile-normalize one bigWig track against a reference                  |
@@ -43,6 +44,7 @@ The package contains the following command line tools:
 | fasta-extract            | extract FASTA subsequences for BED regions                               |
 | fasta-unresolved-regions | report unresolved (`N`) FASTA intervals as BED                           |
 | gtf-to-bed               | convert GTF records to BED6                                              |
+| meme-extract             | extract PWM or PPM motif matrices from MEME or DREME XML                 |
 | observed-over-expected-cpg | compute observed/expected CpG scores for regions or whole sequences    |
 | pwm-scan-regions         | score genomic regions with one or more PWMs                              |
 | pwm-scan-sequences       | scan FASTA sequences with a PWM and export a bigWig track                |
@@ -235,6 +237,9 @@ The result is:
 ### BigWig utilities
 
 ```bash
+# Apply a custom shared-library function across tracks
+bigwig-map mapper.so result.bw track1.bw track2.bw
+
 # Extract selected regions from a bigWig file as a table
 bigwig-extract signal.bw regions.bed signal.table
 
@@ -253,6 +258,16 @@ bigwig-positive result.table track1.bw:2.0 track2.bw:2.0
 
 # Preview chromosome renaming without modifying the file
 bigwig-edit-chrom-names --dry-run signal.bw '^chr' ''
+```
+
+### Motif XML extraction
+
+```bash
+# Extract MEME motifs as log-odds matrices
+meme-extract motifs.xml motif
+
+# Extract DREME motifs as PPMs in JASPAR format
+meme-extract --input-format dreme --output-type ppm --output-format jaspar dreme.xml dreme
 ```
 
 ### Compute coverage tracks from BAM files
