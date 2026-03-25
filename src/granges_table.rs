@@ -33,6 +33,29 @@ use crate::meta_table_reader::MetaTableReader;
 
 /* -------------------------------------------------------------------------- */
 
+fn read_table_all_schema(content: &str) -> io::Result<(Vec<String>, Vec<String>)> {
+    let header = content
+        .lines()
+        .find(|line| !line.trim().is_empty())
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "table input is empty"))?;
+    let mut names = Vec::new();
+    let mut types = Vec::new();
+
+    for field in header.split_whitespace() {
+        match field {
+            "seqnames" | "from" | "to" | "start" | "end" | "strand" => {}
+            _ => {
+                names.push(field.to_string());
+                types.push("Vec<String>".to_string());
+            }
+        }
+    }
+
+    Ok((names, types))
+}
+
+/* -------------------------------------------------------------------------- */
+
 #[derive(Debug)]
 pub struct OptionPrintScientific(pub bool);
 
@@ -161,6 +184,39 @@ impl GRanges {
 /* -------------------------------------------------------------------------- */
 
 impl GRanges {
+    /// Reads a table and imports all metadata columns as string matrices.
+    ///
+    /// This mirrors the behavior of Go's `ReadTableAll`, which preserves all
+    /// non-core metadata columns as textual data instead of inferring numeric
+    /// types from their content.
+    pub fn read_table_all<R: Read>(&mut self, mut reader: R) -> io::Result<()> {
+        let mut content = String::new();
+        reader.read_to_string(&mut content)?;
+
+        let (names, types) = read_table_all_schema(&content)?;
+        let name_refs = names.iter().map(String::as_str).collect::<Vec<_>>();
+        let type_refs = types.iter().map(String::as_str).collect::<Vec<_>>();
+
+        self.read_table(io::Cursor::new(content), &name_refs, &type_refs)
+    }
+
+    /// Imports a table from a file and preserves all metadata columns as
+    /// string matrices.
+    pub fn import_table_all(&mut self, filename: &str, compress: bool) -> io::Result<()> {
+        let file = File::open(filename)?;
+        let reader: Box<dyn Read> = if compress {
+            Box::new(GzDecoder::new(file))
+        } else {
+            Box::new(file)
+        };
+
+        self.read_table_all(reader)
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+
+impl GRanges {
     /// Imports a table from a file and populates the `GRanges` structure.
     ///
     /// This method opens the specified file, optionally decompressing it if required,
@@ -221,5 +277,38 @@ impl GRanges {
         self.write_table(&mut writer, args)?;
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::meta::MetaData;
+
+    #[test]
+    fn read_table_all_preserves_textual_columns() {
+        let table = "\
+seqnames from to strand score labels
+chr1 1 10 + 7 a,b
+chr2 5 12 - 42 nil
+";
+        let mut granges = GRanges::default();
+
+        granges.read_table_all(io::Cursor::new(table)).unwrap();
+
+        assert_eq!(
+            granges.meta.get_column("score"),
+            Some(&MetaData::StringMatrix(vec![
+                vec!["7".to_string()],
+                vec!["42".to_string()],
+            ]))
+        );
+        assert_eq!(
+            granges.meta.get_column("labels"),
+            Some(&MetaData::StringMatrix(vec![
+                vec!["a".to_string(), "b".to_string()],
+                Vec::<String>::new(),
+            ]))
+        );
     }
 }

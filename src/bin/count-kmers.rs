@@ -1,6 +1,8 @@
 use std::error::Error;
+use std::io;
 use std::io::Write;
 use std::process;
+use std::thread;
 
 use clap::{Arg, ArgAction, Command};
 
@@ -25,6 +27,8 @@ struct Config {
     human: bool,
     sparse: bool,
     header: bool,
+    threads: usize,
+    verbose: u8,
 }
 
 fn parse_max_ambiguous(value: &str) -> Result<Option<Vec<usize>>, String> {
@@ -84,7 +88,90 @@ fn collect_sequences(
     }
 }
 
-fn count_with_alphabet<A: ComplementableAlphabet + Clone>(
+fn count_sequences_with_alphabet<A: ComplementableAlphabet + Clone + Send + Sync>(
+    alphabet: A,
+    n: usize,
+    m: usize,
+    config: &Config,
+    extracted: &[Vec<u8>],
+) -> Result<Vec<rustynetics::kmer_counts::KmerCounts>, Box<dyn Error>> {
+    let ranges = common::worker_ranges(extracted.len(), config.threads);
+    if ranges.len() <= 1 {
+        let mut counter = KmerCounter::new(
+            n,
+            m,
+            config.complement,
+            config.reverse,
+            config.revcomp,
+            config.max_ambiguous.clone(),
+            alphabet,
+        )?;
+        return Ok(extracted
+            .iter()
+            .map(|sequence| {
+                if config.binary {
+                    counter.identify_kmers(sequence)
+                } else {
+                    counter.count_kmers(sequence)
+                }
+            })
+            .collect());
+    }
+
+    thread::scope(
+        |scope| -> Result<Vec<rustynetics::kmer_counts::KmerCounts>, Box<dyn Error>> {
+            let mut handles = Vec::new();
+
+            for (start, end) in ranges {
+                let alphabet = alphabet.clone();
+                let sequences = &extracted[start..end];
+                let max_ambiguous = config.max_ambiguous.clone();
+                let binary = config.binary;
+                let complement = config.complement;
+                let reverse = config.reverse;
+                let revcomp = config.revcomp;
+
+                handles.push(scope.spawn(
+                    move || -> Result<Vec<rustynetics::kmer_counts::KmerCounts>, String> {
+                        let mut counter = KmerCounter::new(
+                            n,
+                            m,
+                            complement,
+                            reverse,
+                            revcomp,
+                            max_ambiguous,
+                            alphabet,
+                        )?;
+                        Ok(sequences
+                            .iter()
+                            .map(|sequence| {
+                                if binary {
+                                    counter.identify_kmers(sequence)
+                                } else {
+                                    counter.count_kmers(sequence)
+                                }
+                            })
+                            .collect())
+                    },
+                ));
+            }
+
+            let mut counts = Vec::with_capacity(extracted.len());
+            for handle in handles {
+                let local = handle
+                    .join()
+                    .map_err(|_| {
+                        io::Error::new(io::ErrorKind::Other, "count-kmers worker thread panicked")
+                    })?
+                    .map_err(|error| io::Error::new(io::ErrorKind::Other, error))?;
+                counts.extend(local);
+            }
+            Ok(counts)
+        },
+    )
+}
+
+fn count_with_alphabet<A: ComplementableAlphabet + Clone + Send + Sync>(
     alphabet: A,
     n: usize,
     m: usize,
@@ -96,26 +183,7 @@ fn count_with_alphabet<A: ComplementableAlphabet + Clone>(
     let regions = import_regions(regions_path)?;
     let sequences = import_fasta(fasta_path)?;
     let (mut granges, extracted) = collect_sequences(&sequences, regions.as_ref())?;
-    let mut counter = KmerCounter::new(
-        n,
-        m,
-        config.complement,
-        config.reverse,
-        config.revcomp,
-        config.max_ambiguous.clone(),
-        alphabet,
-    )?;
-
-    let counts: Vec<_> = extracted
-        .iter()
-        .map(|sequence| {
-            if config.binary {
-                counter.identify_kmers(sequence)
-            } else {
-                counter.count_kmers(sequence)
-            }
-        })
-        .collect();
+    let counts = count_sequences_with_alphabet(alphabet, n, m, config, &extracted)?;
 
     let counts_list = rustynetics::kmer_counts::KmerCountsList::new(counts);
 
@@ -183,6 +251,7 @@ fn main() {
         .arg(Arg::new("header").long("header").action(ArgAction::SetTrue))
         .arg(Arg::new("human").long("human").action(ArgAction::SetTrue))
         .arg(Arg::new("sparse").long("sparse").action(ArgAction::SetTrue))
+        .arg(Arg::new("threads").long("threads").default_value("1"))
         .arg(
             Arg::new("complement")
                 .long("complement")
@@ -197,6 +266,12 @@ fn main() {
             Arg::new("revcomp")
                 .long("revcomp")
                 .action(ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("verbose")
+                .short('v')
+                .long("verbose")
+                .action(ArgAction::Count),
         )
         .arg(Arg::new("n").required(true).index(1))
         .arg(Arg::new("m").required(true).index(2))
@@ -233,10 +308,31 @@ fn main() {
         human: matches.get_flag("human"),
         sparse: matches.get_flag("sparse"),
         header: matches.get_flag("header"),
+        threads: matches
+            .get_one::<String>("threads")
+            .unwrap()
+            .parse()
+            .unwrap_or_else(|error| {
+                eprintln!("invalid number of threads: {error}");
+                process::exit(1);
+            }),
+        verbose: matches.get_count("verbose"),
     };
     let regions_path = matches.get_one::<String>("regions").map(String::as_str);
     let fasta_path = matches.get_one::<String>("fasta").map(String::as_str);
     let output_path = matches.get_one::<String>("output").map(String::as_str);
+
+    if config.threads == 0 {
+        eprintln!("invalid number of threads: must be at least 1");
+        process::exit(1);
+    }
+    if config.verbose > 0 {
+        if let Some(path) = fasta_path {
+            eprintln!("Reading FASTA `{path}`...");
+        } else {
+            eprintln!("Reading FASTA from stdin...");
+        }
+    }
 
     let result = match matches.get_one::<String>("alphabet").unwrap().as_str() {
         "nucleotide" => count_with_alphabet(

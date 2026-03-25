@@ -1140,6 +1140,10 @@ impl Default for BData {
 /* -------------------------------------------------------------------------- */
 
 impl BData {
+    pub fn key_offsets(&self) -> &[i64] {
+        &self.ptr_keys
+    }
+
     pub fn add(&mut self, key: Vec<u8>, value: Vec<u8>) -> Result<(), String> {
         if key.len() as u32 != self.key_size {
             return Err("BData.Add(): key has invalid length".to_string());

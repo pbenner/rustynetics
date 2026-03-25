@@ -25,6 +25,8 @@ The package contains the following command line tools:
 | bam-to-fastq             | reconstruct FASTQ records from a BAM file                                |
 | bam-to-bigwig            | convert bam to bigWig (estimate fragment length if required)             |
 | bam-view                 | print contents of a bam file                                             |
+| bed-remove-overlaps      | remove BED or table rows that overlap inadmissible regions               |
+| bigwig-counts-to-quantiles | convert bigWig counts to empirical quantiles                           |
 | bigwig-edit-chrom-names  | rewrite a bigWig with chromosome names transformed by a regex            |
 | bigwig-extract           | extract bigWig data for BED regions as a table or bigWig                 |
 | bigwig-extract-chroms    | write a new bigWig containing only selected chromosomes                  |
@@ -49,6 +51,7 @@ The package contains the following command line tools:
 | pwm-scan-regions         | score genomic regions with one or more PWMs                              |
 | pwm-scan-sequences       | scan FASTA sequences with a PWM and export a bigWig track                |
 | segmentation-differential| merge and score differential chromatin states across segmentations       |
+| sequence-similarity      | compute sliding-window k-mer similarity to a reference sequence          |
 
 
 ## Examples
@@ -240,6 +243,9 @@ The result is:
 # Apply a custom shared-library function across tracks
 bigwig-map mapper.so result.bw track1.bw track2.bw
 
+# For Rust plugins, export `rustynetics_bigwig_map` and select the Rust ABI
+bigwig-map --abi rust mapper.so result.bw track1.bw track2.bw
+
 # Extract selected regions from a bigWig file as a table
 bigwig-extract signal.bw regions.bed signal.table
 
@@ -259,6 +265,62 @@ bigwig-positive result.table track1.bw:2.0 track2.bw:2.0
 # Preview chromosome renaming without modifying the file
 bigwig-edit-chrom-names --dry-run signal.bw '^chr' ''
 ```
+
+`bigwig-map` loads a shared library and calls a mapping function for each bin.
+The mapper receives the sequence name, the genomic position, and the values from
+all input tracks for the current bin, and must return the output value for that bin.
+
+For Rust, the recommended interface is the Rust ABI plugin mode:
+
+- build the mapper as a `cdylib`
+- export the symbol `rustynetics_bigwig_map`
+- accept a pointer to `rustynetics::bigwig_map_plugin::BigWigMapInput`
+
+`bigwig-map` defaults to `--abi auto`, which first looks for the Rust symbol
+`rustynetics_bigwig_map` and then falls back to the legacy shared-library ABI
+(`F` or `bigwig_map`). You can force one mode explicitly with `--abi rust` or
+`--abi legacy`. `--symbol` overrides the default symbol name.
+
+A minimal Rust mapper looks like this:
+
+```rust
+use rustynetics::bigwig_map_plugin::BigWigMapInput;
+
+#[no_mangle]
+pub unsafe extern "C" fn rustynetics_bigwig_map(input: *const BigWigMapInput) -> f64 {
+    let input = &*input;
+    let values = input.values();
+
+    if values.is_empty() {
+        return f64::NAN;
+    }
+
+    values.iter().copied().sum::<f64>() / values.len() as f64
+}
+```
+
+The `BigWigMapInput` helper provides:
+
+- `input.seqname()` for the chromosome name
+- `input.position` for the current genomic position
+- `input.values()` for the per-track input values at that position
+
+The plugin crate needs to be compiled as a shared library:
+
+```toml
+[lib]
+crate-type = ["cdylib"]
+```
+
+Then build and run it like this:
+
+```bash
+cargo build --release
+bigwig-map --abi rust target/release/libmy_mapper.so result.bw track1.bw track2.bw
+```
+
+On macOS the shared library is usually `libmy_mapper.dylib`, and on Windows
+`my_mapper.dll`.
 
 ### Motif XML extraction
 

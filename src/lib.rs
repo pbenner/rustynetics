@@ -27,6 +27,7 @@ pub mod bam_coverage;
 pub mod bbi;
 pub mod bgzf;
 pub mod bigwig;
+pub mod bigwig_map_plugin;
 pub mod coverage;
 pub mod cpg;
 pub mod genes;

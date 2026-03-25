@@ -63,26 +63,15 @@ fn main() {
         process::exit(1);
     }
 
-    let regions = if let Some(input_path) = input_path {
-        let mut regions = GRanges::default();
-        let mut reader = common::open_reader(Some(input_path)).unwrap_or_else(|error| {
-            eprintln!("opening BED failed: {error}");
-            process::exit(1);
-        });
-        if let Err(error) = regions.read_bed3(&mut reader) {
-            eprintln!("reading BED failed: {error}");
-            process::exit(1);
-        }
-        regions
-    } else {
-        let from = vec![0; sequences.seqnames.len()];
-        let to = sequences
-            .seqnames
-            .iter()
-            .map(|name| sequences.sequences[name].len())
-            .collect();
-        GRanges::new(sequences.seqnames.clone(), from, to, Vec::new())
-    };
+    let mut regions = GRanges::default();
+    let mut reader = common::open_reader(input_path).unwrap_or_else(|error| {
+        eprintln!("opening BED failed: {error}");
+        process::exit(1);
+    });
+    if let Err(error) = regions.read_bed3(&mut reader) {
+        eprintln!("reading BED failed: {error}");
+        process::exit(1);
+    }
 
     let extracted = extract_regions(&sequences, &regions).unwrap_or_else(|error| {
         eprintln!("extracting sequences failed: {error}");

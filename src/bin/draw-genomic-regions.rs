@@ -1,6 +1,8 @@
 use std::process;
 
 use clap::{Arg, ArgAction, Command};
+use rand::rngs::StdRng;
+use rand::{RngCore, SeedableRng};
 
 use rustynetics::genome::Genome;
 use rustynetics::granges::GRanges;
@@ -29,6 +31,7 @@ fn main() {
                 .long("exclude")
                 .value_name("BED1,BED2,..."),
         )
+        .arg(Arg::new("seed").short('s').long("seed").value_name("INT"))
         .arg(
             Arg::new("verbose")
                 .short('v')
@@ -64,6 +67,12 @@ fn main() {
         .map(String::as_str)
         .unwrap_or("");
     let verbose = matches.get_count("verbose");
+    let seed = matches.get_one::<String>("seed").map(|value| {
+        value.parse::<u64>().unwrap_or_else(|error| {
+            eprintln!("invalid seed: {error}");
+            process::exit(1);
+        })
+    });
 
     let mut genome = Genome::default();
     if verbose > 0 {
@@ -81,8 +90,13 @@ fn main() {
     };
 
     let mut result = GRanges::default();
+    let mut rng = match seed {
+        Some(seed) => StdRng::seed_from_u64(seed),
+        None => StdRng::seed_from_u64(rand::thread_rng().next_u64()),
+    };
     while result.num_rows() < n {
-        let mut batch = GRanges::random(n - result.num_rows(), length, &genome, false);
+        let mut batch =
+            GRanges::random_with_rng(n - result.num_rows(), length, &genome, false, &mut rng);
         for excluded in &exclude_sets {
             batch = batch.remove_overlaps_with(excluded);
         }

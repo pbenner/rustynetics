@@ -314,6 +314,10 @@ fn main() {
             .long("filter-chromosomes")
             .num_args(1)
             .help("Remove all reads on the given chromosomes [comma separated list]"))
+        .arg(Arg::new("remove-filtered-chromosomes")
+            .long("remove-filtered-chromosomes")
+            .action(ArgAction::SetTrue)
+            .help("Remove all chromosomes that have been filtered out"))
         // track options
         .arg(Arg::new("binning-method")
             .long("binning-method")
@@ -331,7 +335,7 @@ fn main() {
         .arg(Arg::new("pseudocounts")
             .long("pseudocounts")
             .num_args(1)
-            .help("Pseudocounts added to treatment and control signal [default: `1.0,1.0']"))
+            .help("Pseudocounts added to treatment and control signal [default: `0.0,0.0']"))
         .arg(Arg::new("smoothen-control")
             .long("smoothen-control")
             .action(ArgAction::SetTrue)
@@ -591,6 +595,9 @@ fn main() {
             opt_filter_chroms.split(',').map(String::from).collect(),
         ));
     }
+    options_list.push(OptionCoverage::RemoveFilteredChroms(
+        matches.get_flag("remove-filtered-chromosomes"),
+    ));
 
     if let Some(opt_initial_value) = matches.get_one::<String>("initial-value") {
         let value: f64 = opt_initial_value.parse().unwrap_or_else(|_| {

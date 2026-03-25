@@ -27,7 +27,7 @@ fn parse_input_spec(spec: &str, default_threshold: f64) -> (String, f64) {
 }
 
 fn get_joint_peaks(
-    tracks: &[rustynetics::track_simple::SimpleTrack],
+    tracks: &[rustynetics::track_bigwig::LazyTrackFile],
     thresholds: &[f64],
 ) -> GRanges {
     if tracks.is_empty() {
@@ -38,7 +38,7 @@ fn get_joint_peaks(
     let mut seqnames = Vec::new();
     let mut from = Vec::new();
     let mut to = Vec::new();
-    let mut counts = Vec::new();
+    let mut test = Vec::new();
 
     for seqname in tracks[0].get_seq_names() {
         let sequences: Vec<_> = tracks
@@ -98,7 +98,7 @@ fn get_joint_peaks(
             seqnames.push(seqname.clone());
             from.push(start * bin_size);
             to.push(i * bin_size);
-            counts.push(
+            test.push(
                 sequences
                     .iter()
                     .map(|sequence| sequence.at_bin(max_idx))
@@ -110,7 +110,7 @@ fn get_joint_peaks(
     let mut peaks = GRanges::new(seqnames, from, to, Vec::new());
     peaks
         .meta
-        .add("counts", MetaData::FloatMatrix(counts))
+        .add("test", MetaData::FloatMatrix(test))
         .unwrap_or_else(|error| {
             eprintln!("building peak table failed: {error}");
             process::exit(1);
@@ -118,7 +118,7 @@ fn get_joint_peaks(
 
     let sums: Vec<f64> = peaks
         .meta
-        .get_column("counts")
+        .get_column("test")
         .and_then(|column| match column {
             MetaData::FloatMatrix(values) => Some(
                 values
@@ -331,9 +331,7 @@ fn main() {
 
     let tracks: Vec<_> = inputs
         .iter()
-        .map(|(path, _)| {
-            common::import_simple_track(path, "", summary, bin_size, bin_overlap, f64::NAN)
-        })
+        .map(|(path, _)| common::import_lazy_track(path, "", summary, bin_size, bin_overlap, 0.0))
         .collect::<Result<_, _>>()
         .unwrap_or_else(|error| {
             eprintln!("importing BigWig tracks failed: {error}");

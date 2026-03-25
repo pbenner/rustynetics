@@ -173,3 +173,24 @@ pub fn write_fasta_record<W: Write>(writer: &mut W, name: &str, sequence: &[u8])
     }
     Ok(())
 }
+
+pub fn worker_ranges(len: usize, threads: usize) -> Vec<(usize, usize)> {
+    if len == 0 {
+        return Vec::new();
+    }
+
+    let workers = threads.max(1).min(len);
+    let base = len / workers;
+    let remainder = len % workers;
+    let mut start = 0usize;
+    let mut ranges = Vec::with_capacity(workers);
+
+    for i in 0..workers {
+        let extra = usize::from(i < remainder);
+        let end = start + base + extra;
+        ranges.push((start, end));
+        start = end;
+    }
+
+    ranges
+}

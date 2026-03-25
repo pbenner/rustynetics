@@ -1,4 +1,9 @@
+use std::io::{self, IsTerminal, Write};
 use std::process;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering as AtomicOrdering};
+use std::sync::Arc;
+use std::thread;
+use std::time::Duration;
 
 use clap::{Arg, ArgAction, Command};
 
@@ -70,6 +75,43 @@ fn scan_region(sequence: &[u8], pwm: &PWM, summary: &str) -> f64 {
     }
 }
 
+fn spawn_status_reporter(
+    total: usize,
+    enabled: bool,
+) -> Option<(Arc<AtomicUsize>, Arc<AtomicBool>, thread::JoinHandle<()>)> {
+    if !enabled || !io::stderr().is_terminal() {
+        return None;
+    }
+
+    let progress = Arc::new(AtomicUsize::new(0));
+    let done = Arc::new(AtomicBool::new(false));
+    let progress_clone = Arc::clone(&progress);
+    let done_clone = Arc::clone(&done);
+
+    let handle = thread::spawn(move || {
+        while !done_clone.load(AtomicOrdering::Relaxed) {
+            let current = progress_clone.load(AtomicOrdering::Relaxed);
+            let percent = if total == 0 {
+                100.0
+            } else {
+                current as f64 * 100.0 / total as f64
+            };
+            eprint!("\r\x1b[2Kregions {:>6.2}% {}/{}", percent, current, total);
+            let _ = io::stderr().flush();
+            thread::sleep(Duration::from_millis(100));
+        }
+        let current = progress_clone.load(AtomicOrdering::Relaxed);
+        let percent = if total == 0 {
+            100.0
+        } else {
+            current as f64 * 100.0 / total as f64
+        };
+        eprintln!("\r\x1b[2Kregions {:>6.2}% {}/{}", percent, current, total);
+    });
+
+    Some((progress, done, handle))
+}
+
 fn main() {
     let matches = Command::new("pwm-scan-regions")
         .about("Scan genomic regions with one or more PWMs")
@@ -87,6 +129,8 @@ fn main() {
                 .default_value("max")
                 .value_parser(["max", "mean"]),
         )
+        .arg(Arg::new("status").long("status").action(ArgAction::SetTrue))
+        .arg(Arg::new("threads").long("threads").default_value("1"))
         .arg(
             Arg::new("verbose")
                 .short('v')
@@ -106,12 +150,25 @@ fn main() {
         .parse()
         .unwrap();
     let summary = matches.get_one::<String>("summary").unwrap();
+    let status = matches.get_flag("status");
+    let threads: usize = matches
+        .get_one::<String>("threads")
+        .unwrap()
+        .parse()
+        .unwrap_or_else(|error| {
+            eprintln!("invalid number of threads: {error}");
+            process::exit(1);
+        });
     let pwm_paths: Vec<_> = matches
         .get_many::<String>("pwm")
         .unwrap()
         .map(String::as_str)
         .collect();
     let verbose = matches.get_count("verbose") > 0;
+    if threads == 0 {
+        eprintln!("invalid number of threads: must be at least 1");
+        process::exit(1);
+    }
 
     let mut sequences = OrderedStringSet::empty();
     if verbose {
@@ -124,23 +181,83 @@ fn main() {
 
     let pwms: Vec<_> = pwm_paths.iter().map(|path| import_pwm(path)).collect();
     let mut granges = import_regions(region_path, columns, &sequences);
+    let reporter = spawn_status_reporter(granges.num_rows(), status);
+    let progress = reporter
+        .as_ref()
+        .map(|(progress, _, _)| Arc::clone(progress));
+    let ranges = common::worker_ranges(granges.num_rows(), threads);
+    let counts = if ranges.len() <= 1 {
+        (0..granges.num_rows())
+            .map(|i| {
+                let sequence = sequences
+                    .get_slice(
+                        &granges.seqnames[i],
+                        Range::new(granges.ranges[i].from, granges.ranges[i].to),
+                    )
+                    .unwrap_or_else(|error| {
+                        eprintln!("extracting region sequence failed: {error}");
+                        process::exit(1);
+                    });
+                let row: Vec<f64> = pwms
+                    .iter()
+                    .map(|pwm| scan_region(sequence, pwm, summary))
+                    .collect();
+                if let Some(progress) = &progress {
+                    progress.fetch_add(1, AtomicOrdering::Relaxed);
+                }
+                row
+            })
+            .collect::<Vec<_>>()
+    } else {
+        thread::scope(|scope| {
+            let mut handles = Vec::new();
+            for (start, end) in ranges {
+                let granges = &granges;
+                let sequences = &sequences;
+                let pwms = pwms.clone();
+                let summary = summary.to_string();
+                let progress = progress.clone();
+                handles.push(scope.spawn(move || {
+                    let mut rows = Vec::with_capacity(end - start);
+                    for i in start..end {
+                        let sequence = sequences
+                            .get_slice(
+                                &granges.seqnames[i],
+                                Range::new(granges.ranges[i].from, granges.ranges[i].to),
+                            )
+                            .unwrap_or_else(|error| {
+                                eprintln!("extracting region sequence failed: {error}");
+                                process::exit(1);
+                            });
+                        rows.push(
+                            pwms.iter()
+                                .map(|pwm| scan_region(sequence, pwm, &summary))
+                                .collect::<Vec<_>>(),
+                        );
+                        if let Some(progress) = &progress {
+                            progress.fetch_add(1, AtomicOrdering::Relaxed);
+                        }
+                    }
+                    rows
+                }));
+            }
 
-    let counts: Vec<Vec<f64>> = (0..granges.num_rows())
-        .map(|i| {
-            let sequence = sequences
-                .get_slice(
-                    &granges.seqnames[i],
-                    Range::new(granges.ranges[i].from, granges.ranges[i].to),
-                )
-                .unwrap_or_else(|error| {
-                    eprintln!("extracting region sequence failed: {error}");
+            let mut merged = Vec::with_capacity(granges.num_rows());
+            for handle in handles {
+                merged.extend(handle.join().unwrap_or_else(|_| {
+                    eprintln!("pwm-scan-regions worker thread panicked");
                     process::exit(1);
-                });
-            pwms.iter()
-                .map(|pwm| scan_region(sequence, pwm, summary))
-                .collect()
+                }));
+            }
+            merged
         })
-        .collect();
+    };
+
+    if let Some((progress, done, handle)) = reporter {
+        progress.store(granges.num_rows(), AtomicOrdering::Relaxed);
+        done.store(true, AtomicOrdering::Relaxed);
+        let _ = handle.join();
+    }
 
     granges
         .meta

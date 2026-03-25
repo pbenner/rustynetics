@@ -1,10 +1,10 @@
-use std::collections::HashMap;
 use std::fs;
 use std::io;
 use std::process;
 
 use clap::{Arg, ArgAction, Command};
-use regex::Regex;
+use quick_xml::de::from_str;
+use serde::Deserialize;
 
 use rustynetics::alphabet::{Alphabet, NucleotideAlphabet};
 use rustynetics::tf::TFMatrix;
@@ -90,100 +90,175 @@ fn parse_output_type(value: &str) -> OutputType {
     }
 }
 
-fn parse_attributes(tag: &str) -> HashMap<String, String> {
-    let attr_re = Regex::new(r#"([A-Za-z_:][A-Za-z0-9_.:-]*)\s*=\s*"([^"]*)""#).unwrap();
-    attr_re
-        .captures_iter(tag)
-        .map(|caps| (caps[1].to_string(), xml_unescape(&caps[2])))
-        .collect()
+#[derive(Debug, Deserialize)]
+struct MemeDocumentXml {
+    training_set: MemeTrainingSetXml,
+    model: MemeModelXml,
+    motifs: MemeMotifsXml,
 }
 
-fn xml_unescape(text: &str) -> String {
-    text.replace("&lt;", "<")
-        .replace("&gt;", ">")
-        .replace("&quot;", "\"")
-        .replace("&apos;", "'")
-        .replace("&amp;", "&")
-        .trim()
-        .to_string()
+#[derive(Debug, Deserialize)]
+struct MemeTrainingSetXml {
+    alphabet: MemeAlphabetXml,
 }
 
-fn extract_single_capture(xml: &str, pattern: &str, what: &str) -> Result<String, String> {
-    let re = Regex::new(pattern).unwrap();
-    let caps = re.captures(xml).ok_or_else(|| format!("missing {what}"))?;
-    Ok(xml_unescape(caps.get(1).unwrap().as_str()))
+#[derive(Debug, Deserialize)]
+struct MemeAlphabetXml {
+    #[serde(rename = "@name")]
+    name: String,
 }
 
-fn parse_background_array(xml: &str, background_tag: &str) -> Result<[f64; 4], String> {
-    let alphabet_array_re = Regex::new(background_tag).unwrap();
-    let array_xml = alphabet_array_re
-        .captures(xml)
-        .and_then(|caps| caps.get(1).map(|m| m.as_str().to_string()))
-        .ok_or_else(|| "missing background frequencies".to_string())?;
+#[derive(Debug, Deserialize)]
+struct MemeModelXml {
+    background_frequencies: MemeBackgroundFrequenciesXml,
+}
 
-    let value_re = Regex::new(r#"(?s)<value\b([^>]*)>(.*?)</value>"#).unwrap();
+#[derive(Debug, Deserialize)]
+struct MemeBackgroundFrequenciesXml {
+    alphabet_array: MemeAlphabetArrayXml,
+}
+
+#[derive(Debug, Deserialize)]
+struct MemeMotifsXml {
+    #[serde(rename = "motif", default)]
+    motif: Vec<MemeMotifXml>,
+}
+
+#[derive(Debug, Deserialize)]
+struct MemeMotifXml {
+    #[serde(rename = "@e_value")]
+    e_value: Option<String>,
+    probabilities: Option<MemeProbabilitiesXml>,
+}
+
+#[derive(Debug, Deserialize)]
+struct MemeProbabilitiesXml {
+    alphabet_matrix: MemeAlphabetMatrixXml,
+}
+
+#[derive(Debug, Deserialize)]
+struct MemeAlphabetMatrixXml {
+    #[serde(rename = "alphabet_array", default)]
+    arrays: Vec<MemeAlphabetArrayXml>,
+}
+
+#[derive(Debug, Deserialize)]
+struct MemeAlphabetArrayXml {
+    #[serde(rename = "value", default)]
+    values: Vec<MemeAlphabetValueXml>,
+}
+
+#[derive(Debug, Deserialize)]
+struct MemeAlphabetValueXml {
+    #[serde(rename = "@letter_id")]
+    letter: String,
+    #[serde(rename = "$text")]
+    value: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct DremeDocumentXml {
+    model: DremeModelXml,
+    motifs: DremeMotifsXml,
+}
+
+#[derive(Debug, Deserialize)]
+struct DremeModelXml {
+    alphabet: DremeAlphabetXml,
+    background: DremeBackgroundXml,
+}
+
+#[derive(Debug, Deserialize)]
+struct DremeAlphabetXml {
+    #[serde(rename = "@name")]
+    name: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct DremeBackgroundXml {
+    #[serde(rename = "@A", alias = "@a")]
+    a: Option<String>,
+    #[serde(rename = "@C", alias = "@c")]
+    c: Option<String>,
+    #[serde(rename = "@G", alias = "@g")]
+    g: Option<String>,
+    #[serde(rename = "@T", alias = "@t")]
+    t: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct DremeMotifsXml {
+    #[serde(rename = "motif", default)]
+    motif: Vec<DremeMotifXml>,
+}
+
+#[derive(Debug, Deserialize)]
+struct DremeMotifXml {
+    #[serde(rename = "pos", default)]
+    pos: Vec<DremePosXml>,
+}
+
+#[derive(Debug, Deserialize)]
+struct DremePosXml {
+    #[serde(rename = "@A", alias = "@a")]
+    a: Option<String>,
+    #[serde(rename = "@C", alias = "@c")]
+    c: Option<String>,
+    #[serde(rename = "@G", alias = "@g")]
+    g: Option<String>,
+    #[serde(rename = "@T", alias = "@t")]
+    t: Option<String>,
+}
+
+fn parse_meme_xml(xml: &str) -> Result<MemeDocumentXml, String> {
+    from_str(xml).map_err(|error| format!("parsing MEME XML failed: {error}"))
+}
+
+fn parse_dreme_xml(xml: &str) -> Result<DremeDocumentXml, String> {
+    from_str(xml).map_err(|error| format!("parsing DREME XML failed: {error}"))
+}
+
+fn parse_alphabet_array(node: &MemeAlphabetArrayXml, context: &str) -> Result<[f64; 4], String> {
     let alphabet = NucleotideAlphabet;
     let mut result = [0.0; 4];
 
-    for caps in value_re.captures_iter(&array_xml) {
-        let attrs = parse_attributes(caps.get(1).unwrap().as_str());
-        let letter = attrs
-            .get("letter_id")
-            .ok_or_else(|| "background has invalid letter".to_string())?;
+    for value_node in &node.values {
+        let letter = &value_node.letter;
         if letter.len() != 1 {
-            return Err("background has invalid letter".to_string());
+            return Err(format!("{context} has invalid letter"));
         }
-        let value: f64 = xml_unescape(caps.get(2).unwrap().as_str())
+        let value: f64 = value_node
+            .value
+            .as_deref()
+            .unwrap_or("")
+            .trim()
             .parse()
-            .map_err(|error| format!("background has invalid value: {error}"))?;
+            .map_err(|error| format!("{context} has invalid value: {error}"))?;
         let code = alphabet
             .code(letter.as_bytes()[0])
-            .map_err(|_| "background has invalid letter".to_string())?;
+            .map_err(|_| format!("{context} has invalid letter"))?;
         result[code as usize] = value;
     }
 
     Ok(result)
 }
 
-fn parse_meme_background(xml: &str) -> Result<[f64; 4], String> {
-    parse_background_array(
-        xml,
-        r#"(?s)<background_frequencies>\s*<alphabet_array\b[^>]*>(.*?)</alphabet_array>\s*</background_frequencies>"#,
-    )
-}
-
-fn parse_meme_probabilities(xml: &str) -> Result<Vec<[f64; 4]>, String> {
-    let matrix_re = Regex::new(
-        r#"(?s)<probabilities>\s*<alphabet_matrix\b[^>]*>(.*?)</alphabet_matrix>\s*</probabilities>"#,
-    )
-    .unwrap();
-    let matrix_xml = matrix_re
-        .captures(xml)
-        .and_then(|caps| caps.get(1).map(|m| m.as_str().to_string()))
-        .ok_or_else(|| "missing motif probability matrix".to_string())?;
-
-    parse_meme_alphabet_matrix(&matrix_xml)
-}
-
-fn parse_meme_alphabet_matrix(xml: &str) -> Result<Vec<[f64; 4]>, String> {
-    let array_re = Regex::new(r#"(?s)<alphabet_array\b[^>]*>(.*?)</alphabet_array>"#).unwrap();
-    let value_re = Regex::new(r#"(?s)<value\b([^>]*)>(.*?)</value>"#).unwrap();
+fn parse_meme_alphabet_matrix(node: &MemeAlphabetMatrixXml) -> Result<Vec<[f64; 4]>, String> {
     let alphabet = NucleotideAlphabet;
     let mut columns = Vec::new();
 
-    for array_caps in array_re.captures_iter(xml) {
-        let array_xml = array_caps.get(1).unwrap().as_str();
+    for array_node in &node.arrays {
         let mut column = [0.0; 4];
-
-        for value_caps in value_re.captures_iter(array_xml) {
-            let attrs = parse_attributes(value_caps.get(1).unwrap().as_str());
-            let letter = attrs
-                .get("letter_id")
-                .ok_or_else(|| "matrix has invalid letter".to_string())?;
+        for value_node in &array_node.values {
+            let letter = &value_node.letter;
             if letter.len() != 1 {
                 return Err("matrix has invalid letter".to_string());
             }
-            let value: f64 = xml_unescape(value_caps.get(2).unwrap().as_str())
+            let value: f64 = value_node
+                .value
+                .as_deref()
+                .unwrap_or("")
+                .trim()
                 .parse()
                 .map_err(|error| format!("matrix has invalid value: {error}"))?;
             let code = alphabet
@@ -191,7 +266,6 @@ fn parse_meme_alphabet_matrix(xml: &str) -> Result<Vec<[f64; 4]>, String> {
                 .map_err(|_| "matrix has invalid letter".to_string())?;
             column[code as usize] = value;
         }
-
         columns.push(column);
     }
 
@@ -203,43 +277,50 @@ fn parse_meme_alphabet_matrix(xml: &str) -> Result<Vec<[f64; 4]>, String> {
 }
 
 fn parse_meme(xml: &str) -> Result<ParsedDocument, String> {
-    let alphabet_name =
-        extract_single_capture(xml, r#"(?s)<alphabet\b[^>]*name="([^"]+)""#, "alphabet")?;
+    let root = parse_meme_xml(xml)?;
+    let alphabet_name = root.training_set.alphabet.name;
     if !alphabet_name.eq_ignore_ascii_case("DNA") {
         return Err(format!("invalid alphabet `{alphabet_name}`"));
     }
 
-    let background = parse_meme_background(xml)?;
-    let motif_re = Regex::new(r#"(?s)<motif\b([^>]*)>(.*?)</motif>"#).unwrap();
+    let background = parse_alphabet_array(
+        &root.model.background_frequencies.alphabet_array,
+        "background",
+    )?;
     let mut motifs = Vec::new();
 
-    for caps in motif_re.captures_iter(xml) {
-        let attrs = parse_attributes(caps.get(1).unwrap().as_str());
-        let e_value = attrs
-            .get("e_value")
+    for motif_node in root.motifs.motif {
+        let e_value = motif_node
+            .e_value
+            .as_deref()
             .map(|value| value.parse::<f64>())
             .transpose()
             .map_err(|error| format!("invalid motif e-value: {error}"))?;
-        let columns = parse_meme_probabilities(caps.get(2).unwrap().as_str())?;
+        let columns = parse_meme_alphabet_matrix(
+            &motif_node
+                .probabilities
+                .ok_or_else(|| "missing motif probability matrix".to_string())?
+                .alphabet_matrix,
+        )?;
         motifs.push(ParsedMotif { e_value, columns });
     }
 
     Ok(ParsedDocument { background, motifs })
 }
 
-fn parse_dreme_background(xml: &str) -> Result<[f64; 4], String> {
-    let background_re = Regex::new(r#"(?s)<background\b([^>]*)/?>"#).unwrap();
-    let attrs = background_re
-        .captures(xml)
-        .map(|caps| parse_attributes(caps.get(1).unwrap().as_str()))
-        .ok_or_else(|| "missing background frequencies".to_string())?;
+fn parse_dreme_background(node: &DremeBackgroundXml) -> Result<[f64; 4], String> {
     let alphabet = NucleotideAlphabet;
     let mut result = [0.0; 4];
 
-    for (key, value) in attrs {
-        if key.len() != 1 {
+    for (key, value) in [
+        ("A", node.a.as_deref()),
+        ("C", node.c.as_deref()),
+        ("G", node.g.as_deref()),
+        ("T", node.t.as_deref()),
+    ] {
+        let Some(value) = value else {
             continue;
-        }
+        };
         let code = alphabet
             .code(key.as_bytes()[0])
             .map_err(|_| "background has invalid letter".to_string())?;
@@ -252,30 +333,31 @@ fn parse_dreme_background(xml: &str) -> Result<[f64; 4], String> {
 }
 
 fn parse_dreme(xml: &str) -> Result<ParsedDocument, String> {
-    let alphabet_name =
-        extract_single_capture(xml, r#"(?s)<alphabet\b[^>]*name="([^"]+)""#, "alphabet")?;
+    let root = parse_dreme_xml(xml)?;
+    let alphabet_name = root.model.alphabet.name;
     if !alphabet_name.eq_ignore_ascii_case("DNA") {
         return Err(format!("invalid alphabet `{alphabet_name}`"));
     }
 
-    let background = parse_dreme_background(xml)?;
-    let motif_re = Regex::new(r#"(?s)<motif\b[^>]*>(.*?)</motif>"#).unwrap();
-    let pos_re = Regex::new(r#"(?s)<pos\b([^>]*)/?>"#).unwrap();
+    let background = parse_dreme_background(&root.model.background)?;
     let alphabet = NucleotideAlphabet;
     let mut motifs = Vec::new();
 
-    for motif_caps in motif_re.captures_iter(xml) {
-        let motif_xml = motif_caps.get(1).unwrap().as_str();
+    for motif_node in root.motifs.motif {
         let mut columns = Vec::new();
 
-        for pos_caps in pos_re.captures_iter(motif_xml) {
-            let attrs = parse_attributes(pos_caps.get(1).unwrap().as_str());
+        for pos_node in motif_node.pos {
             let mut column = [0.0; 4];
 
-            for (key, value) in attrs {
-                if key.len() != 1 {
+            for (key, value) in [
+                ("A", pos_node.a.as_deref()),
+                ("C", pos_node.c.as_deref()),
+                ("G", pos_node.g.as_deref()),
+                ("T", pos_node.t.as_deref()),
+            ] {
+                let Some(value) = value else {
                     continue;
-                }
+                };
                 let code = alphabet
                     .code(key.as_bytes()[0])
                     .map_err(|_| format!("invalid letter `{key}`"))?;
@@ -544,6 +626,39 @@ mod tests {
 </dreme>
 "#;
 
+    const MEME_XML_WITH_MISC: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
+<!-- parser should ignore comments -->
+<MEME>
+  <training_set>
+    <alphabet name='DNA' />
+  </training_set>
+  <model>
+    <background_frequencies>
+      <alphabet_array>
+        <value letter_id="A">0.25</value>
+        <value letter_id="C">0.25</value>
+        <value letter_id="G">0.25</value>
+        <value letter_id="T">0.25</value>
+      </alphabet_array>
+    </background_frequencies>
+  </model>
+  <motifs>
+    <motif e_value="0.01">
+      <probabilities>
+        <alphabet_matrix>
+          <alphabet_array>
+            <value letter_id="A"><![CDATA[0.7]]></value>
+            <value letter_id="C">0.1</value>
+            <value letter_id="G">0.1</value>
+            <value letter_id="T">0.1</value>
+          </alphabet_array>
+        </alphabet_matrix>
+      </probabilities>
+    </motif>
+  </motifs>
+</MEME>
+"#;
+
     #[test]
     fn parse_meme_document_and_filter() {
         let document = parse_meme(MEME_XML).unwrap();
@@ -581,5 +696,13 @@ mod tests {
         let matrix = motif_to_matrix(config, &document.motifs[0], &document.background).unwrap();
         assert!(matrix.values[0][0] > 1.0);
         assert!(matrix.values[3][1] > 0.0);
+    }
+
+    #[test]
+    fn xml_parser_handles_comments_declaration_and_cdata() {
+        let document = parse_meme(MEME_XML_WITH_MISC).unwrap();
+        assert_eq!(document.background, [0.25, 0.25, 0.25, 0.25]);
+        assert_eq!(document.motifs.len(), 1);
+        assert_eq!(document.motifs[0].columns[0], [0.7, 0.1, 0.1, 0.1]);
     }
 }

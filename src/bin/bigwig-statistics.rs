@@ -27,7 +27,7 @@ fn main() {
             process::exit(1);
         });
 
-    let track = common::import_simple_track(
+    let track = common::import_lazy_track(
         input,
         "",
         common::parse_bin_summary("mean").unwrap(),

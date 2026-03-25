@@ -83,11 +83,10 @@ impl GenomeRng {
     /// - `Some((k, i))`: A tuple where `k` is the index of the selected sequence and `i` is the starting
     ///   position within that sequence.
     /// - `None`: If the window size exceeds the maximum length of any sequence in the genome.
-    fn draw(&self, wsize: usize) -> Option<(usize, usize)> {
+    fn draw_with_rng<R: Rng + ?Sized>(&self, wsize: usize, rng: &mut R) -> Option<(usize, usize)> {
         if wsize > self.max_len {
             return None;
         }
-        let mut rng = rand::thread_rng();
         let mut k = 0;
         let mut t = 0.0;
         loop {
@@ -111,6 +110,34 @@ impl GenomeRng {
 /* -------------------------------------------------------------------------- */
 
 impl GRanges {
+    pub fn random_with_rng<R: Rng + ?Sized>(
+        n: usize,
+        wsize: usize,
+        genome: &Genome,
+        use_strand: bool,
+        rng: &mut R,
+    ) -> GRanges {
+        let gnome_rng = GenomeRng::new(genome);
+        let mut seqnames = Vec::with_capacity(n);
+        let mut from = Vec::with_capacity(n);
+        let mut to = Vec::with_capacity(n);
+        let mut strand = Vec::with_capacity(n);
+        for _ in 0..n {
+            let (j, position) = match gnome_rng.draw_with_rng(wsize, rng) {
+                Some(v) => v,
+                None => return GRanges::default(),
+            };
+            seqnames.push(genome.seqnames[j].clone());
+            from.push(position);
+            to.push(position + wsize);
+            if use_strand {
+                let k = rng.gen_range(0..2);
+                strand.push(['+', '-'][k]);
+            }
+        }
+        GRanges::new(seqnames, from, to, strand)
+    }
+
     /// Generates a random set of genomic ranges.
     ///
     /// This method creates `n` random genomic ranges of the specified window size from the provided
@@ -125,26 +152,8 @@ impl GRanges {
     /// # Returns
     /// A `GRanges` object containing the randomly generated genomic ranges.
     pub fn random(n: usize, wsize: usize, genome: &Genome, use_strand: bool) -> GRanges {
-        let gnome_rng = GenomeRng::new(genome);
-        let mut seqnames = Vec::with_capacity(n);
-        let mut from = Vec::with_capacity(n);
-        let mut to = Vec::with_capacity(n);
-        let mut strand = Vec::with_capacity(n);
         let mut rng = rand::thread_rng();
-        for _ in 0..n {
-            let (j, position) = match gnome_rng.draw(wsize) {
-                Some(v) => v,
-                None => return GRanges::default(),
-            };
-            seqnames.push(genome.seqnames[j].clone());
-            from.push(position);
-            to.push(position + wsize);
-            if use_strand {
-                let k = rng.gen_range(0..2);
-                strand.push(['+', '-'][k]);
-            }
-        }
-        GRanges::new(seqnames, from, to, strand)
+        Self::random_with_rng(n, wsize, genome, use_strand, &mut rng)
     }
 
     /// Returns a random permutation of the genomic ranges.

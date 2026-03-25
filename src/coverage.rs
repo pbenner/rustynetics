@@ -222,7 +222,7 @@ impl CoverageConfig {
             paired_end_strand_specific: false,
             initial_value: 0.0,
             log_scale: false,
-            pseudocounts: [1.0, 1.0],
+            pseudocounts: [0.0, 0.0],
             estimate_fraglen: false,
             fraglen_range: (-1, -1),
             fraglen_bin_size: 10,
