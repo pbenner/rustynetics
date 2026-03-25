@@ -1,11 +1,11 @@
 
 ## Rustynetics
 
-Rustynetics is a high-performance Rust library designed for bioinformatics applications, offering efficient and scalable handling of common genomic file formats. It supports reading and writing of widely used formats such as BAM, FASTQ, bigWig, bedGraph, BED, and GFF, making it an essential tool for genomic data processing pipelines.
+Rustynetics is a high-performance Rust library designed for bioinformatics applications, offering efficient and scalable handling of common genomic file formats. It supports reading and writing of widely used formats such as BAM, FASTQ, FASTA, bigWig, bedGraph, BED, and GFF, making it an essential tool for genomic data processing pipelines.
 
 The library excels in computing coverage tracks, summarizing sequence alignments or read counts across the genome, allowing users to generate coverage profiles over specified the genome. In addition, it offers advanced statistical features, such as the calculation of cross-correlations, which can be used to assess relationships between different genomic datasets, for example, in ChIP-seq or RNA-seq analysis.
 
-One of the library's core strengths is its efficient handling of genomic ranges. It offers a highly optimized data structure for manipulating large genomic intervals, ensuring that operations like querying, merging, or intersecting genomic regions are performed with minimal overhead. Moreover, the library provides a pretty print feature for easily displaying genomic ranges in human-readable formats, facilitating better visualization and interpretation of complex data.
+One of the library's core strengths is its efficient handling of genomic ranges. It offers a highly optimized data structure for manipulating large genomic intervals, ensuring that operations like querying, merging, or intersecting genomic regions are performed with minimal overhead. Moreover, the library provides sequence containers for FASTA data, motif/PWM utilities, k-mer counting, segmentation import/export, and pretty printing for displaying genomic ranges in human-readable formats.
 
 Designed with performance and usability in mind, this library is ideal for large-scale genomics projects requiring both speed and precision, whether for research in genomics, epigenetics, or other related fields.
 
@@ -25,10 +25,28 @@ The package contains the following command line tools:
 | bam-to-fastq             | reconstruct FASTQ records from a BAM file                                |
 | bam-to-bigwig            | convert bam to bigWig (estimate fragment length if required)             |
 | bam-view                 | print contents of a bam file                                             |
+| bigwig-edit-chrom-names  | rewrite a bigWig with chromosome names transformed by a regex            |
+| bigwig-extract           | extract bigWig data for BED regions as a table or bigWig                 |
+| bigwig-extract-chroms    | write a new bigWig containing only selected chromosomes                  |
 | bigwig-genome            | print the genome (sequence table) of a bigWig file                       |
+| bigwig-histogram         | compute a histogram or cumulative histogram over track values            |
 | bigwig-info              | print information about a bigWig file                                    |
+| bigwig-nil               | re-encode a bigWig track through the Rust implementation                 |
+| bigwig-positive          | call joint positive regions across one or more bigWig tracks             |
+| bigwig-quantile-normalize| quantile-normalize one bigWig track against a reference                  |
 | bigwig-query             | retrieve data from a bigWig file                                         |
 | bigwig-query-sequence    | retrieve sequences from a bigWig file                                    |
+| bigwig-statistics        | print summary statistics for a bigWig track                              |
+| chromhmm-tables-to-bigwig| convert ChromHMM per-chromosome tables to bigWig                         |
+| count-kmers              | count or identify k-mers in FASTA sequences or BED regions               |
+| draw-genomic-regions     | draw random genomic regions from a genome                                |
+| fasta-extract            | extract FASTA subsequences for BED regions                               |
+| fasta-unresolved-regions | report unresolved (`N`) FASTA intervals as BED                           |
+| gtf-to-bed               | convert GTF records to BED6                                              |
+| observed-over-expected-cpg | compute observed/expected CpG scores for regions or whole sequences    |
+| pwm-scan-regions         | score genomic regions with one or more PWMs                              |
+| pwm-scan-sequences       | scan FASTA sequences with a PWM and export a bigWig track                |
+| segmentation-differential| merge and score differential chromatin states across segmentations       |
 
 
 ## Examples
@@ -165,6 +183,27 @@ If a BAM file does not contain quality scores, use `--fill-missing-quality` to e
 bam-to-fastq reads.bam --fill-missing-quality I > reads.fastq
 ```
 
+### Sequence, PWM, and k-mer tools
+
+The package also contains utilities for FASTA extraction, motif scanning, and k-mer counting:
+
+```bash
+# Extract sequences for BED intervals
+fasta-extract genome.fa peaks.bed > peaks.fa
+
+# Report unresolved regions
+fasta-unresolved-regions genome.fa > unresolved.bed
+
+# Count k-mers in FASTA sequences
+count-kmers 4 6 genome.fa counts.table
+
+# Score genomic regions with one or more PWMs
+pwm-scan-regions --input peaks.bed genome.fa motif1.table motif2.table > pwm.table
+
+# Scan complete sequences and export the scores as a bigWig track
+pwm-scan-sequences motif.table genome.fa motif.bw
+```
+
 ### Reading BigWig files
 
 BigWig files contain data in a binary format optimized for fast random access. In addition to the raw data, bigWig files typically contain several zoom levels for which the data has been summarized. The BigWigReader class allows to query data and it automatically selects an appropriate zoom level for the given binsize:
@@ -191,6 +230,29 @@ The result is:
 (data=(chrom_id=chrY, from=1838300, to=1838400, statistics=(valid=1, min=0.0000, max=0.0000, sum=0.0000, sum_squares=0.0000)), type=fixed)
 (data=(chrom_id=chrY, from=1838400, to=1838500, statistics=(valid=1, min=0.0000, max=0.0000, sum=0.0000, sum_squares=0.0000)), type=fixed)
 (data=(chrom_id=chrY, from=1838500, to=1838600, statistics=(valid=1, min=0.0000, max=0.0000, sum=0.0000, sum_squares=0.0000)), type=fixed)
+```
+
+### BigWig utilities
+
+```bash
+# Extract selected regions from a bigWig file as a table
+bigwig-extract signal.bw regions.bed signal.table
+
+# Keep only selected chromosomes
+bigwig-extract-chroms chr1,chr2 signal.bw subset.bw
+
+# Quantile-normalize one bigWig track against another
+bigwig-quantile-normalize reference.bw input.bw normalized.bw
+
+# Compute global statistics or a histogram
+bigwig-statistics signal.bw
+bigwig-histogram --bins 200 signal.bw
+
+# Find regions where multiple tracks are jointly positive
+bigwig-positive result.table track1.bw:2.0 track2.bw:2.0
+
+# Preview chromosome renaming without modifying the file
+bigwig-edit-chrom-names --dry-run signal.bw '^chr' ''
 ```
 
 ### Compute coverage tracks from BAM files

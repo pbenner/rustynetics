@@ -178,7 +178,7 @@ mod tests {
 
     fn fixture(name: &str) -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("gonetics")
+            .join("data")
             .join(name)
     }
 
@@ -258,7 +258,7 @@ mod tests {
 
     #[test]
     fn promoters_match_go_fixture_count() {
-        let genes = import_ucsc_genes_fixture("Data/hg19.knownGene.txt.gz");
+        let genes = import_ucsc_genes_fixture("hg19.knownGene.txt.gz");
         let promoters = genes.promoters(500, 500).unwrap();
 
         assert_eq!(promoters.num_rows(), 51384);

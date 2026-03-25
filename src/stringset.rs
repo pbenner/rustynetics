@@ -233,7 +233,8 @@ mod tests {
 
     fn fixture(name: &str) -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("gonetics")
+            .join("tests")
+            .join("fixtures")
             .join(name)
     }
 
