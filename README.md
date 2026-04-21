@@ -17,41 +17,41 @@ Please find the API documentation [here](https://docs.rs/crate/rustynetics/lates
 
 The package contains the following command line tools:
 
-| Tool                     | Description                                                              |
-| ------------------------ | ------------------------------------------------------------------------ |
-| bam-check-fastq          | check whether all BAM read names are present in a FASTQ file             |
-| bam-check-bin            | check bin records of a bam file                                          |
-| bam-genome               | print the genome (sequence table) of a bam file                          |
-| bam-to-fastq             | reconstruct FASTQ records from a BAM file                                |
-| bam-to-bigwig            | convert bam to bigWig (estimate fragment length if required)             |
-| bam-view                 | print contents of a bam file                                             |
-| bed-remove-overlaps      | remove BED or table rows that overlap inadmissible regions               |
-| bigwig-counts-to-quantiles | convert bigWig counts to empirical quantiles                           |
-| bigwig-edit-chrom-names  | rewrite a bigWig with chromosome names transformed by a regex            |
-| bigwig-extract           | extract bigWig data for BED regions as a table or bigWig                 |
-| bigwig-extract-chroms    | write a new bigWig containing only selected chromosomes                  |
-| bigwig-genome            | print the genome (sequence table) of a bigWig file                       |
-| bigwig-histogram         | compute a histogram or cumulative histogram over track values            |
-| bigwig-info              | print information about a bigWig file                                    |
-| bigwig-map               | apply a shared-library mapping function across one or more bigWig tracks |
-| bigwig-nil               | re-encode a bigWig track through the Rust implementation                 |
-| bigwig-positive          | call joint positive regions across one or more bigWig tracks             |
-| bigwig-quantile-normalize| quantile-normalize one bigWig track against a reference                  |
-| bigwig-query             | retrieve data from a bigWig file                                         |
-| bigwig-query-sequence    | retrieve sequences from a bigWig file                                    |
-| bigwig-statistics        | print summary statistics for a bigWig track                              |
-| chromhmm-tables-to-bigwig| convert ChromHMM per-chromosome tables to bigWig                         |
-| count-kmers              | count or identify k-mers in FASTA sequences or BED regions               |
-| draw-genomic-regions     | draw random genomic regions from a genome                                |
-| fasta-extract            | extract FASTA subsequences for BED regions                               |
-| fasta-unresolved-regions | report unresolved (`N`) FASTA intervals as BED                           |
-| gtf-to-bed               | convert GTF records to BED6                                              |
-| meme-extract             | extract PWM or PPM motif matrices from MEME or DREME XML                 |
-| observed-over-expected-cpg | compute observed/expected CpG scores for regions or whole sequences    |
-| pwm-scan-regions         | score genomic regions with one or more PWMs                              |
-| pwm-scan-sequences       | scan FASTA sequences with a PWM and export a bigWig track                |
-| segmentation-differential| merge and score differential chromatin states across segmentations       |
-| sequence-similarity      | compute sliding-window k-mer similarity to a reference sequence          |
+| Tool                       | Description                                                              |
+| -------------------------- | ------------------------------------------------------------------------ |
+| bam-check-fastq            | check whether all BAM read names are present in one or more FASTQ files  |
+| bam-check-bin              | check bin records of a bam file                                          |
+| bam-genome                 | print the genome (sequence table) of a bam file                          |
+| bam-to-fastq               | reconstruct FASTQ records from a BAM file                                |
+| bam-to-bigwig              | convert bam to bigWig (estimate fragment length if required)             |
+| bam-view                   | print contents of a bam file                                             |
+| bed-remove-overlaps        | remove BED or table rows that overlap inadmissible regions               |
+| bigwig-counts-to-quantiles | convert bigWig counts to empirical quantiles                             |
+| bigwig-edit-chrom-names    | rewrite a bigWig with chromosome names transformed by a regex            |
+| bigwig-extract             | extract bigWig data for BED regions as a table or bigWig                 |
+| bigwig-extract-chroms      | write a new bigWig containing only selected chromosomes                  |
+| bigwig-genome              | print the genome (sequence table) of a bigWig file                       |
+| bigwig-histogram           | compute a histogram or cumulative histogram over track values            |
+| bigwig-info                | print information about a bigWig file                                    |
+| bigwig-map                 | apply a shared-library mapping function across one or more bigWig tracks |
+| bigwig-nil                 | re-encode a bigWig track through the Rust implementation                 |
+| bigwig-positive            | call joint positive regions across one or more bigWig tracks             |
+| bigwig-quantile-normalize  | quantile-normalize one bigWig track against a reference                  |
+| bigwig-query               | retrieve data from a bigWig file                                         |
+| bigwig-query-sequence      | retrieve sequences from a bigWig file                                    |
+| bigwig-statistics          | print summary statistics for a bigWig track                              |
+| chromhmm-tables-to-bigwig  | convert ChromHMM per-chromosome tables to bigWig                         |
+| count-kmers                | count or identify k-mers in FASTA sequences or BED regions               |
+| draw-genomic-regions       | draw random genomic regions from a genome                                |
+| fasta-extract              | extract FASTA subsequences for BED regions                               |
+| fasta-unresolved-regions   | report unresolved (`N`) FASTA intervals as BED                           |
+| gtf-to-bed                 | convert GTF records to BED6                                              |
+| meme-extract               | extract PWM or PPM motif matrices from MEME or DREME XML                 |
+| observed-over-expected-cpg | compute observed/expected CpG scores for regions or whole sequences      |
+| pwm-scan-regions           | score genomic regions with one or more PWMs                              |
+| pwm-scan-sequences         | scan FASTA sequences with a PWM and export a bigWig track                |
+| segmentation-differential  | merge and score differential chromatin states across segmentations       |
+| sequence-similarity        | compute sliding-window k-mer similarity to a reference sequence          |
 
 
 ## Examples
@@ -186,6 +186,14 @@ If a BAM file does not contain quality scores, use `--fill-missing-quality` to e
 
 ```bash
 bam-to-fastq reads.bam --fill-missing-quality I > reads.fastq
+```
+
+### Check BAM Read Names Against FASTQ
+
+`bam-check-fastq` verifies that every BAM read name is present in one or more FASTQ inputs. This is useful when a BAM file was built from several FASTQ files. The report now answers the main question first: whether all BAM reads were found, how many BAM records and unique read names are missing, and whether truncated FASTQ files may have affected the comparison. Additional sections still include BAM and FASTQ overlap, duplicate-name statistics, BAM record-class summaries, and a per-FASTQ-file breakdown. Truncated FASTQ files are reported as warnings and processing continues with the remaining files.
+
+```bash
+bam-check-fastq alignments.bam reads_R1.fastq.gz reads_R2.fastq.gz
 ```
 
 ### Sequence, PWM, and k-mer tools

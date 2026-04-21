@@ -19,6 +19,7 @@
 // SOFTWARE.
 
 use std::cell::RefCell;
+use std::env;
 use std::io::{self, IsTerminal, Read, Write};
 use std::rc::Rc;
 use std::time::{Duration, Instant};
@@ -26,7 +27,10 @@ use std::time::{Duration, Instant};
 /* -------------------------------------------------------------------------- */
 
 const PROGRESS_BAR_WIDTH: usize = 24;
+const PROGRESS_BAR_WIDTH_COMPACT: usize = 16;
+const PROGRESS_BAR_WIDTH_MINIMAL: usize = 12;
 const PROGRESS_DRAW_INTERVAL: Duration = Duration::from_millis(100);
+const DEFAULT_TERMINAL_WIDTH: usize = 80;
 
 /* -------------------------------------------------------------------------- */
 
@@ -93,13 +97,6 @@ impl ProgressState {
         };
         let total = self.total_bytes.max(1);
         let progress = (current as f64 / total as f64).clamp(0.0, 1.0);
-        let filled = (progress * PROGRESS_BAR_WIDTH as f64).round() as usize;
-        let bar = format!(
-            "{}{}",
-            "#".repeat(filled.min(PROGRESS_BAR_WIDTH)),
-            "-".repeat(PROGRESS_BAR_WIDTH.saturating_sub(filled.min(PROGRESS_BAR_WIDTH)))
-        );
-        let percent = progress * 100.0;
         let elapsed = self.start.elapsed();
         let rate = if elapsed.as_secs_f64() > 0.0 {
             current as f64 / elapsed.as_secs_f64()
@@ -111,20 +108,19 @@ impl ProgressState {
         } else {
             Duration::default()
         };
+        let rendered = render_progress_line(
+            &self.label,
+            progress,
+            current,
+            self.total_bytes,
+            rate.round() as u64,
+            eta,
+            self.records,
+            terminal_width_hint(),
+        );
 
         let mut stderr = io::stderr().lock();
-        write!(
-            stderr,
-            "\r\x1b[2K{:<5} [{}] {:>6.2}% {}/{} {}/s eta {} reads {}",
-            self.label,
-            bar,
-            percent,
-            format_bytes(current),
-            format_bytes(self.total_bytes),
-            format_bytes(rate.round() as u64),
-            format_duration(eta),
-            self.records
-        )?;
+        write!(stderr, "\r\x1b[2K{}", rendered)?;
         if finished {
             writeln!(stderr)?;
         } else {
@@ -132,6 +128,127 @@ impl ProgressState {
         }
         Ok(())
     }
+}
+
+/* -------------------------------------------------------------------------- */
+
+fn terminal_width_hint() -> usize {
+    env::var("COLUMNS")
+        .ok()
+        .and_then(|value| value.parse::<usize>().ok())
+        .filter(|width| *width >= 40)
+        .unwrap_or(DEFAULT_TERMINAL_WIDTH)
+        .saturating_sub(1)
+}
+
+/* -------------------------------------------------------------------------- */
+
+fn render_progress_bar(progress: f64, width: usize) -> String {
+    let filled = (progress * width as f64).round() as usize;
+
+    format!(
+        "{}{}",
+        "#".repeat(filled.min(width)),
+        "-".repeat(width.saturating_sub(filled.min(width)))
+    )
+}
+
+/* -------------------------------------------------------------------------- */
+
+fn render_progress_line(
+    label: &str,
+    progress: f64,
+    current: u64,
+    total: u64,
+    rate: u64,
+    eta: Duration,
+    records: usize,
+    max_width: usize,
+) -> String {
+    let percent = format!("{:>6.2}%", progress * 100.0);
+    let bytes = format!("{}/{}", format_bytes(current), format_bytes(total));
+    let rate = format!("{}/s", format_bytes(rate));
+    let eta = format!("eta {}", format_duration(eta));
+    let reads = format!("reads {}", format_count(records));
+    let candidates = [
+        compose_progress_line(
+            label,
+            &percent,
+            &render_progress_bar(progress, PROGRESS_BAR_WIDTH),
+            &[&bytes, &rate, &eta, &reads],
+        ),
+        compose_progress_line(
+            label,
+            &percent,
+            &render_progress_bar(progress, PROGRESS_BAR_WIDTH_COMPACT),
+            &[&bytes, &reads, &rate],
+        ),
+        compose_progress_line(
+            label,
+            &percent,
+            &render_progress_bar(progress, PROGRESS_BAR_WIDTH_MINIMAL),
+            &[&bytes, &reads],
+        ),
+        format!("{} {} {}", label, percent, reads),
+    ];
+
+    for candidate in candidates {
+        if candidate.chars().count() <= max_width {
+            return candidate;
+        }
+    }
+
+    truncate_with_ellipsis(&format!("{} {}", label, percent), max_width)
+}
+
+/* -------------------------------------------------------------------------- */
+
+fn compose_progress_line(label: &str, percent: &str, bar: &str, fields: &[&str]) -> String {
+    let mut line = format!("{label} [{bar}] {percent}");
+
+    for field in fields {
+        line.push(' ');
+        line.push_str(field);
+    }
+
+    line
+}
+
+/* -------------------------------------------------------------------------- */
+
+fn truncate_with_ellipsis(text: &str, max_width: usize) -> String {
+    if text.chars().count() <= max_width {
+        return text.to_string();
+    }
+
+    if max_width <= 3 {
+        return ".".repeat(max_width);
+    }
+
+    let mut truncated = String::with_capacity(max_width);
+
+    for ch in text.chars().take(max_width - 3) {
+        truncated.push(ch);
+    }
+    truncated.push_str("...");
+
+    truncated
+}
+
+/* -------------------------------------------------------------------------- */
+
+fn format_count(value: usize) -> String {
+    let digits = value.to_string();
+    let mut formatted = String::with_capacity(digits.len() + digits.len() / 3);
+
+    for (index, ch) in digits.chars().enumerate() {
+        if index > 0 && (digits.len() - index) % 3 == 0 {
+            formatted.push(',');
+        }
+        formatted.push(ch);
+    }
+
+    formatted
 }
 
 /* -------------------------------------------------------------------------- */
@@ -311,15 +428,57 @@ pub fn format_duration(duration: Duration) -> String {
 #[cfg(test)]
 mod tests {
 
-    use super::{format_bytes, format_duration};
+    use std::time::Duration;
+
+    use super::{format_bytes, format_duration, render_progress_line, truncate_with_ellipsis};
 
     #[test]
     fn format_duration_short() {
-        assert_eq!(format_duration(std::time::Duration::from_secs(65)), "01:05");
+        assert_eq!(format_duration(Duration::from_secs(65)), "01:05");
     }
 
     #[test]
     fn format_bytes_binary_units() {
         assert_eq!(format_bytes(1536), "1.5 KiB");
+    }
+
+    #[test]
+    fn progress_line_respects_requested_width() {
+        let line = render_progress_line(
+            "FASTQ 12/12",
+            1.0,
+            2_147_483_648,
+            2_147_483_648,
+            123_456_789,
+            Duration::from_secs(0),
+            123_456_789,
+            79,
+        );
+
+        assert!(line.chars().count() <= 79, "line exceeds width: {line}");
+    }
+
+    #[test]
+    fn progress_line_falls_back_for_narrow_widths() {
+        let line = render_progress_line(
+            "FASTQ 12/12",
+            0.5,
+            1_073_741_824,
+            2_147_483_648,
+            67_108_864,
+            Duration::from_secs(16),
+            12_345_678,
+            32,
+        );
+
+        assert!(line.chars().count() <= 32, "line exceeds width: {line}");
+    }
+
+    #[test]
+    fn ellipsis_truncation_preserves_width() {
+        let text = truncate_with_ellipsis("abcdefghijklmnopqrstuvwxyz", 10);
+
+        assert_eq!(text, "abcdefg...");
+        assert_eq!(text.chars().count(), 10);
     }
 }
